@@ -1,0 +1,13 @@
+Cut for eps*F_irr > 1e6
+brms_extended
+      Brms = 30.9533 G * M^-0.1506 * R^-0.7244 * (eps * pi * R^2 * F_irr)^0.3228
+             0.7237      0.0095     0.0663                            0.0058
+brms_extended_surf
+      Brms = 5.1117 G * M^0.6397 * R^-3.1061 * (eps * pi * R^2 * F_irr)^0.3660
+             0.2918      0.0233     0.1620                            0.0141
+brms_outer
+      Brms = 8.3868 G * M^0.8709 * R^-1.1814 * (eps * pi * R^2 * F_irr)^-0.0614
+             1.0503      0.0496     0.3419                            0.0300
+brms_outer_surf
+      Brms = 1.4409 G * M^1.6295 * R^-3.5019 * (eps * pi * R^2 * F_irr)^-0.0232
+             0.1970      0.0541     0.3733                            0.0328

@@ -1,0 +1,13 @@
+Cut for Q_dep = eps*F_irr*pi*R^2 > 1e6
+brms_extended
+      Brms = 19.8776 G * M^0.3681 * R^4.8714
+             0.6056      0.0224     0.3174
+brms_extended_surf
+      Brms = 3.4284 G * M^0.9267 * R^3.4997
+             0.0812      0.0174     0.2468
+brms_outer
+      Brms = 22.1476 G * M^1.0934 * R^-7.9958
+             2.2552      0.0761     1.0797
+brms_outer_surf
+      Brms = 4.0248 G * M^1.5472 * R^-8.8763
+             0.4605      0.0855     1.2133

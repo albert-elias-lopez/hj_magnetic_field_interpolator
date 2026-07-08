@@ -1,0 +1,1 @@
+#   eps_ext(%)         R(RJ)           Bdyn(G)        Bdipsurf(G)     Ldyn(erg s-1)

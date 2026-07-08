@@ -1,0 +1,17 @@
+No cut (actually eps > 1e-5)
+brms_extended
+      Brms = 26.7895 G * M^-0.0481 * R^-0.2772 * (eps * pi * R^2 * F_irr)^0.3136
+             0.4055      0.0112     0.0933                            0.0061
+      chi_2 = 1.4106 
+brms_extended_surf
+      Brms = 5.2669 G * M^0.7635 * R^-2.7147 * (eps * pi * R^2 * F_irr)^0.3331
+             0.1345      0.0190     0.1574                            0.0102
+      chi_2 = 10.8542 
+brms_outer
+      Brms = 9.9685 G * M^1.0957 * R^0.2475 * (eps * pi * R^2 * F_irr)^-0.1962
+             0.5580      0.0421     0.3427                            0.0222
+      chi_2 = 80.2743 
+brms_outer_surf
+      Brms = 2.1231 G * M^1.8579 * R^-2.2530 * (eps * pi * R^2 * F_irr)^-0.1826
+             0.1346      0.0477     0.3880                            0.0251
+      chi_2 = 142.4436 
