@@ -60,20 +60,15 @@ python main.py --no-HJ --which_planets seidel26
 
 ---
 
-## Command-line options
+### Command-line options
 
-## General
-
-| Option | Description |
+| General |  |
 |---------|-------------|
 | `--save_plot_grid` | Save the interpolation grid figures (mainly for testing). |
 | `--save_plot_3D_grid` | Save a schematic 3D representation of the interpolation grid. |
 | `--save_plot_population` | Save the magnetic field plots for the hot Jupiter population. |
 | `--print_interpolator` | Print interpolator results for every planet. |
-
-## Rotation
-
-| Option | Description |
+| Rotation |   |
 |---------|-------------|
 | *(default)* | Use the rotation-corrected magnetic field tables. |
 | `--no-rotation` | Disable the rotation correction. |
