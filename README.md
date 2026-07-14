@@ -49,7 +49,7 @@ python main.py
 or with additional options, for example
 
 ```
-python main.py --save_plot_population
+python main.py --save_plot_population --fit-type gaussian
 ```
 
 or
@@ -62,90 +62,24 @@ python main.py --no-HJ --which_planets seidel26
 
 ### Command-line options
 
-| General |  |
+| Option  | Description |
 |---------|-------------|
-| `--save_plot_grid` | Save the interpolation grid figures (mainly for testing). |
-| `--save_plot_3D_grid` | Save a schematic 3D representation of the interpolation grid. |
-| `--save_plot_population` | Save the magnetic field plots for the hot Jupiter population. |
-| `--print_interpolator` | Print interpolator results for every planet. |
-| Rotation |   |
-|---------|-------------|
-| *(default)* | Use the rotation-corrected magnetic field tables. |
-| `--no-rotation` | Disable the rotation correction. |
-
-## Planet selection
-
-By default the code evaluates the full hot Jupiter population.
-
-Use
-
-```bash
---no-HJ
-```
-
-to instead evaluate one of several predefined samples:
-
-```
---which_planets
-```
-
-Available options are
-
-- `cauley19`
-- `cauley19nasa`
-- `seidel26`
-- `seidel26nasa`
-- `hats53b`
-- `my_own`
-- `errors`
-
----
-
-## Scaling-law fitting
-
-Three fitting methods are available:
-
-- `simple` (default)
-- `gaussian`
-- `odr`
-
-Example
-
-```bash
---fit_type gaussian
-```
-
-The number of Monte Carlo realizations can be controlled with
-
-```bash
---N_gauss_fits 10000
-```
-
-Different cuts used in the published paper can also be selected through
-
-```bash
---which_cut
-```
-
-Options include
-
-- `radius cut` (default)
-- `flux cut`
-- `heat cut`
-- `brms cut`
-- `no cut`
-
----
-
-# Outputs
-
-The code produces
-
-- heating efficiency estimates;
-- $B_{\rm rms,dyn}$;
-- $B_{\rm dip,surf}$;
-- uncertainty estimates;
-- publication-quality figures reproducing those of Elias-López et al. (2026).
+| General                   |       |
+| `--save_plot_grid`        | Save the interpolation grid figures (mainly for testing). *(default)=False* |
+| `--save_plot_3D_grid`     | Save a schematic 3D representation of the interpolation grid. *(default)=False* |
+| `--save_plot_population`  | Save the magnetic field plots for the hot Jupiter population. *(default)=False* |
+| `--print_interpolator`    | Print interpolator results for every planet. *(default)=False* |
+| Rotation                  |       |
+| *(default)*               | Use the rotation-corrected magnetic field tables. |
+| `--no-rotation`           | Disable the rotation correction. |
+| Scaling-law fitting       |       |
+| `--fit_type`              | Fitting methods are available: `simple` (default), `gaussian`, `odr`. |
+| `--N_gauss_fits`          | Number of Monte Carlo realizations *(default)=1000* |
+| `--which_cut`             | Different population cuts before scaling law fits: `radius cut` (default), `flux cut`, `heat cut`, `brms cut`, `no cut`  |
+| Planet selection          |       |
+| *(default)*               | Evaluates the full hot Jupiter population and calculates scaling law fits. |
+| `--no-HJ`                 | Instead evaluates one of several predefined samples. |
+| `--which_planets`         | Used if --no-HJ. It can be  `cauley19` (default), `cauley19nasa`, `seidel26`, `seidel26nasa`, `hats53b`, `my_own`, `errors`|
 
 ---
 
