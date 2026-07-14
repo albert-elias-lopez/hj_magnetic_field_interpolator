@@ -18,6 +18,15 @@ def get_conv_heat_flux(profile, conv_vel):
                     2/profile.alpha_mlt
     return conv_heat_flux
 
+# Calculate the turnover timescale, i.e. t_turn = H_p/v_conv, where H_p is the pressure scale height
+def get_t_turn(profile, conv_vel):
+    np.seterr(divide='ignore')
+    t_turn = np.divide(profile.scale_height,
+                        conv_vel,
+                        out=np.zeros_like(profile.scale_height),
+                        where=conv_vel!=0)*6.957e+10/3600/24
+    return t_turn
+
 # Calculate the Reynolds magnetic number, i.e. Rm = sigma*mu0*L*v_conv, where L is the length scale of the system, 
 # which we take as the density scale height H_rho or shell thickness, and sigma is the conductivity
 def get_reynolds_mag(profile, conv_vel, type_reynolds="local", loc_rcb=None):
@@ -82,6 +91,7 @@ def get_b_field_surf(profile, b_rms_dyn, loc_dyn):
     #print(radius_factor**3, simple_factor**3)
 
     return b_dip_surf
+
 
 
 # Hard-drive location (depends on the computer)

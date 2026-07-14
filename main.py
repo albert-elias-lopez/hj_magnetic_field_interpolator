@@ -1,9 +1,8 @@
 import sys
 import os
+import argparse
 import numpy as np
 import pylab as plt
-import matplotlib
-import matplotlib.tri as tri
 
 import plots
 import scaling_law_fits
@@ -14,6 +13,47 @@ import table_predictions_save
 import interpolator_rot
 import interpolator
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+
+    # General options
+    parser.add_argument("--save_plot_grid", action="store_true",
+                        help="Save the grid plots used for the interpolators (very lengthy, only used for initial testing)")
+    parser.add_argument("--save_plot_3D_grid", action="store_true",
+                        help="Save a schematic 3D grid plot (Firr, M, R)")
+    parser.add_argument("--save_plot_population", action="store_true",
+                        help="Save the plots with interpolator and fits results for the HJ population")
+    parser.add_argument("--print_interpolator", action="store_true",
+                        help="Print the interpolator results for each planet (very long terminal output, only used for testing)")
+    
+    # By default, the program will use the magnetic field tables that use the rotation factor. 
+    # If the flag --no-rotation is used, it will use the simpler tables.    
+    parser.set_defaults(rotation=True)
+    parser.add_argument("--no-rotation", dest="rotation", action="store_false",
+                        help="Disable rotation.")
+    
+    # Which planets to evaluate. If the flag --no-HJ is not used, the program will evaluate the gas giant exoplanet population. 
+    # If used, it will evaluate a predefined set of planets.
+    parser.set_defaults(HJ_population=True)
+    parser.add_argument("--no-HJ", dest="HJ_population", action="store_false",
+                        help="Disable evaluation of HJ population. Insted, the program will evaluate a predefined set of planets.")
+    
+    parser.add_argument("--which_planets", type=str, default="cauley19",
+                        choices=["hats53b","cauley19","cauley19nasa","seidel26","seidel26nasa","my_own","errors"],
+                        help="default='cauley19'. If --no-HJ, choose one option or enter your own planet")
+    
+    parser.add_argument("--fit_type", type=str, default="simple",
+                        choices=["simple", "gaussian", "odr"],
+                        help="default='simple'.Type of fit to use for the scaling law.")
+    parser.add_argument("--N_gauss_fits", type=int, default=10000,
+                        help="default=10000. Number of gaussian fits to perform for the scaling law. Only used if fit_type='gaussian'.")
+    parser.add_argument("--print_scaling_law", action="store_true",
+                        help="Print the scaling law fit results on thermial (lengthy output, mainly used for testing)")
+    parser.add_argument("--which_cut", type=str, default="radius cut",
+                        choices=["radius cut", "no cut", "flux cut", "heat cut", "brms cut"],
+                        help="default='radius cut'. Which HJ population cut to use for the fits.")
+
+    args = parser.parse_args()
     
 # Name of the current directory
 current = os.path.dirname(os.path.realpath(__file__))
@@ -25,45 +65,50 @@ sys.path.append(parent)
 # --------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------- Saving and printing ------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------------
-
-save_plots = False              # Save the grid plots (this is very lengthy, it was only used initially) 
-save_plots_grid = False         # Save a schematic 3D grip plot (Firr, M, R)
-save_plots_population = False   # Save the plots with interpolator and fits results for the HJ population
-print_interpolator = False      # Print the interpolator results for each planet (long terminal output if True)
+save_plots_grid = args.save_plot_grid
+save_plots_3D_grid = args.save_plot_3D_grid
+save_plots_population = args.save_plot_population
+print_interpolator = args.print_interpolator
 error_sym = False               # To use symmetric errors for the interpolator. Should be kept as False.
 
-rotation = True    
+rotation = args.rotation    
 
 # If HJ_population = True there should be a file with all the gas giant exoplanet population. Then not all planets should
 # be evaluated, only the ones that can be interpolated by the grid.
-HJ_population = False
+HJ_population = args.HJ_population
 fileHJ = 'predictions/PS_2026.02.18_08.49.05.csv'
 
 # In case of HJ_population = False, choose one option with the appropiate planet number.
 # If you choose your own, you should fill the values in 
 # errors,   hats53b,    cauley19,   cauley19nasa,   seidel26,   seidel26nasa, my_own
 # 11,       1,          4,          4,              7,          7,            1
-which_planets, Npl = "cauley19", 4
+which_planets = args.which_planets
+if which_planets == "hats53b": Npl = 1
+elif which_planets == "cauley19" or which_planets == "cauley19nasa": Npl = 4
+elif which_planets == "seidel26" or which_planets == "seidel26nasa": Npl = 7
+elif which_planets == "errors": Npl = 11
+elif which_planets == "my_own": 
+    Npl = 1
 
-# Grid limits which will be used to mask the exoplanet population before interpolating.
-min_mass, max_mass = 0.3, 12
-min_flux, max_flux = 1e7, 1.58e10
-min_period, max_period = 0.1, 100.0
 
 # Scaling law properties
-print_scaling_law = False
-fit_type = "gaussian"  # can be "simple", "odr", "gaussian"
-N_gauss = 10000 # Should use >1e4 for consistent results
+print_scaling_law = args.print_scaling_law
+fit_type = args.fit_type  # can be "simple", "odr", "gaussian"
+N_gauss_fits = args.N_gauss_fits  # Should use >1e4 for consistent results
 initial_guess = [4, 1/6, -7/6, 1/3]
 bounds=([1e-5, -np.inf, -np.inf, -np.inf], [np.inf, np.inf, np.inf, np.inf])
 initial_guess_simple = [4, 1/6, -7/6]
 bounds_simple=([1e-5, -np.inf, -np.inf], [np.inf, np.inf, np.inf])
 # Which HJ population cut to use for the fits. The options are defined later
-which_cut = "radius cut" 
-# "no cut", "flux cut", "heat cut", "radius cut", "brms cut"
+which_cut = args.which_cut
 
 if rotation: b_factor = 1
 else: b_factor = 1/3
+
+# Grid limits which will be used to mask the exoplanet population before interpolating.
+min_mass, max_mass = 0.3, 12
+min_flux, max_flux = 1e7, 1.58e10
+min_period, max_period = 0.1, 100.0
 
 fluxes = np.array([1.00000000e+07, 1.25892541e+07, 1.58489319e+07, 1.99526231e+07,
                     2.51188643e+07, 3.16227766e+07, 3.98107171e+07, 5.01187234e+07,
@@ -164,6 +209,14 @@ table_predictions_save.table_predictions(planets,
 
 
 
+
+print(f"----------------------------------------------------------------------")
+print("Number ot planets at each step:")
+print(table_inner.total_number_models, end="      ")
+print(f": total number of models for interpolator (inner)")
+print(table_outer.total_number_models, end="      ")
+print(f": total number of models for interpolator (outer)")
+
 # Decide which mask to use before perfoming the fits. 
 if which_cut == "no cut":
     valid_mask = planets.heat_eff_inner_est > 1e-5
@@ -184,18 +237,11 @@ elif which_cut == "brms cut":
 name_cut_short = name_cut
 name_cut = name_cut + "_" + fit_type + "_fit"
 
-print(f"----------------------------------------------------------------------")
-print("Number ot planets at each step:")
-print(table_inner.total_number_models, end="      ")
-print(f": total number of models for interpolator (inner)")
-print(table_outer.total_number_models, end="      ")
-print(f": total number of models for interpolator (outer)")
-
 if HJ_population:
 
     # Masking the population for the fits. The number of planets at each step is printed.
-
     number_planets_total = len(planets.planet_names)
+
     planets.mask_population(mask_predictions)
     number_planets_grid_params = len(planets.planet_names)
 
@@ -207,7 +253,7 @@ if HJ_population:
     planets.mask_population(mask_ultra_heated_models)
     number_planets_extreme_heat = len(planets.planet_names)
 
-    number_planets_after_mask = len(planets.planet_names)
+    number_planets_after_mask = np.sum(valid_mask)
 
     print(number_planets_total, end="       ")
     print(f": total number of planets")
@@ -271,25 +317,25 @@ if HJ_population:
                                                 dyn_or_surf = "rms,dyn", heating_type = "inner",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess, bounds = bounds,
-                                                fit_type = fit_type, fit_function_type = "MRL", N_gauss = N_gauss)
+                                                fit_type = fit_type, fit_function_type = "MRL", N_gauss = N_gauss_fits)
     print(f"brms_inner_surf:", end=" ")
     fit_MRL_inner_surf = scaling_law_fits.general_fit(planets, valid_mask,
                                                 dyn_or_surf = "dip,surf", heating_type = "inner",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess, bounds = bounds,
-                                                fit_type = fit_type, fit_function_type = "MRL", N_gauss = N_gauss)
+                                                fit_type = fit_type, fit_function_type = "MRL", N_gauss = N_gauss_fits)
     print(f"brms_outer:", end=" ")
     fit_MRL_outer = scaling_law_fits.general_fit(planets, valid_mask,
                                                 dyn_or_surf = "rms,dyn", heating_type = "outer",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess, bounds = bounds,
-                                                fit_type = fit_type, fit_function_type = "MRL", N_gauss = N_gauss)
+                                                fit_type = fit_type, fit_function_type = "MRL", N_gauss = N_gauss_fits)
     print(f"brms_outer_surf:", end=" ")
     fit_MRL_outer_surf = scaling_law_fits.general_fit(planets, valid_mask,
                                                 dyn_or_surf = "dip,surf", heating_type = "outer",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess, bounds = bounds,
-                                                fit_type = fit_type, fit_function_type = "MRL", N_gauss = N_gauss)
+                                                fit_type = fit_type, fit_function_type = "MRL", N_gauss = N_gauss_fits)
     with open(filename + ".txt",'a') as f:
         fit_MRL_inner.print_fit_results(f, filename, "brms_inner")
         fit_MRL_inner_surf.print_fit_results(f, filename, "brms_inner_surf")
@@ -310,26 +356,26 @@ if HJ_population:
                                                 dyn_or_surf = "rms,dyn", heating_type = "inner",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess, bounds = bounds,
-                                                fit_type = fit_type, fit_function_type = "MRF", N_gauss = N_gauss)
+                                                fit_type = fit_type, fit_function_type = "MRF", N_gauss = N_gauss_fits)
                                                         
     print(f"brms_inner_surf:", end=" ")
     fit_MRF_inner_surf = scaling_law_fits.general_fit(planets, valid_mask,
                                                 dyn_or_surf = "dip,surf", heating_type = "inner",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess, bounds = bounds,
-                                                fit_type = fit_type, fit_function_type = "MRF", N_gauss = N_gauss)
+                                                fit_type = fit_type, fit_function_type = "MRF", N_gauss = N_gauss_fits)
     print(f"brms_outer:", end=" ")
     fit_MRF_outer = scaling_law_fits.general_fit(planets, valid_mask,
                                                 dyn_or_surf = "rms,dyn", heating_type = "outer",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess, bounds = bounds,
-                                                fit_type = fit_type, fit_function_type = "MRF", N_gauss = N_gauss)
+                                                fit_type = fit_type, fit_function_type = "MRF", N_gauss = N_gauss_fits)
     print(f"brms_outer_surf:", end=" ")
     fit_MRF_outer_surf = scaling_law_fits.general_fit(planets, valid_mask,
                                                 dyn_or_surf = "dip,surf", heating_type = "outer",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess, bounds = bounds,
-                                                fit_type = fit_type, fit_function_type = "MRF", N_gauss = N_gauss)
+                                                fit_type = fit_type, fit_function_type = "MRF", N_gauss = N_gauss_fits)
     with open(filename + ".txt",'a') as f:
         fit_MRF_inner.print_fit_results(f, filename, "brms_inner")
         fit_MRF_inner_surf.print_fit_results(f, filename, "brms_inner_surf")
@@ -351,26 +397,26 @@ if HJ_population:
                                                 dyn_or_surf = "rms,dyn", heating_type = "inner",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess_simple, bounds = bounds_simple,
-                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss)
+                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss_fits)
     print(f"brms_inner_surf:", end=" ")
     fit_MR_inner_surf  = scaling_law_fits.general_fit(planets, valid_mask,
                                                 dyn_or_surf = "dip,surf", heating_type = "inner",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess_simple, bounds = bounds_simple,
-                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss)
+                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss_fits)
     print(f"brms_outer:", end=" ")
     fit_MR_outer = scaling_law_fits.general_fit(planets, valid_mask,
                                                 dyn_or_surf = "rms,dyn", heating_type = "outer",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess_simple, bounds = bounds_simple,
-                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss)                                            
+                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss_fits)                                            
     print(f"brms_outer_surf:", end=" ")
     fit_MR_outer_surf = scaling_law_fits.general_fit(planets, valid_mask,
                                                 dyn_or_surf = "dip,surf", heating_type = "outer",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess_simple, bounds = bounds_simple,
-                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss)
-    
+                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss_fits)
+
     with open(filename + ".txt",'a') as f:
         fit_MR_inner.print_fit_results(f, filename, "brms_inner")
         fit_MR_inner_surf.print_fit_results(f, filename, "brms_inner_surf")
@@ -391,38 +437,38 @@ if HJ_population:
                                                 dyn_or_surf = "rms,dyn", heating_type = "inner",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess_simple, bounds = bounds_simple,
-                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss)
+                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss_fits)
     print(f"brms_inner_surf:", end=" ")
     fit_MR_irr_inner_surf = scaling_law_fits.general_fit(planets, ~valid_mask,
                                                 dyn_or_surf = "dip,surf", heating_type = "inner",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess_simple, bounds = bounds_simple,
-                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss)
+                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss_fits)
     print(f"brms_outer:", end=" ")
     fit_MR_irr_outer = scaling_law_fits.general_fit(planets, ~valid_mask,
                                                 dyn_or_surf = "rms,dyn", heating_type = "outer",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess_simple, bounds = bounds_simple,
-                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss)
+                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss_fits)
     print(f"brms_outer_surf:", end=" ")
     fit_MR_irr_outer_surf = scaling_law_fits.general_fit(planets, ~valid_mask,
                                                 dyn_or_surf = "dip,surf", heating_type = "outer",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess_simple, bounds = bounds_simple,
-                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss)
+                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss_fits)
     
     print(f"brms_irr:", end=" ")
     fit_MR_irr_all = scaling_law_fits.general_fit(planets,
                                                 dyn_or_surf = "rms,dyn", heating_type = "irr",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess_simple, bounds = bounds_simple,
-                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss)
+                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss_fits)
     print(f"brms_irr_surf:", end=" ")
     fit_MR_irr_all_surf = scaling_law_fits.general_fit(planets,
                                                 dyn_or_surf = "dip,surf", heating_type = "irr",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess_simple, bounds = bounds_simple,
-                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss)
+                                                fit_type = fit_type, fit_function_type = "MR", N_gauss = N_gauss_fits)
     with open(filename + ".txt",'a') as f:
         fit_MR_irr_inner.print_fit_results(f, filename, "brms_inner")
         fit_MR_irr_inner_surf.print_fit_results(f, filename, "brms_inner_surf")
@@ -448,13 +494,13 @@ if HJ_population:
                                                 dyn_or_surf = "eps", heating_type = "inner",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess, bounds = bounds,
-                                                fit_type = fit_type, fit_function_type = "MRF", N_gauss = N_gauss)
+                                                fit_type = fit_type, fit_function_type = "MRF", N_gauss = N_gauss_fits)
     print(f"eps_outer:", end=" ")    
     fit_MRL_eps_outer = scaling_law_fits.general_fit(planets, valid_mask,
                                                 dyn_or_surf = "eps", heating_type = "outer",
                                                 print_all=print_scaling_law, error_sym=error_sym,
                                                 p0 = initial_guess, bounds = bounds,
-                                                fit_type = fit_type, fit_function_type = "MRF", N_gauss = N_gauss)
+                                                fit_type = fit_type, fit_function_type = "MRF", N_gauss = N_gauss_fits)
     print(f"")
     with open(filename + ".txt",'a') as f:
         fit_MRL_eps_inner.print_fit_results(f, filename, "eps_inner")
@@ -559,7 +605,7 @@ print(f"----------------------------------------------------------------------")
 
 
 # Repeat the everything exoplanets with some missing parameters:
-if save_plots:
+if save_plots_grid:
     print(f"Saving plots for grid models:", end=" ")
     plots.plot_output_grid(masses,
                             fluxes,
@@ -573,7 +619,7 @@ if save_plots:
     print(f"done")
     print(f"----------------------------------------------------------------------")
     
-if save_plots_grid:
+if save_plots_3D_grid:
     print(f"Saving 3D plots as the total grid:", end=" ")
     plots.plot_grid(masses,
                     fluxes,

@@ -210,7 +210,10 @@ def plot_grid(masses,
               radii_heat_inner,
               radii_heat_outer):
     
+
+    
     eps_min = 1e-6
+    eps_global_max = 1e2
     
     heat_effs[heat_effs == 0] = eps_min
     heat_effs = 100*heat_effs
@@ -236,7 +239,7 @@ def plot_grid(masses,
         fluxes_flat_general = flux_grid.flatten()
         heat_effs_flat_general = heat_eff_grid.flatten()
 
-        valid_mask = radii_heat_inner[index_mass].flatten() != 0.0
+        valid_mask = (heat_effs_flat_general <= eps_global_max) & (radii_heat_inner[index_mass].flatten() != 0.0)
 
         ax.scatter(np.log10(fluxes_flat_general[valid_mask]),
                    np.log10(mass),
@@ -250,6 +253,7 @@ def plot_grid(masses,
                 eps_max[index_flux] = np.max(heat_effs[valid_mask])
             except:
                 eps_max[index_flux] = 100*eps_min
+            if eps_max[index_flux] > eps_global_max: eps_max[index_flux] = eps_global_max
             
         ax.fill_between(np.log10(fluxes),
                    np.log10(mass),
@@ -261,7 +265,7 @@ def plot_grid(masses,
         
     ax.set_xlim(7, 10.3)
     ax.set_ylim(-0.55, 1.2)
-    ax.set_zlim(-4, 2.5)
+    ax.set_zlim(-4, 2)
     ax.set_xlabel(r'$F_{\rm irr} \mathrm{(erg \, cm^{-2} \, s^{-1})}$', fontsize=int(fontsize*1.1), labelpad = 20)
     ax.set_ylabel(r'$M_{\rm P} (\mathrm{M_J})$', fontsize=int(fontsize*1.1), labelpad = 20)
     ax.set_zlabel(r'$\epsilon(\%)$', fontsize=int(fontsize*1.1), labelpad = 25)
@@ -305,7 +309,7 @@ def plot_grid(masses,
         fluxes_flat_general = flux_grid.flatten()
         heat_effs_flat_general = heat_eff_grid.flatten()
 
-        valid_mask = radii_heat_outer[index_mass].flatten() != 0.0
+        valid_mask = (heat_effs_flat_general <= eps_global_max) & (radii_heat_outer[index_mass].flatten() != 0.0)
 
         ax.scatter(np.log10(fluxes_flat_general[valid_mask]),
                    np.log10(mass),
@@ -319,6 +323,7 @@ def plot_grid(masses,
                 eps_max[index_flux] = np.max(heat_effs[valid_mask])
             except:
                 eps_max[index_flux] = 100*eps_min
+            if eps_max[index_flux] > eps_global_max: eps_max[index_flux] = eps_global_max
             
         ax.fill_between(np.log10(fluxes),
                    np.log10(mass),
@@ -330,7 +335,7 @@ def plot_grid(masses,
         
     ax.set_xlim(7, 10.3)
     ax.set_ylim(-0.55, 1.2)
-    ax.set_zlim(-4, 2.5)
+    ax.set_zlim(-4, 2)
     ax.set_xlabel(r'$F_{\rm irr} \mathrm{(erg \, cm^{-2} \, s^{-1})}$', fontsize=int(fontsize*1.1), labelpad = 20)
     ax.set_ylabel(r'$M_{\rm P} (\mathrm{M_J})$', fontsize=int(fontsize*1.1), labelpad = 20)
     ax.set_zlabel(r'$\epsilon(\%)$', fontsize=int(fontsize*1.1), labelpad = 30)

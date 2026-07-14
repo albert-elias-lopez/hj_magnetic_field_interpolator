@@ -112,6 +112,15 @@ def get_scaling_law_err(fit_object,
                     (np.log(radius)*fit_object.beta_err)**2+\
                     (np.log(conv_or_flux_err)*fit_object.gamma_err)**2
         brms_err = brms*np.sqrt(brms_err)
+
+    # Derivative vector
+    # x = np.array([1,np.log(mass), np.log(radius), np.log(conv_or_flux)])
+    # brms_err = x @ fit_object.cov_matrix @ x
+    
+    # brms_err += (fit_object.alpha*mass_err/mass)**2+\
+    #              (fit_object.beta*radius_err/radius)**2+\
+    #              (fit_object.gamma*conv_or_flux_err/conv_or_flux)**2
+    # brms_err = brms*np.sqrt(brms_err)
     return brms_err
 
 def get_thorn18_eff(flux, eps0 = 2.37/100, mu = 0.14, sigma =0.37):
