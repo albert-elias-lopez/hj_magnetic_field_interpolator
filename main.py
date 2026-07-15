@@ -41,6 +41,10 @@ if __name__ == "__main__":
     parser.add_argument("--which_planets", type=str, default="cauley19",
                         choices=["hats53b","cauley19","cauley19nasa","seidel26","seidel26nasa","my_own","errors"],
                         help="default='cauley19'. If --no-HJ, choose one option or enter your own planet")
+    parser.add_argument("--my_planet_params", type=float, nargs=8, default=None,
+                        help="default=None. If --no-HJ and --which_planets='my_own', " \
+                        "enter your own planet parameters: mass (in Mjup), mass_err, radius (in Rjup), radius_err, period (in days), period_err, flux (in erg/s cm2), flux_err" \
+                        "e.g. --my_planet_params 1 0.1 1 0.1 1 1e-6 1e9 1e8")
     
     parser.add_argument("--fit_type", type=str, default="simple",
                         choices=["simple", "gaussian", "odr"],
@@ -152,7 +156,6 @@ table_outer.read_table(rotation, masses, fluxes, heat_effs, periods)
 print("Reading data files: done")
 print(f"----------------------------------------------------------------------")
 
-
 if HJ_population:
     
     print("Reading gas giant explanet population " + fileHJ + ": ", end="\r")
@@ -169,6 +172,17 @@ if HJ_population:
 else:
     planets = planet_functions.planet_object(Npl,error_sym)
     planets.my_planets(which_planets)
+    my_planet_params = args.my_planet_params
+    if which_planets == "my_own" and my_planet_params is not None:
+        my_planet_params = np.array(my_planet_params)
+        planets.mass_obs                   = np.array([my_planet_params[0]])
+        planets.mass_obs_err               = np.array([my_planet_params[1]])
+        planets.radius_obs                 = np.array([my_planet_params[2]])
+        planets.radius_obs_err             = np.array([my_planet_params[3]])
+        planets.orbital_period_obs         = np.array([my_planet_params[4]])
+        planets.orbital_period_obs_err     = np.array([my_planet_params[5]])
+        planets.flux_obs                   = np.array([my_planet_params[6]])
+        planets.flux_obs_err               = np.array([my_planet_params[7]])
 
 if rotation:
     mask_predictions = (planets.mass_obs > min_mass) & (planets.mass_obs < max_mass) & \

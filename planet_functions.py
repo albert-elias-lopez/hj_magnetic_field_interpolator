@@ -184,7 +184,7 @@ class planet_object:
             self.planet_names               = ["my_planet"]
             self.mass_obs                   = np.array([1])
             self.mass_obs_err               = np.array([0.1])
-            self.radius_obs                 = np.array([1])
+            self.radius_obs                 = np.array([1.5])
             self.radius_obs_err             = np.array([0.1])
             self.orbital_period_obs         = np.array([1])
             self.orbital_period_obs_err     = np.array([1e-6])

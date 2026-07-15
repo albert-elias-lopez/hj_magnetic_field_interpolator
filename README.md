@@ -56,6 +56,7 @@ or
 
 ```bash
 python main.py --no-HJ --which_planets seidel26
+python main.py --no-HJ --which_planets my_own --my_planet_params 1.2 0.1 1.5 0.1 1 1e-6 1e9 1e8
 ```
 
 ---
@@ -63,7 +64,7 @@ python main.py --no-HJ --which_planets seidel26
 ### Command-line options
 
 | Option  | Description |
-|---------|-------------|
+|----------|-------------|
 | General                   |       |
 | `--save_plot_grid`        | Save the interpolation grid figures (mainly for testing). *(default)=False* |
 | `--save_plot_3D_grid`     | Save a schematic 3D representation of the interpolation grid. *(default)=False* |
@@ -80,6 +81,7 @@ python main.py --no-HJ --which_planets seidel26
 | *(default)*               | Evaluates the full hot Jupiter population and calculates scaling law fits. |
 | `--no-HJ`                 | Instead evaluates one of several predefined samples. |
 | `--which_planets`         | Used if --no-HJ. It can be  `cauley19` (default), `cauley19nasa`, `seidel26`, `seidel26nasa`, `hats53b`, `my_own`, `errors`|
+| `--my_planet_params`      | Used if `--no-HJ --which_planets my own`. Specifies your own planet parameters: $M_{\rm P}$ (in M$_{\rm J}$), $\sigma_{M_{\rm P}}$, $R_{\rm P}$ (in R$_{\rm J}$), $\sigma_{R_{\rm P}}$, $P_{\rm orb}$ (in days), $\sigma_{P_{\rm orb}}$, $F_{\rm irr}$ (in $erg \, s^{-1} \, cm^{-2}$), $\sigma_{F_{\rm irr}}$. The default is `--my_planet_params 1.2 0.1 1.5 0.1 1 1e-6 1e9 1e8`|
 
 ---
 
