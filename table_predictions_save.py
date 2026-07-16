@@ -61,6 +61,10 @@ def scaling_law(fit_object, mass, radius, conv_or_flux):
     brms = fit_object.K * mass ** fit_object.alpha * radius ** fit_object.beta * conv_or_flux ** fit_object.gamma
     return brms
 
+def add_syst_error(mean, error):
+    systematic_error = 0.6 * mean
+    return np.sqrt(np.asarray(error)**2 + systematic_error**2)
+
 def get_scaling_law_err(fit_object,
                         brms, 
                         mass,
@@ -141,44 +145,18 @@ def table_predictions(planets,
                       mask_predictions,
                       HJ_population,
                       which_planets,
+                      add_systematic_error,
                       extra_HJ=False,
                       error_sym=False,
                       N_err = 10000,
                       rotation = False):
-    
-    heat_eff_inner_est         = planets.heat_eff_inner_est
-    heat_eff_inner_est_err     = planets.heat_eff_inner_est_err 
-    brms_inner_est             = planets.brms_inner_est
-    brms_inner_est_err         = planets.brms_inner_est_err
-    brms_inner_surf_est        = planets.brms_inner_surf_est
-    brms_inner_surf_est_err    = planets.brms_inner_surf_est_err
-    heat_eff_outer_est         = planets.heat_eff_outer_est
-    heat_eff_outer_est_err     = planets.heat_eff_outer_est_err
-    brms_outer_est             = planets.brms_outer_est
-    brms_outer_est_err         = planets.brms_outer_est_err
-    brms_outer_surf_est        = planets.brms_outer_surf_est
-    brms_outer_surf_est_err    = planets.brms_outer_surf_est_err
-    radius_irr_est             = planets.radius_irr_est
-    radius_irr_est_err         = planets.radius_irr_est_err
-    brms_irr_est               = planets.brms_irr_est
-    brms_irr_est_err           = planets.brms_irr_est_err
-    brms_irr_surf_est          = planets.brms_irr_surf_est
-    brms_irr_surf_est_err      = planets.brms_irr_surf_est_err
-    mass_obs                   = planets.mass_obs
-    mass_obs_err               = planets.mass_obs_err
-    flux_obs                   = planets.flux_obs
-    flux_obs_err               = planets.flux_obs_err
-    radius_obs                 = planets.radius_obs
-    radius_obs_err             = planets.radius_obs_err
-    orbital_period_obs         = planets.orbital_period_obs
-    orbital_period_obs_err     = planets.orbital_period_obs_err
-    planet_names               = planets.planet_names
     
     if HJ_population:
         filename = "predictions/predictions_hot_jupiter_populations"
         if extra_HJ: filename = "predictions/predictions_hot_jupiter_populations_extra"
     else: filename = "predictions/predictions_custom_" + which_planets
     if rotation: filename += "_rot"
+    if add_systematic_error: filename += "_syst_err"
     if error_sym:
         header = "#     M(MJ)               R(RJ)              R_irr(RJ)             F(erg cm-2 s-1)         P(days)             " + \
               "    eps_up(%)             eps_low(%)             eps_th18(%)                 bdyn_up(G)                  bdyn_irr(G)              " + \
@@ -192,49 +170,76 @@ def table_predictions(planets,
         f.writelines(header + '\n')
 
     with open(filename + ".txt",'a') as f:
-        for index_planet, name in enumerate(planet_names):
+        for index_planet, name in enumerate(planets.planet_names):
             if mask_predictions[index_planet]:
 
-                heat_eff_inner_est_print = get_print_string(100*heat_eff_inner_est[index_planet],
-                                                               100*heat_eff_inner_est_err[index_planet], 
+                if add_systematic_error:
+                    heat_eff_inner_est_err     = add_syst_error(planets.heat_eff_inner_est[index_planet],
+                                                                planets.heat_eff_inner_est_err[index_planet])
+                    brms_inner_est_err         = add_syst_error(planets.brms_inner_est[index_planet],
+                                                                planets.brms_inner_est_err[index_planet])
+                    brms_inner_surf_est_err    = add_syst_error(planets.brms_inner_surf_est[index_planet],
+                                                                planets.brms_inner_surf_est_err[index_planet])
+                    heat_eff_outer_est_err     = add_syst_error(planets.heat_eff_outer_est[index_planet],
+                                                                planets.heat_eff_outer_est_err[index_planet])
+                    brms_outer_est_err         = add_syst_error(planets.brms_outer_est[index_planet],
+                                                                planets.brms_outer_est_err[index_planet])
+                    brms_outer_surf_est_err    = add_syst_error(planets.brms_outer_surf_est[index_planet],
+                                                                planets.brms_outer_surf_est_err[index_planet])
+                    brms_irr_est_err           = add_syst_error(planets.brms_irr_est[index_planet],
+                                                                planets.brms_irr_est_err[index_planet])
+                    brms_irr_surf_est_err      = add_syst_error(planets.brms_irr_surf_est[index_planet],
+                                                                planets.brms_irr_surf_est_err[index_planet])
+                else:
+                    heat_eff_inner_est_err     = planets.heat_eff_inner_est_err[index_planet]
+                    brms_inner_est_err         = planets.brms_inner_est_err[index_planet]
+                    brms_inner_surf_est_err    = planets.brms_inner_surf_est_err[index_planet]
+                    heat_eff_outer_est_err     = planets.heat_eff_outer_est_err[index_planet]
+                    brms_outer_est_err         = planets.brms_outer_est_err[index_planet]
+                    brms_outer_surf_est_err    = planets.brms_outer_surf_est_err[index_planet]
+                    brms_irr_est_err           = planets.brms_irr_est_err[index_planet]
+                    brms_irr_surf_est_err      = planets.brms_irr_surf_est_err[index_planet]
+
+                heat_eff_inner_est_print = get_print_string(100*planets.heat_eff_inner_est[index_planet],
+                                                               100*heat_eff_inner_est_err, 
                                                                "heat",error_sym=error_sym)
-                brms_inner_est_print = get_print_string(brms_inner_est[index_planet],
-                                                               brms_inner_est_err[index_planet], 
+                brms_inner_est_print = get_print_string(planets.brms_inner_est[index_planet],
+                                                               brms_inner_est_err, 
                                                                "brms",error_sym=error_sym)
-                brms_inner_surf_est_print = get_print_string(brms_inner_surf_est[index_planet],
-                                                                brms_inner_surf_est_err[index_planet], 
+                brms_inner_surf_est_print = get_print_string(planets.brms_inner_surf_est[index_planet],
+                                                                brms_inner_surf_est_err, 
                                                                 "brms",error_sym=error_sym)
                 
 
-                heat_eff_outer_est_print = get_print_string(100*heat_eff_outer_est[index_planet],
-                                                               100*heat_eff_outer_est_err[index_planet], 
+                heat_eff_outer_est_print = get_print_string(100*planets.heat_eff_outer_est[index_planet],
+                                                               100*heat_eff_outer_est_err, 
                                                                "heat",error_sym=error_sym)
-                brms_outer_est_print = get_print_string(brms_outer_est[index_planet],
-                                                               brms_outer_est_err[index_planet], 
+                brms_outer_est_print = get_print_string(planets.brms_outer_est[index_planet],
+                                                               brms_outer_est_err, 
                                                                "brms",error_sym=error_sym)
-                brms_outer_surf_est_print = get_print_string(brms_outer_surf_est[index_planet],
-                                                                brms_outer_surf_est_err[index_planet], 
+                brms_outer_surf_est_print = get_print_string(planets.brms_outer_surf_est[index_planet],
+                                                                brms_outer_surf_est_err, 
                                                                 "brms",error_sym=error_sym)
 
             
-                brms_irr_est_print = get_print_string(brms_irr_est[index_planet],
-                                                               brms_outer_est_err[index_planet], 
+                brms_irr_est_print = get_print_string(planets.brms_irr_est[index_planet],
+                                                               brms_irr_est_err, 
                                                                "brms",error_sym=error_sym)
-                brms_irr_surf_est_print = get_print_string(brms_irr_surf_est[index_planet],
-                                                                brms_irr_surf_est_err[index_planet], 
+                brms_irr_surf_est_print = get_print_string(planets.brms_irr_surf_est[index_planet],
+                                                                brms_irr_surf_est_err, 
                                                                 "brms",error_sym=error_sym)
-                radius_irr_surf_est_print = get_print_string(radius_irr_est[index_planet],
-                                                                radius_irr_est_err[index_planet], 
+                radius_irr_surf_est_print = get_print_string(planets.radius_irr_est[index_planet],
+                                                                planets.radius_irr_est_err[index_planet], 
                                                                 "radius",error_sym=error_sym)
 
-                thorn_eff_18 = get_thorn18_eff(flux_obs[index_planet])
-                thorn_eff_18_err = get_thorn18_err(flux_obs[index_planet], N_err)
+                thorn_eff_18 = get_thorn18_eff(planets.flux_obs[index_planet])
+                thorn_eff_18_err = get_thorn18_err(planets.flux_obs[index_planet], N_err)
                 heat_eff_thorn_print = get_print_string(100*thorn_eff_18, 100*thorn_eff_18_err, "heat",error_sym=False)
                     
-                mass_obs_print = get_print_string(mass_obs[index_planet],mass_obs_err[index_planet],"mass",error_sym=True)
-                radius_obs_print = get_print_string(radius_obs[index_planet],radius_obs_err[index_planet],"radius",error_sym=True)
-                flux_obs_print = get_print_string(flux_obs[index_planet],flux_obs_err[index_planet],"flux",error_sym=True)
-                orbital_period_obs_print = get_print_string(orbital_period_obs[index_planet],orbital_period_obs_err[index_planet],"period",error_sym=True)
+                mass_obs_print = get_print_string(planets.mass_obs[index_planet],planets.mass_obs_err[index_planet],"mass",error_sym=True)
+                radius_obs_print = get_print_string(planets.radius_obs[index_planet],planets.radius_obs_err[index_planet],"radius",error_sym=True)
+                flux_obs_print = get_print_string(planets.flux_obs[index_planet],planets.flux_obs_err[index_planet],"flux",error_sym=True)
+                orbital_period_obs_print = get_print_string(planets.orbital_period_obs[index_planet],planets.orbital_period_obs_err[index_planet],"period",error_sym=True)
 
                 f.writelines(mass_obs_print                 + "      " + \
                             radius_obs_print                + "      " + \
@@ -265,6 +270,7 @@ def table_comparision(planets,
                         fit_MR_inner, fit_MR_inner_surf, fit_MR_outer, fit_MR_outer_surf,
                         fit_MR_irr_inner, fit_MR_irr_inner_surf, fit_MR_irr_outer, fit_MR_irr_outer_surf,
                         fit_MR_irr_all, fit_MR_irr_all_surf, fit_MRL_eps_inner, fit_MRL_eps_outer,
+                        add_systematic_error,
                         extra_HJ=False,
                         error_sym=False,
                         N_err = 10000,
@@ -323,7 +329,25 @@ def table_comparision(planets,
                                                                         (2*radius_obs_err/radius_obs)**2+\
                                                                         (flux_obs_err/flux_obs)**2)
     
-
+    for index_planet, name in enumerate(planet_names):
+        if add_systematic_error:
+            heat_eff_inner_est_err[index_planet]     = add_syst_error(heat_eff_inner_est[index_planet],
+                                                                        heat_eff_inner_est_err[index_planet])
+            brms_inner_est_err[index_planet]         = add_syst_error(brms_inner_est[index_planet],
+                                                                        brms_inner_est_err[index_planet])
+            brms_inner_surf_est_err[index_planet]    = add_syst_error(brms_inner_surf_est[index_planet],
+                                                                        brms_inner_surf_est_err[index_planet])
+            heat_eff_outer_est_err[index_planet]     = add_syst_error(heat_eff_outer_est[index_planet],
+                                                                        heat_eff_outer_est_err[index_planet])
+            brms_outer_est_err[index_planet]         = add_syst_error(brms_outer_est[index_planet],
+                                                                        brms_outer_est_err[index_planet])
+            brms_outer_surf_est_err[index_planet]    = add_syst_error(brms_outer_surf_est[index_planet],
+                                                                        brms_outer_surf_est_err[index_planet])
+            brms_irr_est_err[index_planet]           = add_syst_error(brms_irr_est[index_planet],
+                                                                        brms_irr_est_err[index_planet])
+            brms_irr_surf_est_err[index_planet]      = add_syst_error(brms_irr_surf_est[index_planet],
+                                                                        brms_irr_surf_est_err[index_planet])
+    
     for index_planet, name in enumerate(planet_names):
         
         # Apply the simplest scaling law, from Reiners 2010
@@ -544,6 +568,7 @@ def table_comparision(planets,
             if extra_HJ: filename += "_extra/"
             else: filename += "/" 
         filename += name.replace(" ", "_").replace(".", "_")
+        if add_systematic_error: filename += "_syst_err"
 
         header = "      M(MJ)                R(RJ)              F(erg cm-2 s-1)            P(days)             Name"
         

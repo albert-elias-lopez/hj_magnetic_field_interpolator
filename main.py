@@ -14,8 +14,23 @@ import interpolator_rot
 import interpolator
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
 
+    parser = argparse.ArgumentParser(
+    description="Inflated HJ magnetic field estimator:",
+    epilog="""
+            Examples:
+            python main.py --no-rotation
+            python main.py --save_plot_population --fit-type simple
+            python main.py --no-rotation --no-HJ --which_planets seidel26
+            python main.py --no-HJ --which_planets my_own --my_planet_params 1.2 0.1 1.5 0.1 1 1e-6 1e9 1e8
+
+            To reproduce the results in Elias-López et al 2026:
+            python main.py --save_plot_population (by default fit_type=gaussian, N_gauss_fits=10000, which_cut=radius cut)
+            python main.py --no-HJ --which_planets seidel26 --add_systematic_error
+            python main.py --no-HJ --which_planets cauley19 --add_systematic_error
+            """,
+    formatter_class=argparse.RawDescriptionHelpFormatter,)
+    
     # General options
     parser.add_argument("--save_plot_grid", action="store_true",
                         help="Save the grid plots used for the interpolators (very lengthy, only used for initial testing)")
@@ -36,7 +51,7 @@ if __name__ == "__main__":
     # If used, it will evaluate a predefined set of planets.
     parser.set_defaults(HJ_population=True)
     parser.add_argument("--no-HJ", dest="HJ_population", action="store_false",
-                        help="Disable evaluation of HJ population. Insted, the program will evaluate a predefined set of planets.")
+                        help="Disable evaluation of HJ population. Insted,a predefined set of planets will be evaluated, and precomputed scaling laws will be used.")
     
     parser.add_argument("--which_planets", type=str, default="cauley19",
                         choices=["hats53b","cauley19","cauley19nasa","seidel26","seidel26nasa","my_own","errors"],
@@ -44,9 +59,9 @@ if __name__ == "__main__":
     parser.add_argument("--my_planet_params", type=float, nargs=8, default=None,
                         help="default=None. If --no-HJ and --which_planets='my_own', " \
                         "enter your own planet parameters: mass (in Mjup), mass_err, radius (in Rjup), radius_err, period (in days), period_err, flux (in erg/s cm2), flux_err" \
-                        "e.g. --my_planet_params 1 0.1 1 0.1 1 1e-6 1e9 1e8")
+                        "e.g. --my_planet_params 1.5 0.1 1 0.1 1 1e-6 1e9 1e8")
     
-    parser.add_argument("--fit_type", type=str, default="simple",
+    parser.add_argument("--fit_type", type=str, default="gaussian",
                         choices=["simple", "gaussian", "odr"],
                         help="default='simple'.Type of fit to use for the scaling law.")
     parser.add_argument("--N_gauss_fits", type=int, default=10000,
@@ -56,6 +71,10 @@ if __name__ == "__main__":
     parser.add_argument("--which_cut", type=str, default="radius cut",
                         choices=["radius cut", "no cut", "flux cut", "heat cut", "brms cut"],
                         help="default='radius cut'. Which HJ population cut to use for the fits.")
+
+    parser.add_argument("--add_systematic_error", action="store_true",
+                        help="Add a 60 percent relative systematic error to the interpolated/scaling law magnetic field estimates. " \
+                        "This is a rough estimate of the error associated with the interior structure and dynamo model assumptions. It is not used by default, but can be added to the final error budget if desired.")
 
     args = parser.parse_args()
     
@@ -73,7 +92,10 @@ save_plots_grid = args.save_plot_grid
 save_plots_3D_grid = args.save_plot_3D_grid
 save_plots_population = args.save_plot_population
 print_interpolator = args.print_interpolator
+
+
 error_sym = False               # To use symmetric errors for the interpolator. Should be kept as False.
+add_systematic_error = args.add_systematic_error
 
 rotation = args.rotation    
 
@@ -218,6 +240,7 @@ table_predictions_save.table_predictions(planets,
                                         mask_predictions,
                                         HJ_population,
                                         which_planets,
+                                        add_systematic_error,
                                         error_sym=error_sym,
                                         rotation = rotation)
 
@@ -610,6 +633,7 @@ table_predictions_save.table_comparision(planets,
                                         fit_MR_inner, fit_MR_inner_surf, fit_MR_outer, fit_MR_outer_surf,
                                         fit_MR_irr_inner, fit_MR_irr_inner_surf, fit_MR_irr_outer, fit_MR_irr_outer_surf,
                                         fit_MR_irr_all, fit_MR_irr_all_surf, fit_MRL_eps_inner, fit_MRL_eps_outer,
+                                        add_systematic_error,
                                         error_sym=error_sym,
                                         rotation = rotation)
 
@@ -735,6 +759,7 @@ if HJ_population:
                                             mask_predictions,
                                             HJ_population,
                                             which_planets,
+                                            add_systematic_error,
                                             extra_HJ = True,
                                             error_sym=error_sym,
                                             rotation = rotation)
@@ -775,7 +800,7 @@ if HJ_population:
     print("Saving individual files for each planet:", end=" ")
 
     table_predictions_save.table_comparision(planets,
-                                             valid_mask,
+                                            valid_mask,
                                             name_cut,
                                             HJ_population,
                                             which_planets,
@@ -785,6 +810,7 @@ if HJ_population:
                                             fit_MR_inner, fit_MR_inner_surf, fit_MR_outer, fit_MR_outer_surf,
                                             fit_MR_irr_inner, fit_MR_irr_inner_surf, fit_MR_irr_outer, fit_MR_irr_outer_surf,
                                             fit_MR_irr_all, fit_MR_irr_all_surf, fit_MRL_eps_inner, fit_MRL_eps_outer,
+                                            add_systematic_error,
                                             extra_HJ=True,
                                             error_sym=error_sym,
                                             rotation = rotation)
