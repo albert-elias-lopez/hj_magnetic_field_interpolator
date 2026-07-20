@@ -74,7 +74,8 @@ if __name__ == "__main__":
 
     parser.add_argument("--add_systematic_error", action="store_true",
                         help="Add a 60 percent relative systematic error to the interpolated/scaling law magnetic field estimates. " \
-                        "This is a rough estimate of the error associated with the interior structure and dynamo model assumptions. It is not used by default, but can be added to the final error budget if desired.")
+                        "This is a rough estimate of the error associated with the interior structure and dynamo model assumptions. " \
+                        "By default, and the uncertainty only comes from the propagation of observed data errors.")
 
     args = parser.parse_args()
     
@@ -254,25 +255,6 @@ print(f": total number of models for interpolator (inner)")
 print(table_outer.total_number_models, end="      ")
 print(f": total number of models for interpolator (outer)")
 
-# Decide which mask to use before perfoming the fits. 
-if which_cut == "no cut":
-    valid_mask = planets.heat_eff_inner_est > 1e-5
-    name_cut, name_cut_header = "_no_cut", "No cut (actually eps > 1e-5)"
-elif which_cut == "flux cut":
-    valid_mask = planets.flux_obs*planets.heat_eff_inner_est > 1e6
-    name_cut, name_cut_header = "_cut_epsF", "Cut for eps*F_irr > 1e6"
-elif which_cut == "heat cut":
-    valid_mask = planets.flux_obs*planets.heat_eff_inner_est*np.pi*planets.radius_obs**2 > 1e6
-    name_cut, name_cut_header = "_cut_Qdep", "Cut for Q_dep = eps*F_irr*pi*R^2 > 1e6"
-elif which_cut == "radius cut":
-    valid_mask = planets.radius_obs/planets.radius_irr_est > 1.05
-    name_cut, name_cut_header = "_cut_Robs_Rirr", "Cut for Robs/Rirr > 1.05"
-elif which_cut == "brms cut":
-    valid_mask = planets.brms_outer_est/planets.brms_inner_est < 0.25
-    name_cut, name_cut_header = "_cut_Bout_Bext", "Cut for Bout/Rext < 0.25"
-
-name_cut_short = name_cut
-name_cut = name_cut + "_" + fit_type + "_fit"
 
 if HJ_population:
 
@@ -290,6 +272,26 @@ if HJ_population:
     planets.mask_population(mask_ultra_heated_models)
     number_planets_extreme_heat = len(planets.planet_names)
 
+    # Decide which mask to use before perfoming the fits. 
+    if which_cut == "no cut":
+        valid_mask = planets.heat_eff_inner_est > 1e-5
+        name_cut, name_cut_header = "_no_cut", "No cut (actually eps > 1e-5)"
+    elif which_cut == "flux cut":
+        valid_mask = planets.flux_obs*planets.heat_eff_inner_est > 1e6
+        name_cut, name_cut_header = "_cut_epsF", "Cut for eps*F_irr > 1e6"
+    elif which_cut == "heat cut":
+        valid_mask = planets.flux_obs*planets.heat_eff_inner_est*np.pi*planets.radius_obs**2 > 1e6
+        name_cut, name_cut_header = "_cut_Qdep", "Cut for Q_dep = eps*F_irr*pi*R^2 > 1e6"
+    elif which_cut == "radius cut":
+        valid_mask = planets.radius_obs/planets.radius_irr_est > 1.05
+        name_cut, name_cut_header = "_cut_Robs_Rirr", "Cut for Robs/Rirr > 1.05"
+    elif which_cut == "brms cut":
+        valid_mask = planets.brms_outer_est/planets.brms_inner_est < 0.25
+        name_cut, name_cut_header = "_cut_Bout_Bext", "Cut for Bout/Rext < 0.25"
+
+    name_cut_short = name_cut
+    name_cut = name_cut + "_" + fit_type + "_fit"
+
     number_planets_after_mask = np.sum(valid_mask)
 
     print(number_planets_total, end="       ")
@@ -305,6 +307,16 @@ if HJ_population:
     print(f"----------------------------------------------------------------------")
 
 else:
+
+    # Decide which mask to use before perfoming the fits. 
+    if which_cut == "no cut": name_cut, name_cut_header = "_no_cut", "No cut (actually eps > 1e-5)"
+    elif which_cut == "flux cut": name_cut, name_cut_header = "_cut_epsF", "Cut for eps*F_irr > 1e6"
+    elif which_cut == "heat cut": name_cut, name_cut_header = "_cut_Qdep", "Cut for Q_dep = eps*F_irr*pi*R^2 > 1e6"
+    elif which_cut == "radius cut": name_cut, name_cut_header = "_cut_Robs_Rirr", "Cut for Robs/Rirr > 1.05"
+    elif which_cut == "brms cut": name_cut, name_cut_header = "_cut_Bout_Bext", "Cut for Bout/Rext < 0.25"
+
+    name_cut_short = name_cut
+    name_cut = name_cut + "_" + fit_type + "_fit"
 
     # Dummy mask to spit all possible magnetic field estimates. No fits are performed in this case, but the results are printed and saved.
     valid_mask = planets.mass_obs > 0

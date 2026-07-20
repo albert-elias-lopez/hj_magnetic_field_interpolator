@@ -34,7 +34,7 @@ The interpolator requires
 - Incident stellar flux ($F_{\rm irr}$)
 - Orbital period ($P_{\rm orb}$)
 
-By default, the code uses the rotation-corrected magnetic field tables (Fuentes et al. 2025). This correction can be disabled using the `--no-rotation` option, in which case there is no need to provide the orbital period.
+By default, the code uses the rotation-corrected magnetic field tables (Fuentes et al. 2025). This correction can be disabled using the `--no-rotation` option, in which case the orbital period will not be used.
 
 ---
 
@@ -50,13 +50,16 @@ or with additional options, for example
 
 ```
 python main.py --save_plot_population --fit-type simple
+python main.py --no-rotation --no-HJ --which_planets seidel26
+python main.py --no-HJ --which_planets my_own --my_planet_params 1.2 0.1 1.5 0.1 1 1e-6 1e9 1e8
 ```
 
-or
+To reproduce the results in Elias-López et al 2026:
 
-```bash
-python main.py --no-HJ --which_planets seidel26
-python main.py --no-HJ --which_planets my_own --my_planet_params 1.2 0.1 1.5 0.1 1 1e-6 1e9 1e8
+```
+python main.py --save_plot_population (by default fit_type=gaussian, N_gauss_fits=10000, which_cut=radius cut)
+python main.py --no-HJ --which_planets seidel26 --add_systematic_error
+python main.py --no-HJ --which_planets cauley19 --add_systematic_error
 ```
 
 ---

@@ -15,6 +15,8 @@ import radial_functions
 path_sims = "/home/albert/mesa_runs/population_grid/"
 # Path to the run directories
 
+dip_factor = 1/np.sqrt(2)/2
+
 fluxes = np.array([1.00000000e+07, 1.25892541e+07, 1.58489319e+07, 1.99526231e+07,
                     2.51188643e+07, 3.16227766e+07, 3.98107171e+07, 5.01187234e+07,
                     6.30957344e+07, 7.94328235e+07, 1.00000000e+08, 1.25892541e+08,
@@ -77,7 +79,7 @@ for index_mass, mass in enumerate(masses):
                 dyn_radius = data.history_data.data("dyn_radius")[age_loc]/6.957e+10
                 radius_factor = dyn_radius/10**data.history_data.data("log_R")[age_loc]
                 bscaling = data.history_data.data("b_scaling")[age_loc]
-                bscaling_dip_surf = bscaling*radius_factor**3/np.sqrt(2)/2
+                bscaling_dip_surf = bscaling*radius_factor**3*dip_factor
                 dyn_lum = data.history_data.data("dyn_luminosity")[age_loc]*3.846e33
                 #print("R = " + f"{radius:.2f}" + " RJ, Bdyn = " + f"{bscaling:.2f}" + " G, Bdyn,surf = " + f"{bscaling_dip_surf:.2f}" + " G" )
                 #print("----------------------------------------------------------------------------------------" )
@@ -116,7 +118,7 @@ for index_mass, mass in enumerate(masses):
                 dyn_radius = data.history_data.data("dyn_radius")[age_loc]/6.957e+10
                 radius_factor = dyn_radius/10**data.history_data.data("log_R")[age_loc]
                 bscaling = data.history_data.data("b_scaling")[age_loc]
-                bscaling_dip_surf = bscaling*radius_factor**3/np.sqrt(2)/2
+                bscaling_dip_surf = bscaling*radius_factor**3*dip_factor
                 dyn_lum = data.history_data.data("dyn_luminosity")[age_loc]*3.846e33
                 #print("R = " + f"{radius:.2f}" + " RJ, Bdyn = " + f"{bscaling:.2f}" + " G, Bdyn,surf = " + f"{bscaling_dip_surf:.2f}" + " G" )
                 #print("----------------------------------------------------------------------------------------" )
