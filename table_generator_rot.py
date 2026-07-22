@@ -3,96 +3,14 @@ import sys
 import os
 import numpy as np
 import mesa_reader
+# Name of the current directory
+current = os.path.dirname(os.path.realpath(__file__))
+# Getthe parent directory name
+parent = os.path.dirname(current)
+# Add the parent directory to the sys.path
+sys.path.append(parent)
 
-# Calculate the convective velocity when rotation is taken into account, following Fuentes 2022, i.e. v_conv_rot = v_conv * (v_conv/2/H_p/omega)**(1/5)
-def get_v_conv_rot(profile, frequency):
-    conv_vel_rot = profile.conv_vel*(profile.conv_vel/2/profile.scale_height/6.957e+10/frequency)**(1/5)
-    return conv_vel_rot
-
-# Calculate the convective flux
-def get_conv_heat_flux(profile, conv_vel):
-    np.seterr(divide='ignore')
-    conv_heat_flux=2*profile.cp*profile.temperature*\
-                    profile.rho**2*conv_vel**3/\
-                    profile.pressure/profile.chiT*profile.chiRho*\
-                    2/profile.alpha_mlt
-    return conv_heat_flux
-
-# Calculate the turnover timescale, i.e. t_turn = H_p/v_conv, where H_p is the pressure scale height
-def get_t_turn(profile, conv_vel):
-    np.seterr(divide='ignore')
-    t_turn = np.divide(profile.scale_height,
-                        conv_vel,
-                        out=np.zeros_like(profile.scale_height),
-                        where=conv_vel!=0)*6.957e+10/3600/24
-    return t_turn
-
-# Calculate the Reynolds magnetic number, i.e. Rm = sigma*mu0*L*v_conv, where L is the length scale of the system, 
-# which we take as the density scale height H_rho or shell thickness, and sigma is the conductivity
-def get_reynolds_mag(profile, conv_vel, type_reynolds="local", loc_rcb=None):
-    if type_reynolds=="local":
-        length = profile.scale_height*6.957e+10/1e2
-    elif type_reynolds=="global":
-        radius_convection = profile.radius[loc_rcb:]
-        length = np.abs((radius_convection[-1]-radius_convection[0]))*6.957e+10/1e2
-    reynolds_mag = profile.sigma*1.2566e-6*length*conv_vel/1e2
-    return reynolds_mag
-
-# Calculate the rms magnetic field using the Christensen 2009 scaling law, i.e. 
-# B_rms = (2*mu0*0.63*1*(rho_mean)**(1/3)*F_factor*(q_0/1e3)**(2/3))**(1/2), where F_factor is a factor 
-# that takes into account the radial distribution of the convective flux and the density, and q_0 is 
-# the convective flux at the outer boundary of the dynamo.
-def get_b_field(profile, loc_dyn, frequency, mlt_conv=True):
-
-    radius_dynamo = profile.radius[loc_dyn:]
-    r_dyn = radius_dynamo[0]*6.957e+10
-    r_i = radius_dynamo[-1]*6.957e+10
-    
-    volume = 4 * np.pi * (r_dyn**3 - r_i**3) / 3 # dynamo shell volume
-    rho_mean = (profile.mass[loc_dyn] - profile.mass[-1])*1.989e+33 / volume
-
-    if mlt_conv == True:
-        conv_vel = get_v_conv_rot(profile, frequency)
-    elif mlt_conv == False:
-        conv_vel = profile.conv_vel
-
-    conv_heat_flux = get_conv_heat_flux(profile, conv_vel)
-    conv_heat_flux_dyn_surf = 1e6 #conv_heat_flux[loc_dyn]
-
-    dynamo_shell_thickness = r_dyn - r_i 
-    scale_height_rho = np.minimum(profile.scale_height*6.957e+10,
-                                  dynamo_shell_thickness*np.ones(len(profile.scale_height)))
-
-    scale_height_t = profile.pressure / (profile.rho * profile.grav * profile.grada)
-    
-    # To calculate F_factor by integrating over the dynamo region it can be done by integrating the mass differential rather than the radius.
-    dm = -np.ediff1d(profile.mass, to_end=0)*1.989e+33
-    F_factor = (scale_height_rho/scale_height_t*conv_heat_flux/conv_heat_flux_dyn_surf)**(2/3)*(profile.rho/rho_mean)**(1/3)*dm/profile.rho
-    # Alternative, it can be done with the radius, with almost the same result
-    #dr = -np.ediff1d(profile.radius, to_end=0)*6.957e+10
-    #F_factor = (scale_height_rho/scale_height_t*conv_heat_flux/conv_heat_flux_dyn_surf)**(2/3)*(profile.rho/rho_mean)**(1/3)*4*np.pi*profile.radius**2*6.957e+10**2*dr
-    
-    F_factor = np.sum(F_factor[loc_dyn:])/volume
-
-    b_rms_dyn = 2 * 1.256637e-6 * 0.63 * 1 * (1e3*rho_mean)**(1.0/3.0) * F_factor * (conv_heat_flux_dyn_surf/1e3)**(2.0/3.0)
-    b_rms_dyn = np.sqrt(b_rms_dyn)*1e4
-
-    return b_rms_dyn
-
-
-def get_b_field_surf(profile, b_rms_dyn, loc_dyn):
-
-    radius_dynamo = profile.radius[loc_dyn]
-    radius_surf = profile.radius[0]
-    radius_factor = radius_dynamo/radius_surf
-    b_dip_surf = b_rms_dyn*radius_factor**3/np.sqrt(2)/2
-
-    #simple_factor = 1-.17/1
-    #print(radius_factor**3, simple_factor**3)
-
-    return b_dip_surf
-
-
+import radial_functions
 
 # Hard-drive location (depends on the computer)
 path_sims = "/home/albert/mesa_runs/population_grid/"
@@ -184,16 +102,16 @@ for index_mass, mass in enumerate(masses):
                     if alphas_MLT == None: setattr(profile, "alpha_mlt", 2)
                     else: setattr(profile, "alpha_mlt", alphas_MLT)
 
-                    conv_vel_rot  = get_v_conv_rot(profile, frequency)
-                    rm_profile_rot = get_reynolds_mag(profile, conv_vel_rot, type_reynolds="local")
+                    conv_vel_rot  = radial_functions.get_v_conv_rot(profile, frequency)
+                    rm_profile_rot = radial_functions.get_reynolds_mag(profile, conv_vel_rot, type_reynolds="local")
                     try: loc_dyn_rm50_rot = np.where(rm_profile_rot - rm_threshold < 0, rm_profile_rot - rm_threshold, -np.inf).argmax()
                     except: loc_dyn_rm50_rot = 0
                     
                     try: loc_dyn = np.where(profile.pressure/1e6 - p_threshold < 0, profile.pressure/1e6 - p_threshold, -np.inf).argmax()
                     except: loc_dyn = 0
 
-                    bscaling = get_b_field(profile, loc_dyn_rm50_rot, frequency, mlt_conv=True)
-                    bscaling_dip_surf = get_b_field_surf(profile, bscaling, loc_dyn_rm50_rot)
+                    bscaling = radial_functions.get_b_field(profile, loc_dyn_rm50_rot, frequency, mlt_conv=True)
+                    bscaling_dip_surf = radial_functions.get_b_field_surf(profile, bscaling, loc_dyn_rm50_rot)
 
                 except:
                     print("Planet died")
@@ -235,8 +153,8 @@ for index_mass, mass in enumerate(masses):
 
                     try: loc_dyn = np.where(profile.pressure/1e6 - p_threshold < 0, profile.pressure/1e6 - p_threshold, -np.inf).argmax()
                     except: loc_dyn = 0
-                    bscaling = get_b_field(profile, loc_dyn, frequency, mlt_conv=True)
-                    bscaling_dip_surf = get_b_field_surf(profile, bscaling, loc_dyn)
+                    bscaling = radial_functions.get_b_field(profile, loc_dyn, frequency, mlt_conv=True)
+                    bscaling_dip_surf = radial_functions.get_b_field_surf(profile, bscaling, loc_dyn)
                     
                 except:
                     print("Planet died")

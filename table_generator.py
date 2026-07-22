@@ -15,7 +15,7 @@ import radial_functions
 path_sims = "/home/albert/mesa_runs/population_grid/"
 # Path to the run directories
 
-dip_factor = 1/np.sqrt(2)/2
+dip_factor = 1/np.sqrt(2)
 
 fluxes = np.array([1.00000000e+07, 1.25892541e+07, 1.58489319e+07, 1.99526231e+07,
                     2.51188643e+07, 3.16227766e+07, 3.98107171e+07, 5.01187234e+07,

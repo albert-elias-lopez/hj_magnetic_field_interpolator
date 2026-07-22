@@ -19,8 +19,8 @@ if __name__ == "__main__":
     description="Inflated HJ magnetic field estimator:",
     epilog="""
             Examples:
-            python main.py --no-rotation
-            python main.py --save_plot_population --fit-type simple
+            python main.py --no_rotation
+            python main.py --save_plot_population --fit_type simple
             python main.py --no-rotation --no-HJ --which_planets seidel26
             python main.py --no-HJ --which_planets my_own --my_planet_params 1.2 0.1 1.5 0.1 1 1e-6 1e9 1e8
 
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     # By default, the program will use the magnetic field tables that use the rotation factor. 
     # If the flag --no-rotation is used, it will use the simpler tables.    
     parser.set_defaults(rotation=True)
-    parser.add_argument("--no-rotation", dest="rotation", action="store_false",
+    parser.add_argument("--no_rotation", dest="rotation", action="store_false",
                         help="Disable rotation.")
     
     # Which planets to evaluate. If the flag --no-HJ is not used, the program will evaluate the gas giant exoplanet population. 
