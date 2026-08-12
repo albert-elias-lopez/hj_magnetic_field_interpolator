@@ -1,8 +1,8 @@
 import sys
 import os
 import numpy as np
-import pylab as plt
 import matplotlib
+import matplotlib.pyplot as plt
 import table_predictions_save
 
 def plot_output_grid(masses,
@@ -375,49 +375,52 @@ def plot_population(planets,
                 color_irr = "k",
                 error_sym=False,
                 rotation=False):
-    
-    if len(valid_mask) == 0: 
+
+    # Assume that there has been a cut, thus the boolean cut=True. If the valid_mask is empty, then there has been no cut, thus
+    cut = True
+    if len(valid_mask) == 0:
+        cut = False
         ones = np.ones(planets.n_planets)
         valid_mask = [i < 2 for i in ones]
 
-    heat_eff_inner_est      = planets.heat_eff_inner_est[valid_mask]
-    heat_eff_inner_est_err  = planets.heat_eff_inner_est_err[valid_mask]
-    brms_inner_est          = planets.brms_inner_est[valid_mask]
-    brms_inner_est_err      = planets.brms_inner_est_err[valid_mask]
-    brms_inner_surf_est     = planets.brms_inner_surf_est[valid_mask]
-    brms_inner_surf_est_err = planets.brms_inner_surf_est_err[valid_mask]
-    heat_eff_outer_est      = planets.heat_eff_outer_est[valid_mask]
-    heat_eff_outer_est_err  = planets.heat_eff_outer_est_err[valid_mask]
-    brms_outer_est          = planets.brms_outer_est[valid_mask]
-    brms_outer_est_err      = planets.brms_outer_est_err[valid_mask]
-    brms_outer_surf_est     = planets.brms_outer_surf_est[valid_mask]
-    brms_outer_surf_est_err = planets.brms_outer_surf_est_err[valid_mask]
-    brms_irr_est            = planets.brms_irr_est[valid_mask]
-    brms_irr_est_err        = planets.brms_irr_est_err[valid_mask]
-    brms_irr_surf_est       = planets.brms_irr_surf_est[valid_mask]
-    brms_irr_surf_est_err   = planets.brms_irr_surf_est_err[valid_mask]
-    radius_irr_est          = planets.radius_irr_est[valid_mask]
-    radius_irr_est_err      = planets.radius_irr_est_err[valid_mask]
-    mass_obs                = planets.mass_obs[valid_mask]
-    mass_obs_err            = planets.mass_obs_err[valid_mask]
-    flux_obs                = planets.flux_obs[valid_mask]
-    flux_obs_err            = planets.flux_obs_err[valid_mask]
-    temp_eff_obs            = planets.temp_eff_obs[valid_mask]
-    radius_obs              = planets.radius_obs[valid_mask]
-    radius_obs_err          = planets.radius_obs_err[valid_mask]
-    orbital_period_obs      = planets.orbital_period_obs[valid_mask]
-    orbital_period_obs_err  = planets.orbital_period_obs_err[valid_mask]
+    heat_eff_inner_est      = planets.heat_eff_inner_est
+    heat_eff_inner_est_err  = planets.heat_eff_inner_est_err
+    brms_inner_est          = planets.brms_inner_est
+    brms_inner_est_err      = planets.brms_inner_est_err
+    brms_inner_surf_est     = planets.brms_inner_surf_est
+    brms_inner_surf_est_err = planets.brms_inner_surf_est_err
+    heat_eff_outer_est      = planets.heat_eff_outer_est
+    heat_eff_outer_est_err  = planets.heat_eff_outer_est_err
+    brms_outer_est          = planets.brms_outer_est
+    brms_outer_est_err      = planets.brms_outer_est_err
+    brms_outer_surf_est     = planets.brms_outer_surf_est
+    brms_outer_surf_est_err = planets.brms_outer_surf_est_err
+    brms_irr_est            = planets.brms_irr_est
+    brms_irr_est_err        = planets.brms_irr_est_err
+    brms_irr_surf_est       = planets.brms_irr_surf_est
+    brms_irr_surf_est_err   = planets.brms_irr_surf_est_err
+    radius_irr_est          = planets.radius_irr_est
+    radius_irr_est_err      = planets.radius_irr_est_err
+    mass_obs                = planets.mass_obs
+    mass_obs_err            = planets.mass_obs_err
+    flux_obs                = planets.flux_obs
+    flux_obs_err            = planets.flux_obs_err
+    temp_eff_obs            = planets.temp_eff_obs
+    radius_obs              = planets.radius_obs
+    radius_obs_err          = planets.radius_obs_err
+    orbital_period_obs      = planets.orbital_period_obs
+    orbital_period_obs_err  = planets.orbital_period_obs_err
     
     label_inner = r"$\epsilon_{\rm inner}$" #r"$B_{\rm dip, \, inner}$"
     label_outer = r"$\epsilon_{\rm outer}$" #r"$B_{\rm dip, \, outer}$"
     label_irr = r"$\epsilon = 0$" #r"$B_{\rm irr}$"
 
     if rotation:
-        if name_cut == None: filename_ending = "_rot"
-        else: filename_ending = name_cut + "_rot"
-    else:
         if name_cut == None: filename_ending = ""
         else: filename_ending = name_cut
+    else:
+        if name_cut == None: filename_ending = "_no_rot"
+        else: filename_ending = name_cut + "_no_rot"
     filename_ending += ".png"
 
     if not error_sym:
@@ -431,15 +434,15 @@ def plot_population(planets,
         brms_irr_surf_est_err = np.transpose(brms_irr_surf_est_err)
     
     if rotation:
-        if not os.path.exists("./plots/general_predictions_rot"):
-            os.makedirs("./plots/general_predictions_rot")
-        if not os.path.exists("./plots/general_predictions_comparison_rot"):
-            os.makedirs("./plots/general_predictions_comparison_rot")
-    else:
         if not os.path.exists("./plots/general_predictions"):
             os.makedirs("./plots/general_predictions")
         if not os.path.exists("./plots/general_predictions_comparison"):
             os.makedirs("./plots/general_predictions_comparison")
+    else:
+        if not os.path.exists("./plots/general_predictions_no_rot"):
+            os.makedirs("./plots/general_predictions_no_rot")
+        if not os.path.exists("./plots/general_predictions_comparison_no_rot"):
+            os.makedirs("./plots/general_predictions_comparison_no_rot")
 
     fontsize = 32
     plt.rcParams['text.usetex'] = True
@@ -450,11 +453,10 @@ def plot_population(planets,
     plt.rcParams["figure.autolayout"] = True
     plt.rcParams["mathtext.fontset"] = "cm"
 
-    if rotation: path_general = "plots/general_predictions_rot/"
-    else: path_general = "plots/general_predictions/"
-    if rotation: path_comparison = "plots/general_predictions_comparison_rot/"
-    else: path_comparison = "plots/general_predictions_comparison/"
-
+    if rotation: path_general = "plots/general_predictions/"
+    else: path_general = "plots/general_predictions_no_rot/"
+    if rotation: path_comparison = "plots/general_predictions_comparison/"
+    else: path_comparison = "plots/general_predictions_comparison_no_rot/"
 
 
     filenames = ["bdyn_inner_vs_flux", 
@@ -474,12 +476,19 @@ def plot_population(planets,
 
         plt.clf()
         ax = plt.axes()
-        cs = ax.scatter(flux_obs,
-                        variables[index_variable],
-                        c=mass_obs,
-                        s=100*radius_obs**2,
+        cs = ax.scatter(flux_obs[valid_mask],
+                        variables[index_variable][valid_mask],
+                        c=mass_obs[valid_mask],
+                        s=100*radius_obs[valid_mask]**2,
                         cmap='viridis',
                         alpha=.5)
+        if cut:
+            ax.scatter(flux_obs[~valid_mask],
+                            variables[index_variable][~valid_mask],
+                            c=mass_obs[~valid_mask],
+                            s=100*radius_obs[~valid_mask]**2,
+                            cmap='viridis',
+                            alpha=.1)
         ax.set_xscale('log')
         ax.set_yscale('log')
         ax.set_xlabel(r"$F\mathrm{_{\rm irr} \, (erg \, cm^{-2} \, s^{-1})}$", fontsize=int(fontsize))
@@ -490,18 +499,31 @@ def plot_population(planets,
 
         plt.clf()
         ax = plt.axes()
-        ax.errorbar(flux_obs,
-                    variables[index_variable],
-                    xerr=flux_obs_err,
-                    yerr=variables_err[index_variable],
+        ax.errorbar(flux_obs[valid_mask],
+                    variables[index_variable][valid_mask],
+                    xerr=flux_obs_err[valid_mask],
+                    yerr=variables_err[index_variable][:,valid_mask],
                     zorder=1,alpha=.5,
                     ls="none",ecolor="k")
-        cs = ax.scatter(flux_obs,
-                        variables[index_variable],
-                        c=mass_obs,
-                        s=100*radius_obs**2,
+        cs = ax.scatter(flux_obs[valid_mask],
+                        variables[index_variable][valid_mask],
+                        c=mass_obs[valid_mask],
+                        s=100*radius_obs[valid_mask]**2,
                         cmap='viridis',
                         alpha=.5)
+        if cut:
+            ax.errorbar(flux_obs[~valid_mask],
+                        variables[index_variable][~valid_mask],
+                        xerr=flux_obs_err[~valid_mask],
+                        yerr=variables_err[index_variable][:,~valid_mask],
+                        zorder=1,alpha=.1,
+                        ls="none",ecolor="k")
+            ax.scatter(flux_obs[~valid_mask],
+                            variables[index_variable][~valid_mask],
+                            c=mass_obs[~valid_mask],
+                            s=100*radius_obs[~valid_mask]**2,
+                            cmap='viridis',
+                            alpha=.1)
         ax.set_xscale('log')
         ax.set_yscale('log')
         ax.set_xlabel(r"$F\mathrm{_{\rm irr} \, (erg \, cm^{-2} \, s^{-1})}$", fontsize=int(fontsize))
@@ -535,12 +557,19 @@ def plot_population(planets,
         y_lims = [0.9,2.25]
         plt.clf()
         ax = plt.axes()
-        cs = ax.scatter(variables[index_variable],
-                        radius_obs,
-                        c=colors[index_variable],
-                        s=100*radius_obs**2,
+        cs = ax.scatter(variables[index_variable][valid_mask],
+                        radius_obs[valid_mask],
+                        c=colors[index_variable][valid_mask],
+                        s=100*radius_obs[valid_mask]**2,
                         cmap='viridis',
-                        alpha=.7)
+                        alpha=.5)
+        if cut:
+            ax.scatter(variables[index_variable][~valid_mask],
+                            radius_obs[~valid_mask],
+                            c=colors[index_variable][~valid_mask],
+                            s=100*radius_obs[~valid_mask]**2,
+                            cmap='viridis',
+                            alpha=.1)
         ax.set_xscale('log')
         ax.set_ylim(y_lims)
         ax.set_xlabel(x_labels[index_variable], fontsize=int(fontsize))
@@ -551,18 +580,31 @@ def plot_population(planets,
 
         plt.clf()
         ax = plt.axes()
-        ax.errorbar(variables[index_variable],
-                    radius_obs,
-                    xerr=variables_err[index_variable],
-                    yerr=radius_obs_err,
+        ax.errorbar(variables[index_variable][valid_mask],
+                    radius_obs[valid_mask],
+                    xerr=variables_err[index_variable][valid_mask],
+                    yerr=radius_obs_err[valid_mask],
                     zorder=1,alpha=.5,
                     ls="none",ecolor="k")
-        cs = ax.scatter(variables[index_variable],
-                        radius_obs,
-                        c=colors[index_variable],
-                        s=100*radius_obs**2,
+        cs = ax.scatter(variables[index_variable][valid_mask],
+                        radius_obs[valid_mask],
+                        c=colors[index_variable][valid_mask],
+                        s=100*radius_obs[valid_mask]**2,
                         cmap='viridis',
-                        alpha=.7)
+                        alpha=.5)
+        if cut:
+            ax.errorbar(variables[index_variable][~valid_mask],
+                        radius_obs[~valid_mask],
+                        xerr=variables_err[index_variable][~valid_mask],
+                        yerr=radius_obs_err[~valid_mask],
+                        zorder=1,alpha=.1,
+                        ls="none",ecolor="k")
+            ax.scatter(variables[index_variable][~valid_mask],
+                            radius_obs[~valid_mask],
+                            c=colors[index_variable][~valid_mask],
+                            s=100*radius_obs[~valid_mask]**2,
+                            cmap='viridis',
+                            alpha=.1)
         ax.set_xscale('log')
         ax.set_ylim(y_lims)
         ax.set_xlabel(x_labels[index_variable], fontsize=int(fontsize))
@@ -593,12 +635,19 @@ def plot_population(planets,
         x_lims = [0.9,2.25]
         plt.clf()
         ax = plt.axes()
-        cs = ax.scatter(radius_obs,
-                        variables[index_variable],
-                        c=mass_obs,
-                        s=20*np.sqrt(flux_obs/1e7),
+        cs = ax.scatter(radius_obs[valid_mask],
+                        variables[index_variable][valid_mask],
+                        c=mass_obs[valid_mask],
+                        s=20*np.sqrt(flux_obs[valid_mask]/1e7),
                         cmap='viridis',
-                        alpha=.7)
+                        alpha=.5)
+        if cut:
+            ax.scatter(radius_obs[~valid_mask],
+                            variables[index_variable][~valid_mask],
+                            c=mass_obs[~valid_mask],
+                            s=20*np.sqrt(flux_obs[~valid_mask]/1e7),
+                            cmap='viridis',
+                            alpha=.1)
         #ax.set_yscale('log')
         ax.set_xlim(x_lims)
         ax.set_xlabel(r"$R_P \, \mathrm{(R_J)}$", fontsize=int(fontsize))
@@ -609,18 +658,31 @@ def plot_population(planets,
 
         plt.clf()
         ax = plt.axes()
-        ax.errorbar(radius_obs,
-                    variables[index_variable],
-                    xerr=radius_obs_err,
-                    yerr=variables_err[index_variable],
+        ax.errorbar(radius_obs[valid_mask],
+                    variables[index_variable][valid_mask],
+                    xerr=radius_obs_err[valid_mask],
+                    yerr=variables_err[index_variable][:,valid_mask],
                     zorder=1,alpha=.5,
                     ls="none",ecolor="k")
-        cs = ax.scatter(radius_obs,
-                        variables[index_variable],
-                        c=mass_obs,
-                        s=20*np.sqrt(flux_obs/1e7),
+        cs = ax.scatter(radius_obs[valid_mask],
+                        variables[index_variable][valid_mask],
+                        c=mass_obs[valid_mask],
+                        s=20*np.sqrt(flux_obs[valid_mask]/1e7),
                         cmap='viridis',
-                        alpha=.7)
+                        alpha=.5)
+        if cut:
+            ax.errorbar(radius_obs[~valid_mask],
+                        variables[index_variable][~valid_mask],
+                        xerr=radius_obs_err[~valid_mask],
+                        yerr=variables_err[index_variable][:,~valid_mask],
+                        zorder=1,alpha=.1,
+                        ls="none",ecolor="k")
+            ax.scatter(radius_obs[~valid_mask],
+                            variables[index_variable][~valid_mask],
+                            c=mass_obs[~valid_mask],
+                            s=20*np.sqrt(flux_obs[~valid_mask]/1e7),
+                            cmap='viridis',
+                            alpha=.1)
         #ax.set_yscale('log')
         ax.set_xlim(x_lims)
         ax.set_xlabel(r"$R_P \, \mathrm{(R_J)}$", fontsize=int(fontsize))
@@ -630,56 +692,95 @@ def plot_population(planets,
         plt.savefig(path_general + filenames[index_variable] + "_err" + filename_ending)
 
 
+    def get_thorn18_eff(flux, eps0 = 2.37/100, mu = 0.14, sigma =0.37):
+        return eps0*np.exp(-(np.log10(flux/1e9)-mu)**2/(2* sigma**2))
 
 
     plt.clf()
     ax = plt.axes()
-    cs = ax.scatter(flux_obs,
-                    100*heat_eff_inner_est,
-                    c=mass_obs,
-                    s=100*radius_obs**2,
-                    cmap='viridis',
-                    alpha=.7)
+    cs = ax.scatter(flux_obs[valid_mask],
+                    100*heat_eff_inner_est[valid_mask],
+                    c="k",
+                    #c=mass_obs[valid_mask],
+                    s=100*radius_obs[valid_mask]**2,
+                    #cmap='viridis',
+                    alpha=.5)
+    plt.plot(np.logspace(7,10.5,100),
+             100*get_thorn18_eff(np.logspace(7,10.5,100)),
+             c="k",ls="--", linewidth=3, alpha=.5)
+    if cut:
+        ax.scatter(flux_obs[~valid_mask],
+                        100*heat_eff_inner_est[~valid_mask],
+                        c="k",
+                        #c=mass_obs[~valid_mask],
+                        s=100*radius_obs[~valid_mask]**2,
+                        #cmap='viridis',
+                        alpha=.1)
     ax.set_xscale('log')
     #ax.set_yscale('log')
     ax.set_ylim(-0.05,4)
     ax.set_xlabel(r"$F\mathrm{_{\rm irr} \, (erg \, cm^{-2} \, s^{-1})}$", fontsize=int(fontsize))
     ax.set_ylabel(r"$\mathrm{\epsilon (\%)}$", fontsize=int(fontsize))
-    cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
-    cbar.set_label(r"$M \, (\mathrm{M_J})$",fontsize=int(fontsize),labelpad=5)
+    #cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
+    #cbar.set_label(r"$M \, (\mathrm{M_J})$",fontsize=int(fontsize),labelpad=5)
     plt.savefig(path_general + "/heat_eff_vs_flux" + filename_ending)
 
     plt.clf()
     ax = plt.axes()
-    ax.errorbar(flux_obs,
-                100*heat_eff_inner_est,
-                xerr=flux_obs_err,
-                yerr=100*heat_eff_inner_est_err, # [:, valid_mask]
+    ax.errorbar(flux_obs[valid_mask],
+                100*heat_eff_inner_est[valid_mask],
+                xerr=flux_obs_err[valid_mask],
+                yerr=100*heat_eff_inner_est_err[:,valid_mask],
                 zorder=1,alpha=.5,
                 ls="none",ecolor="k")
-    cs = ax.scatter(flux_obs,
-                    100*heat_eff_inner_est,
-                    c=mass_obs,
-                    s=100*radius_obs**2,
-                    cmap='viridis',
-                    alpha=.7)
+    cs = ax.scatter(flux_obs[valid_mask],
+                    100*heat_eff_inner_est[valid_mask],
+                    c="k",
+                    #c=mass_obs[valid_mask],
+                    s=100*radius_obs[valid_mask]**2,
+                    #cmap='viridis',
+                    alpha=.5)
+    plt.plot(np.logspace(7,10.5,100),
+             100*get_thorn18_eff(np.logspace(7,10.5,100)),
+             c="k",ls="--", linewidth=3, alpha=.5)
+    if cut:
+        ax.errorbar(flux_obs[~valid_mask],
+                    100*heat_eff_inner_est[~valid_mask],
+                    xerr=flux_obs_err[~valid_mask],
+                    yerr=100*heat_eff_inner_est_err[:,~valid_mask],
+                    zorder=1,alpha=.1,
+                    ls="none",ecolor="k")
+        ax.scatter(flux_obs[~valid_mask],
+                        100*heat_eff_inner_est[~valid_mask],
+                        c="k",
+                        #c=mass_obs[~valid_mask],
+                        s=100*radius_obs[~valid_mask]**2,
+                        #cmap='viridis',
+                        alpha=.1)
     ax.set_xscale('log')
     #ax.set_yscale('log')
     ax.set_ylim(-0.05,4)
     ax.set_xlabel(r"$F\mathrm{_{\rm irr} \, (erg \, cm^{-2} \, s^{-1})}$", fontsize=int(fontsize))
     ax.set_ylabel(r"$\mathrm{\epsilon (\%)}$", fontsize=int(fontsize))
-    cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
-    cbar.set_label(r"$M \, (\mathrm{M_J})$",fontsize=int(fontsize),labelpad=5)
+    #cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
+    #cbar.set_label(r"$M \, (\mathrm{M_J})$",fontsize=int(fontsize),labelpad=5)
     plt.savefig(path_general + "/heat_eff_vs_flux_err" + filename_ending)
 
     plt.clf()
     ax = plt.axes()
-    cs = ax.scatter(mass_obs,
-                    100*heat_eff_inner_est,
-                    c=np.log10(flux_obs),
-                    s=100*radius_obs**2,
+    cs = ax.scatter(mass_obs[valid_mask],
+                    100*heat_eff_inner_est[valid_mask],
+                    c=np.log10(flux_obs[valid_mask]),
+                    s=100*radius_obs[valid_mask]**2,
                     cmap='viridis',
-                    alpha=.7)
+                    alpha=.5)
+    if cut:
+        ax.scatter(mass_obs[~valid_mask],
+                        100*heat_eff_inner_est[~valid_mask],
+                        c=np.log10(flux_obs[~valid_mask]),
+                        s=100*radius_obs[~valid_mask]**2,
+                        cmap='viridis',
+                        alpha=.1)
     ax.set_xscale('log')
     #ax.set_yscale('log')
     ax.set_ylim(-0.05,4)
@@ -691,18 +792,31 @@ def plot_population(planets,
 
     plt.clf()
     ax = plt.axes()
-    ax.errorbar(mass_obs,
-                100*heat_eff_inner_est,
-                xerr=mass_obs_err,
-                yerr=100*heat_eff_inner_est_err, # [:, valid_mask]
+    ax.errorbar(mass_obs[valid_mask],
+                100*heat_eff_inner_est[valid_mask],
+                xerr=mass_obs_err[valid_mask],
+                yerr=100*heat_eff_inner_est_err[:,valid_mask],
                 zorder=1,alpha=.5,
                 ls="none",ecolor="k")
-    cs = ax.scatter(mass_obs,
-                    100*heat_eff_inner_est,
-                    c=np.log10(flux_obs),
-                    s=100*radius_obs**2,
+    cs = ax.scatter(mass_obs[valid_mask],
+                    100*heat_eff_inner_est[valid_mask],
+                    c=np.log10(flux_obs[valid_mask]),
+                    s=100*radius_obs[valid_mask]**2,
                     cmap='viridis',
-                    alpha=.7)
+                    alpha=.5)
+    if cut:
+        ax.errorbar(mass_obs[~valid_mask],
+                    100*heat_eff_inner_est[~valid_mask],
+                    xerr=mass_obs_err[~valid_mask],
+                    yerr=100*heat_eff_inner_est_err[:,~valid_mask],
+                    zorder=1,alpha=.1,
+                    ls="none",ecolor="k")
+        ax.scatter(mass_obs[~valid_mask],
+                        100*heat_eff_inner_est[~valid_mask],
+                        c=np.log10(flux_obs[~valid_mask]),
+                        s=100*radius_obs[~valid_mask]**2,
+                        cmap='viridis',
+                        alpha=.1)
     ax.set_xscale('log')
     #ax.set_yscale('log')
     ax.set_ylim(-0.05,4)
@@ -711,8 +825,6 @@ def plot_population(planets,
     cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
     cbar.set_label(r"$\log_{10}(F{\rm irr}\mathrm{_(1 \, \mathrm{erg} \, \mathrm{cm}^{-2} \, \mathrm{s}^{-1})}$",fontsize=int(fontsize),labelpad=5)
     plt.savefig(path_general + "/heat_eff_vs_mass_err" + filename_ending)
-
-
 
 
     surf_grav = 6.67e-11*1.8981e27/6.9911e7**2  *mass_obs/radius_obs**2 # N (m/kg)^2
@@ -798,7 +910,7 @@ def plot_population(planets,
                         True,
                         False,
                         True,
-                        False,
+                        True,
                         False,
                         False,
                         False]
@@ -827,8 +939,8 @@ def plot_population(planets,
                        r"$M_P \, \mathrm{(M_J)}$",
                        r"$g_{\rm surf} \, \mathrm{(m \, s^{-2})}$",
                        r"$\epsilon F_{\rm irr}$",
-                       r"$\mathrm{23} \, M_P^{1/6} \, R_P^{-7/6} \, (\epsilon_{\rm inner} \pi R_P^2 F_{\rm irr})^{1/3}$",
-                       r"$\mathrm{23} \, M_P^{1/6} \, R_P^{-7/6} \, (\epsilon_{\rm Th18} \pi R_P^2 F_{\rm irr})^{1/3}$"]
+                       r"$B_{\rm rms, dyn}^{\rm R09}(\epsilon_{\rm inner})$",
+                       r"$B_{\rm rms, dyn}^{\rm R09}(\epsilon_{\rm Th18})$"]
 
     for index_variable in range(0,len(variables_inner)):
         
@@ -841,31 +953,31 @@ def plot_population(planets,
                         variables_outer[index_variable][index_planet]])
             y = np.array([brms_inner_est[index_planet],
                         brms_outer_est[index_planet]])
-            ax.plot(x,
-                    y,
-                    alpha=.5,
-                    color = "k",
-                    ls = ":")
+            ax.plot(x, y, alpha=.5, color = "k", ls = ":")
             
-        ax.scatter(variables_inner[index_variable],
-                    brms_inner_est,
-                    s=markersize,
-                    alpha=.5,
-                    color = color_inner,
-                    label = label_inner)
+        ax.scatter(variables_inner[index_variable][valid_mask],
+                    brms_inner_est[valid_mask],
+                    s=markersize[valid_mask], alpha=.5, color = color_inner, label = label_inner)
         if print_irr_models[index_variable]:
-            ax.scatter(variables_inner[index_variable],
-                        brms_irr_est,
-                        s=50,
-                        alpha=.5,
-                        color = color_irr,
-                        label = label_irr)
-        ax.scatter(variables_outer[index_variable],
-                    brms_outer_est,
-                    s=markersize,
-                    alpha=.5,
-                    color = color_outer,
-                    label = label_outer)
+            ax.scatter(variables_inner[index_variable][valid_mask],
+                        brms_irr_est[valid_mask],
+                        s=50, alpha=.5, color = color_irr, label = label_irr)
+        ax.scatter(variables_outer[index_variable][valid_mask],
+                    brms_outer_est[valid_mask],
+                    s=markersize[valid_mask], alpha=.5, color = color_outer, label = label_outer)
+        
+        if cut:
+            ax.scatter(variables_inner[index_variable][~valid_mask],
+                            brms_inner_est[~valid_mask],
+                            s=markersize[~valid_mask], alpha=.5, color = color_inner_cut)
+            if print_irr_models[index_variable]:
+                ax.scatter(variables_inner[index_variable][~valid_mask],
+                            brms_irr_est[~valid_mask],
+                            s=50, alpha=.2, color = color_irr)
+            ax.scatter(variables_outer[index_variable][~valid_mask],
+                        brms_outer_est[~valid_mask],
+                        s=markersize[~valid_mask], alpha=.5, color = color_outer_cut)
+        
         if variable_names[index_variable] != "radius": ax.set_xscale('log')
         ax.set_yscale('log')
         if print_power_laws[index_variable]:
@@ -890,26 +1002,18 @@ def plot_population(planets,
                     brms_inner_est,
                     xerr=variables_inner_err[index_variable],
                     yerr=brms_inner_est_err,
-                    zorder=1,alpha=.5,
-                    ls="none",ecolor=color_inner_err)
+                    zorder=1,alpha=.5,ls="none",ecolor=color_inner_err)
         ax.scatter(variables_inner[index_variable],
                     brms_inner_est,
-                    s=markersize,
-                    alpha=.5,
-                    color = color_inner,
-                    label = label_inner)
+                    s=markersize, alpha=.5,color = color_inner,label = label_inner)
         ax.errorbar(variables_outer[index_variable],
                     brms_outer_est,
                     xerr=variables_outer_err[index_variable],
                     yerr=brms_outer_est_err,
-                    zorder=1,alpha=.5,
-                    ls="none",ecolor=color_outer_err)
+                    zorder=1,alpha=.5, ls="none",ecolor=color_outer_err)
         ax.scatter(variables_outer[index_variable],
                     brms_outer_est,
-                    s=markersize,
-                    alpha=.5,
-                    color = color_outer,
-                    label = label_outer)
+                    s=markersize, alpha=.5, color = color_outer, label = label_outer)
         if variable_names[index_variable] != "radius": ax.set_xscale('log')
         ax.set_yscale('log')
         if print_power_laws[index_variable]:
@@ -926,6 +1030,8 @@ def plot_population(planets,
         plt.legend(fontsize=int(fontsize))
         plt.savefig(path_comparison + "/bdyn_vs_" + variable_names[index_variable] + "_err" + filename_ending)
 
+
+
         plt.clf()
         ax = plt.axes()
         for index_planet in range(0,len(radius_obs)):
@@ -933,30 +1039,31 @@ def plot_population(planets,
                         variables_outer[index_variable][index_planet]])
             y = np.array([brms_inner_surf_est[index_planet],
                         brms_outer_surf_est[index_planet]])
-            ax.plot(x,
-                    y,
-                    alpha=.5,
-                    color = "k",
-                    ls = ":")
-        ax.scatter(variables_inner[index_variable],
-                    brms_inner_surf_est,
-                    s=markersize,
-                    alpha=.5,
-                    color = color_inner,
-                    label = label_inner)
+            ax.plot(x, y, alpha=.5, color = "k", ls = ":")
+
+        ax.scatter(variables_inner[index_variable][valid_mask],
+                    brms_inner_surf_est[valid_mask],
+                    s=markersize[valid_mask], alpha=.5, color = color_inner, label = label_inner)
         if print_irr_models[index_variable]:
-            ax.scatter(variables_inner[index_variable],
-                        brms_irr_surf_est,
-                        s=50,
-                        alpha=.5,
-                        color = color_irr,
-                        label = label_irr)
-        ax.scatter(variables_outer[index_variable],
-                    brms_outer_surf_est,
-                    s=markersize,
-                    alpha=.5,
-                    color = color_outer,
-                    label = label_outer)
+            ax.scatter(variables_inner[index_variable][valid_mask],
+                        brms_irr_surf_est[valid_mask],
+                        s=50, alpha=.5, color = color_irr, label = label_irr)
+        ax.scatter(variables_outer[index_variable][valid_mask],
+                    brms_outer_surf_est[valid_mask],
+                    s=markersize[valid_mask], alpha=.5, color = color_outer, label = label_outer)
+        
+        if cut:
+            ax.scatter(variables_inner[index_variable][~valid_mask],
+                            brms_inner_surf_est[~valid_mask],
+                            s=markersize[~valid_mask], alpha=.5, color = color_inner_cut, label = label_inner)
+            if print_irr_models[index_variable]:
+                ax.scatter(variables_inner[index_variable][~valid_mask],
+                            brms_irr_surf_est[~valid_mask],
+                            s=50, alpha=.2, color = color_irr, label = label_irr)
+            ax.scatter(variables_outer[index_variable][~valid_mask],
+                        brms_outer_surf_est[~valid_mask],
+                        s=markersize[~valid_mask], alpha=.5, color = color_outer_cut, label = label_outer)
+        
         if variable_names[index_variable] != "radius": ax.set_xscale('log')
         ax.set_yscale('log')
         if print_power_laws[index_variable]:
@@ -979,26 +1086,20 @@ def plot_population(planets,
                     brms_inner_surf_est,
                     xerr=variables_inner_err[index_variable],
                     yerr=brms_inner_surf_est_err,
-                    zorder=1,alpha=.5,
-                    ls="none",ecolor=color_inner_err)
+                    zorder=1,alpha=.5, ls="none",ecolor=color_inner_err)
         ax.scatter(variables_inner[index_variable],
                     brms_inner_surf_est,
                     s=markersize,
-                    alpha=.5,
-                    color = color_inner,
-                    label = label_inner)
+                    alpha=.5, color = color_inner, label = label_inner)
         ax.errorbar(variables_outer[index_variable],
                     brms_outer_surf_est,
                     xerr=variables_outer_err[index_variable],
                     yerr=brms_outer_surf_est_err,
-                    zorder=1,alpha=.5,
-                    ls="none",ecolor=color_outer_err)
+                    zorder=1,alpha=.5, ls="none",ecolor=color_outer_err)
         ax.scatter(variables_outer[index_variable],
                     brms_outer_surf_est,
                     s=markersize,
-                    alpha=.5,
-                    color = color_outer,
-                    label = label_outer)
+                    alpha=.5, color = color_outer, label = label_outer)
         if variable_names[index_variable] != "radius": ax.set_xscale('log')
         ax.set_yscale('log')
         if print_power_laws[index_variable]:
@@ -1175,24 +1276,24 @@ def plot_population_fits(planets,
                    valid_mask,valid_mask,valid_mask,valid_mask,
                    ~valid_mask,~valid_mask,~valid_mask,~valid_mask,
                    valid_mask,valid_mask]
-    variable_names = ["fit_general_inner" + name_cut,
-                      "fit_general_inner_surf" + name_cut,
-                      "fit_general_outer" + name_cut,
-                      "fit_general_outer_surf" + name_cut,
-                      "fit_no_eps_inner" + name_cut,
-                      "fit_no_eps_inner_surf" + name_cut,
-                      "fit_no_eps_outer" + name_cut,
-                      "fit_no_eps_outer_surf" + name_cut,
-                      "fit_no_flux_inner" + name_cut,
-                      "fit_no_flux_inner_surf" + name_cut,
-                      "fit_no_flux_outer" + name_cut,
-                      "fit_no_flux_outer_surf" + name_cut,
-                      "fit_irr_inner" + name_cut,
-                      "fit_irr_inner_surf" + name_cut,
-                      "fit_irr_outer" + name_cut,
-                      "fit_irr_outer_surf" + name_cut,
-                      "fit_irr_all" + name_cut,
-                      "fit_irr_all_surf" + name_cut]
+    variable_names = ["fit_general_inner",
+                      "fit_general_inner_surf",
+                      "fit_general_outer",
+                      "fit_general_outer_surf",
+                      "fit_no_eps_inner",
+                      "fit_no_eps_inner_surf",
+                      "fit_no_eps_outer",
+                      "fit_no_eps_outer_surf",
+                      "fit_no_flux_inner",
+                      "fit_no_flux_inner_surf",
+                      "fit_no_flux_outer",
+                      "fit_no_flux_outer_surf",
+                      "fit_irr_inner",
+                      "fit_irr_inner_surf",
+                      "fit_irr_outer",
+                      "fit_irr_outer_surf",
+                      "fit_irr_all",
+                      "fit_irr_all_surf"]
     
     variable_labels = [r"${{{:.1f}}}$".format(fit_MRL_inner.K) + r"$ \, \mathrm{G}$" + \
                          r"$\, M_P^{{{:.2f}}}$".format(fit_MRL_inner.alpha) + \
@@ -1260,8 +1361,8 @@ def plot_population_fits(planets,
                          r"$\, M_P^{{{:.2f}}}$".format(fit_MR_irr_all_surf.alpha) + \
                          r"$\, R_P^{{{:.2f}}}$".format(fit_MR_irr_all_surf.beta)]
 
-    if rotation: path = "plots/fits" + name_cut + "_rot/"
-    else: path = "plots/fits" + name_cut + "/"
+    if rotation: path = "plots/fits" + name_cut + "/"
+    else: path = "plots/fits" + name_cut + "_no_rot/"
 
     for index_variable in range(0,len(variables_inner)):
 
@@ -1619,11 +1720,9 @@ def plot_population_fits_eps(planets,
     temp_eff_obs            = planets.temp_eff_obs
     radius_obs              = planets.radius_obs
     radius_obs_err          = planets.radius_obs_err
-    
-    if not os.path.exists("./plots"): os.makedirs("./plots")
 
-    if rotation: path = "plots/fits_eps_rot/"
-    else: path = "plots/fits_eps/"
+    if rotation: path = "plots/fits_eps" + name_cut + "/"
+    else: path = "plots/fits_eps" + name_cut + "_no_rot/"
 
     fontsize = 32
     plt.rcParams['text.usetex'] = True
@@ -1662,8 +1761,8 @@ def plot_population_fits_eps(planets,
                       "radius",
                       "mass",
                       "surf_grav",
-                      "fit_eps_inner" + name_cut,
-                      "fit_eps_outer" + name_cut]
+                      "fit_eps_inner",
+                      "fit_eps_outer"]
     variable_labels = [r"$F\mathrm{_{\rm irr} \, (erg \, cm^{-2} \, s^{-1})}$",
                        r"$T_{\rm eq} \, \mathrm{(K)}$",
                        r"$R_P \, \mathrm{(R_J)}$",

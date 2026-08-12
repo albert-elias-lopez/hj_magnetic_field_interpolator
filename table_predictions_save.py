@@ -154,8 +154,8 @@ def table_predictions(planets,
     if HJ_population:
         filename = "predictions/predictions_hot_jupiter_populations"
         if extra_HJ: filename = "predictions/predictions_hot_jupiter_populations_extra"
-    else: filename = "predictions/predictions_custom_" + which_planets
-    if rotation: filename += "_rot"
+    else: filename = "predictions/predictions_" + which_planets
+    if not rotation: filename += "_no_rot"
     if add_systematic_error: filename += "_syst_err"
     if error_sym:
         header = "#     M(MJ)               R(RJ)              R_irr(RJ)             F(erg cm-2 s-1)         P(days)             " + \
@@ -562,11 +562,11 @@ def table_comparision(planets,
             filename = "./predictions/predictions" + name_cut + "_" + which_planets
         
         if rotation: 
-            if extra_HJ: filename += "_extra_rot/" 
-            else: filename += "_rot/" 
-        else:
-            if extra_HJ: filename += "_extra/"
+            if extra_HJ: filename += "_extra/" 
             else: filename += "/" 
+        else:
+            if extra_HJ: filename += "_extra_no_rot/"
+            else: filename += "_no_rot/" 
         filename += name.replace(" ", "_").replace(".", "_")
         if add_systematic_error: filename += "_syst_err"
 

@@ -190,6 +190,7 @@ class planet_object:
             self.orbital_period_obs_err     = np.array([1e-6])
             self.flux_obs                   = np.array([1e9])
             self.flux_obs_err               = np.array([1e8])
+
         elif which_planets == "errors":
             # Example with inveneted exoplanets to check which error affects more significantly the magnetic stds.
             self.planet_names               = ["high_err_mass", "high_err_radius", "high_err_flux", "middle_err_mass", "middle_err_radius", "middle_err_flux", 
@@ -202,9 +203,10 @@ class planet_object:
             self.orbital_period_obs_err     = np.array([1e-5,   1e-5,   1e-5,   1e-5,   1e-5,   1e-5,   1e-5,   1e-5,   1e-5,   1e-5,   1e-5,   ])
             self.flux_obs                   = np.array([1e9,    1e9,    1e9,    1e9,    1e9,    1e9,    1e9,    1e9,    1e9,    1e9,    1e9,    ])
             self.flux_obs_err               = np.array([0,      0,      1e9,    0,      0,      1e8,    0,      0,      1e7,    1e8,    1e7,    ])
+
         elif which_planets == "hats53b":
             # Example with a single exoplanet
-            self.planet_names               = ["HATS-53_b"]
+            self.planet_names               = ["HATS 53 b"]
             self.mass_obs                   = np.array([0.595])
             self.mass_obs_err               = np.array([0.089])
             self.radius_obs                 = np.array([1.340])
@@ -213,6 +215,43 @@ class planet_object:
             self.orbital_period_obs_err     = np.array([3.8e-06])   
             self.flux_obs                   = np.array([6.677e+08])
             self.flux_obs_err               = np.array([6.1e+07])
+
+        elif which_planets == "wasp12b":
+            # Vidotto 2010 values coming from Hebb et al 2009, NASA defaults are Leonardi 2024, which have missing data
+            self.planet_names               = ["WASP 12 b Vidotto10"]
+            self.mass_obs                   = np.array([1.41])
+            self.mass_obs_err               = np.array([0.10])
+            self.radius_obs                 = np.array([1.79])
+            self.radius_obs_err             = np.array([0.09])
+            self.orbital_period_obs         = np.array([1.091423])
+            self.orbital_period_obs_err     = np.array([3e-6])   
+
+            self.temp_star_obs              = np.array([6300])
+            self.temp_star_obs_err          = np.array([200])
+            self.radius_star_obs            = np.array([1.57])
+            self.radius_star_obs_err        = np.array([0.07])
+            self.orbital_dist_obs           = np.array([0.0229])
+            self.orbital_dist_obs_err       = np.array([0.004])
+            self.get_flux()
+
+        elif which_planets == "hd209458b":
+            # Kishlyakova 2014 values coming from Hebb et al 2009, NASA defaults are Leonardi 2024
+            self.planet_names               = ["HD 209458 b Kislyakova 2014"]
+            self.mass_obs                   = np.array([0.714])
+            self.mass_obs_err               = np.array([0.017])
+            self.radius_obs                 = np.array([1.380])
+            self.radius_obs_err             = np.array([0.017])
+            self.orbital_period_obs         = np.array([3.52474859])
+            self.orbital_period_obs_err     = np.array([3.8e-7])   
+
+            self.temp_star_obs              = np.array([6117])
+            self.temp_star_obs_err          = np.array([50])
+            self.radius_star_obs            = np.array([1.162])
+            self.radius_star_obs_err        = np.array([0.014])
+            self.orbital_dist_obs           = np.array([0.04747])
+            self.orbital_dist_obs_err       = np.array([0.00055])
+            self.get_flux()
+
         elif which_planets == "cauley19":
             # Cauley 19 estimates with their data
             self.planet_names               = ["HD 179949 b",  "HD 189733 b",    "tau Boo b",  "ups And b"]

@@ -87,23 +87,23 @@ class fit_object:
             file.writelines(f"      pearson = {self.pearson[0]:.4f}, {self.pearson[1]:.4e} " + '\n')
             #file.writelines(f"      spearman = {self.spearman[0]:.4f}, {self.spearman[1]:.4e} " + '\n')
          
-        filename += "_" + header + ".txt"
+        filename += "_" + header
         params  = np.array([self.alpha, self.beta, self.gamma, self.K])
         if self.fit_type == "gaussian":
             errors_minus    = np.array([self.alpha_err[0], self.beta_err[0], self.gamma_err[0], self.K_err[0]])
             errors_plus     = np.array([self.alpha_err[1], self.beta_err[1], self.gamma_err[1], self.K_err[1]])
-            np.savetxt(filename, np.vstack((params, errors_minus, errors_plus)))
+            np.savetxt(filename + ".txt", np.vstack((params, errors_minus, errors_plus)))
         else:
             errors          = np.array([self.alpha_err, self.beta_err, self.gamma_err, self.K_err])
-            np.savetxt(filename, np.vstack((params, errors)))
+            np.savetxt(filename+ ".txt", np.vstack((params, errors)))
         
-        filename += "_" + header + "_cov_matrix.txt"
-        np.savetxt(filename, self.cov_matrix)
+        filename += "_cov_matrix"
+        np.savetxt(filename + ".txt", self.cov_matrix)
     
        
     def read_fit_data(self, filename, header): 
-        filename += "_" + header + ".txt"
-        loaded = np.loadtxt(filename)
+        filename += "_" + header
+        loaded = np.loadtxt(filename + ".txt")
         if self.fit_type == "gaussian":
             params, errors_minus, errors_plus = loaded
             self.alpha, self.beta, self.gamma, self.K = params[0], params[1], params[2], params[3]
@@ -114,8 +114,8 @@ class fit_object:
             self.alpha, self.beta, self.gamma, self.K = params[0], params[1], params[2], params[3]
             self.alpha_err, self.beta_err, self.gamma_err, self.K_err = errors[0], errors[1], errors[2], errors[3]
         
-        filename += "_" + header + "_cov_matrix.txt"
-        self.cov_matrix = np.loadtxt(filename)
+        filename += "_cov_matrix"
+        self.cov_matrix = np.loadtxt(filename + ".txt")
 
     
 def general_fit(planets,
@@ -184,8 +184,11 @@ def general_fit(planets,
     if not error_sym:
         heat_eff_est_err = np.mean(heat_eff_est_err, axis=1)
         brms_est_err = np.mean(brms_est_err, axis=1)
-    # Add a systematic uncertainty to brms_est_err by 60% in quadrature
-    brms_est_err = np.sqrt(brms_est_err**2 + (brms_est * 0.6)**2)
+    # Add a systematic uncertainty to brms_est_err by 75% in quadrature
+    # It comes from assuming that the model uncertainty is about a factor of 2:
+    # for example, B_{-0.5B}^{B}, which has a spread of 1.5 around the mean, i.e., 75% of the mean above and below. 
+    # This is a rough estimate, but it is better than nothing.
+    brms_est_err = np.sqrt(brms_est_err**2 + (brms_est * 0.75)**2)
 
 
     conv_lumin = np.pi*(radius_obs*6.991e+9)**2*flux_obs*heat_eff_est/4.606e24

@@ -2,7 +2,6 @@ import sys
 import os
 import argparse
 import numpy as np
-import pylab as plt
 
 import plots
 import scaling_law_fits
@@ -21,13 +20,14 @@ if __name__ == "__main__":
             Examples:
             python main.py --no_rotation
             python main.py --save_plot_population --fit_type simple
-            python main.py --no-rotation --no-HJ --which_planets seidel26
-            python main.py --no-HJ --which_planets my_own --my_planet_params 1.2 0.1 1.5 0.1 1 1e-6 1e9 1e8
+            python main.py --no_rotation --no_HJ --which_planets seidel26
+            python main.py --fit_type simple
+            python main.py --no_HJ --which_planets my_own --my_planet_params 1.2 0.1 1.5 0.1 1 1e-6 1e9 1e8
 
             To reproduce the results in Elias-López et al 2026:
             python main.py --save_plot_population (by default fit_type=gaussian, N_gauss_fits=10000, which_cut=radius cut)
-            python main.py --no-HJ --which_planets seidel26 --add_systematic_error
-            python main.py --no-HJ --which_planets cauley19 --add_systematic_error
+            python main.py --no_HJ --which_planets seidel26 --add_systematic_error
+            python main.py --no_HJ --which_planets cauley19 --add_systematic_error
             """,
     formatter_class=argparse.RawDescriptionHelpFormatter,)
     
@@ -47,17 +47,17 @@ if __name__ == "__main__":
     parser.add_argument("--no_rotation", dest="rotation", action="store_false",
                         help="Disable rotation.")
     
-    # Which planets to evaluate. If the flag --no-HJ is not used, the program will evaluate the gas giant exoplanet population. 
+    # Which planets to evaluate. If the flag --no_HJ is not used, the program will evaluate the gas giant exoplanet population. 
     # If used, it will evaluate a predefined set of planets.
     parser.set_defaults(HJ_population=True)
-    parser.add_argument("--no-HJ", dest="HJ_population", action="store_false",
+    parser.add_argument("--no_HJ", dest="HJ_population", action="store_false",
                         help="Disable evaluation of HJ population. Insted,a predefined set of planets will be evaluated, and precomputed scaling laws will be used.")
     
     parser.add_argument("--which_planets", type=str, default="cauley19",
-                        choices=["hats53b","cauley19","cauley19nasa","seidel26","seidel26nasa","my_own","errors"],
-                        help="default='cauley19'. If --no-HJ, choose one option or enter your own planet")
+                        choices=["hats53b","wasp12b","hd209458b","cauley19","cauley19nasa","seidel26","seidel26nasa","my_own","errors"],
+                        help="default='cauley19'. If --no_HJ, choose one option or enter your own planet")
     parser.add_argument("--my_planet_params", type=float, nargs=8, default=None,
-                        help="default=None. If --no-HJ and --which_planets='my_own', " \
+                        help="default=None. If --no_HJ and --which_planets='my_own', " \
                         "enter your own planet parameters: mass (in Mjup), mass_err, radius (in Rjup), radius_err, period (in days), period_err, flux (in erg/s cm2), flux_err" \
                         "e.g. --my_planet_params 1.5 0.1 1 0.1 1 1e-6 1e9 1e8")
     
@@ -94,7 +94,6 @@ save_plots_3D_grid = args.save_plot_3D_grid
 save_plots_population = args.save_plot_population
 print_interpolator = args.print_interpolator
 
-
 error_sym = False               # To use symmetric errors for the interpolator. Should be kept as False.
 add_systematic_error = args.add_systematic_error
 
@@ -103,20 +102,17 @@ rotation = args.rotation
 # If HJ_population = True there should be a file with all the gas giant exoplanet population. Then not all planets should
 # be evaluated, only the ones that can be interpolated by the grid.
 HJ_population = args.HJ_population
-fileHJ = 'predictions/PS_2026.02.18_08.49.05.csv'
+fileHJ = 'PS_2026.02.18_08.49.05.csv'
 
 # In case of HJ_population = False, choose one option with the appropiate planet number.
 # If you choose your own, you should fill the values in 
 # errors,   hats53b,    cauley19,   cauley19nasa,   seidel26,   seidel26nasa, my_own
 # 11,       1,          4,          4,              7,          7,            1
 which_planets = args.which_planets
-if which_planets == "hats53b": Npl = 1
-elif which_planets == "cauley19" or which_planets == "cauley19nasa": Npl = 4
+if which_planets == "cauley19" or which_planets == "cauley19nasa": Npl = 4
 elif which_planets == "seidel26" or which_planets == "seidel26nasa": Npl = 7
 elif which_planets == "errors": Npl = 11
-elif which_planets == "my_own": 
-    Npl = 1
-
+elif which_planets == "hats53b" or which_planets == "wasp12b" or which_planets == "hd209458b" or which_planets == "my_own": Npl = 1
 
 # Scaling law properties
 print_scaling_law = args.print_scaling_law
@@ -231,10 +227,13 @@ else:
                                     mask_predictions,
                                     print_all = print_interpolator,
                                     error_sym=error_sym)
+
                                     
 print("done")
 print(f"----------------------------------------------------------------------")
 
+if not os.path.exists("./predictions"): 
+    os.makedirs("./predictions")    
 
 print("Saving file ", end="\r")
 table_predictions_save.table_predictions(planets,
@@ -264,6 +263,16 @@ if HJ_population:
     planets.mask_population(mask_predictions)
     number_planets_grid_params = len(planets.planet_names)
 
+    # This commented section prints the stats of the planets that have small radius, outside the grid. Then the code is stoped. 
+    # mask_nans = (~np.isnan(planets.heat_eff_inner_est)) & (planets.heat_eff_inner_est >= 1e-5)
+    # planets.mask_population(~mask_nans)
+    # print(f"{'Planet':<17}{'Mass':>10}{'Radius':>10}{'Period':>12}{'Flux':>15}")
+    # for index_planet in range(0,len(planets.planet_names)):
+    #     print(f"{planets.planet_names[index_planet]:<15}"
+    #         f"{planets.mass_obs[index_planet]:>10.3f} {planets.radius_obs[index_planet]:>10.3f}"
+    #         f"{planets.orbital_period_obs[index_planet]:>12.3f} {planets.flux_obs[index_planet]:>15.3e}" )
+    # sys.exit()
+
     mask_nans = (~np.isnan(planets.heat_eff_inner_est)) & (planets.heat_eff_inner_est >= 1e-5)
     planets.mask_population(mask_nans)
     number_planets_mask_nans = len(planets.planet_names)
@@ -284,10 +293,10 @@ if HJ_population:
         name_cut, name_cut_header = "_cut_Qdep", "Cut for Q_dep = eps*F_irr*pi*R^2 > 1e6"
     elif which_cut == "radius cut":
         valid_mask = planets.radius_obs/planets.radius_irr_est > 1.05
-        name_cut, name_cut_header = "_cut_Robs_Rirr", "Cut for Robs/Rirr > 1.05"
+        name_cut, name_cut_header = "_cut_R", "Cut for Robs/Rirr > 1.05"
     elif which_cut == "brms cut":
         valid_mask = planets.brms_outer_est/planets.brms_inner_est < 0.25
-        name_cut, name_cut_header = "_cut_Bout_Bext", "Cut for Bout/Rext < 0.25"
+        name_cut, name_cut_header = "_cut_B", "Cut for Bout/Rext < 0.25"
 
     name_cut_short = name_cut
     name_cut = name_cut + "_" + fit_type + "_fit"
@@ -312,8 +321,8 @@ else:
     if which_cut == "no cut": name_cut, name_cut_header = "_no_cut", "No cut (actually eps > 1e-5)"
     elif which_cut == "flux cut": name_cut, name_cut_header = "_cut_epsF", "Cut for eps*F_irr > 1e6"
     elif which_cut == "heat cut": name_cut, name_cut_header = "_cut_Qdep", "Cut for Q_dep = eps*F_irr*pi*R^2 > 1e6"
-    elif which_cut == "radius cut": name_cut, name_cut_header = "_cut_Robs_Rirr", "Cut for Robs/Rirr > 1.05"
-    elif which_cut == "brms cut": name_cut, name_cut_header = "_cut_Bout_Bext", "Cut for Bout/Rext < 0.25"
+    elif which_cut == "radius cut": name_cut, name_cut_header = "_cut_R", "Cut for Robs/Rirr > 1.05"
+    elif which_cut == "brms cut": name_cut, name_cut_header = "_cut_B", "Cut for Bout/Rext < 0.25"
 
     name_cut_short = name_cut
     name_cut = name_cut + "_" + fit_type + "_fit"
@@ -328,12 +337,12 @@ else:
 
 
 
-
 if not os.path.exists("./plots"): os.makedirs("./plots")
 if not os.path.exists("./predictions"): os.makedirs("./predictions")
-if not os.path.exists("./plots/fits" + name_cut): os.makedirs("./plots/fits" + name_cut)
 if rotation:
-    if not os.path.exists("./plots/fits" + name_cut + "_rot"): os.makedirs("./plots/fits" + name_cut + "_rot")
+    if not os.path.exists("./plots/fits" + name_cut): os.makedirs("./plots/fits" + name_cut)
+else:
+    if not os.path.exists("./plots/fits" + name_cut + "_no_rot"): os.makedirs("./plots/fits" + name_cut + "_no_rot")
 
 
 fit_reiners09           = fit_object(fit_type, "reiners09")
@@ -352,10 +361,8 @@ fit_reiners09.gamma_err = 0
 if HJ_population:
 
     print("Fitting the different HJ magnetic field estimates:")
-    if rotation: 
-        filename = "plots/fits" + name_cut + "_rot/fit_general" + name_cut + "_rot"
-    else:
-        filename = "plots/fits" + name_cut + "/fit_general" + name_cut
+    if rotation: filename = "plots/fits" + name_cut + "/fit_general"
+    else: filename = "plots/fits" + name_cut + "_no_rot/fit_general"
     with open(filename + ".txt", 'w') as f:
         f.writelines(name_cut_header + '\n')
 
@@ -391,10 +398,8 @@ if HJ_population:
         fit_MRL_outer.print_fit_results(f, filename, "brms_outer")
         fit_MRL_outer_surf.print_fit_results(f, filename, "brms_outer_surf")
         
-    if rotation: 
-        filename = "plots/fits" + name_cut + "_rot/fit_no_eps" + name_cut + "_rot"
-    else:
-        filename = "plots/fits" + name_cut + "/fit_no_eps" + name_cut
+    if rotation: filename = "plots/fits" + name_cut + "/fit_no_eps"
+    else: filename = "plots/fits" + name_cut + "_no_rot/fit_no_eps"
     with open(filename + ".txt", 'w') as f:
         f.writelines(name_cut_header + '\n')
     print(f"")
@@ -432,10 +437,8 @@ if HJ_population:
         fit_MRF_outer_surf.print_fit_results(f, filename, "brms_outer_surf")
 
 
-    if rotation: 
-        filename = "plots/fits" + name_cut + "_rot/fit_no_flux" + name_cut + "_rot"
-    else:
-        filename = "plots/fits" + name_cut + "/fit_no_flux" + name_cut
+    if rotation: filename = "plots/fits" + name_cut + "/fit_no_flux"
+    else: filename = "plots/fits" + name_cut + "_no_rot/fit_no_flux"
     with open(filename + ".txt", 'w') as f:
         f.writelines(name_cut_header + '\n')
     print(f"")
@@ -472,10 +475,8 @@ if HJ_population:
         fit_MR_outer.print_fit_results(f, filename, "brms_outer")
         fit_MR_outer_surf.print_fit_results(f, filename, "brms_outer_surf")
 
-    if rotation: 
-        filename = "plots/fits" + name_cut + "_rot/fit_irr" + name_cut + "_rot"
-    else:
-        filename = "plots/fits" + name_cut + "/fit_irr" + name_cut
+    if rotation: filename = "plots/fits" + name_cut + "/fit_irr"
+    else: filename = "plots/fits" + name_cut + "_no_rot/fit_irr"
     with open(filename + ".txt", 'w') as f:
         f.writelines(name_cut_header + '\n')
     print(f"")
@@ -527,11 +528,11 @@ if HJ_population:
         fit_MR_irr_all_surf.print_fit_results(f, filename, "brms_irr_surf")
 
     if rotation:
-        if not os.path.exists("./plots/fits_eps_rot"): os.makedirs("./plots/fits_eps_rot")
-        filename = "plots/fits_eps_rot/fit_eps" + name_cut + "_rot"
+        if not os.path.exists("./plots/fits_eps" + name_cut): os.makedirs("./plots/fits_eps" + name_cut)
+        filename = "plots/fits_eps" + name_cut + "/fit_eps"
     else:
-        if not os.path.exists("./plots/fits_eps"): os.makedirs("./plots/fits_eps")
-        filename = "plots/fits_eps/fit_eps" + name_cut
+        if not os.path.exists("./plots/fits_eps" + name_cut + "_no_rot"): os.makedirs("./plots/fits_eps" + name_cut + "_no_rot")
+        filename = "plots/fits_eps" + name_cut + "_no_rot/fit_eps"
 
     with open(filename + ".txt", 'w') as f:
         f.writelines(name_cut_header + '\n')
@@ -557,16 +558,17 @@ if HJ_population:
     print(f"----------------------------------------------------------------------")
     print("Fitting the different HJ magnetic field estimates: done")
     print(f"----------------------------------------------------------------------")
-    
-    if not os.path.exists("./predictions/predictions" + name_cut): 
-        os.makedirs("./predictions/predictions" + name_cut)
+
     if rotation:
-        if not os.path.exists("./predictions/predictions" + name_cut + "_rot"): 
-            os.makedirs("./predictions/predictions" + name_cut + "_rot")
+        if not os.path.exists("./predictions/predictions" + name_cut): 
+            os.makedirs("./predictions/predictions" + name_cut)
+    else:
+        if not os.path.exists("./predictions/predictions" + name_cut + "_no_rot"): 
+            os.makedirs("./predictions/predictions" + name_cut + "_no_rot")
 
 else:
-    if rotation: filename = "plots/fits" + name_cut + "_rot/fit_general" + name_cut + "_rot"
-    else: filename = "plots/fits" + name_cut + "/fit_general" + name_cut
+    if rotation: filename = "plots/fits" + name_cut + "/fit_general"
+    else: filename = "plots/fits" + name_cut + "_no_rot/fit_general"
     fit_MRL_inner = fit_object(fit_type, "MRL")
     fit_MRL_inner.read_fit_data(filename, "brms_inner")
     fit_MRL_inner_surf = fit_object(fit_type, "MRL")
@@ -576,8 +578,8 @@ else:
     fit_MRL_outer_surf = fit_object(fit_type, "MRL")
     fit_MRL_outer_surf.read_fit_data(filename, "brms_outer_surf")
     
-    if rotation: filename = "plots/fits" + name_cut + "_rot/fit_no_eps" + name_cut + "_rot"
-    else: filename = "plots/fits" + name_cut + "/fit_no_eps" + name_cut
+    if rotation: filename = "plots/fits" + name_cut + "/fit_no_eps"
+    else: filename = "plots/fits" + name_cut + "_no_rot/fit_no_eps"
     fit_MRF_inner = fit_object(fit_type, "MRF")
     fit_MRF_inner.read_fit_data(filename, "brms_inner")
     fit_MRF_inner_surf = fit_object(fit_type, "MRF")
@@ -587,8 +589,8 @@ else:
     fit_MRF_outer_surf = fit_object(fit_type, "MRF")
     fit_MRF_outer_surf.read_fit_data(filename, "brms_outer_surf")
 
-    if rotation: filename = "plots/fits" + name_cut + "_rot/fit_no_flux" + name_cut + "_rot"
-    else: filename = "plots/fits" + name_cut + "/fit_no_flux" + name_cut
+    if rotation: filename = "plots/fits" + name_cut + "/fit_no_flux"
+    else: filename = "plots/fits" + name_cut + "_no_rot/fit_no_flux"
     fit_MR_inner = fit_object(fit_type, "MR")
     fit_MR_inner.read_fit_data(filename, "brms_inner")
     fit_MR_inner_surf = fit_object(fit_type, "MR")
@@ -598,8 +600,8 @@ else:
     fit_MR_outer_surf = fit_object(fit_type, "MR")
     fit_MR_outer_surf.read_fit_data(filename, "brms_outer_surf")
 
-    if rotation: filename = "plots/fits" + name_cut + "_rot/fit_irr" + name_cut + "_rot"
-    else: filename = "plots/fits" + name_cut + "/fit_irr" + name_cut
+    if rotation: filename = "plots/fits" + name_cut + "/fit_irr"
+    else: filename = "plots/fits" + name_cut + "_no_rot/fit_irr"
     fit_MR_irr_inner = fit_object(fit_type, "MR")
     fit_MR_irr_inner.read_fit_data(filename, "brms_inner")
     fit_MR_irr_inner_surf = fit_object(fit_type, "MR")
@@ -613,24 +615,19 @@ else:
     fit_MR_irr_all_surf = fit_object(fit_type, "MR")
     fit_MR_irr_all_surf.read_fit_data(filename, "brms_irr_surf")
 
-    if rotation:
-        if not os.path.exists("./plots/fits_eps_rot"): os.makedirs("./plots/fits_eps_rot")
-        filename = "plots/fits_eps_rot/fit_eps" + name_cut + "_rot"
-    else:
-        if not os.path.exists("./plots/fits_eps"): os.makedirs("./plots/fits_eps")
-        filename = "plots/fits_eps/fit_eps" + name_cut
+    if rotation: filename = "plots/fits_eps" + name_cut + "/fit_eps"
+    else: filename = "plots/fits_eps" + name_cut + "_no_rot/fit_eps"
     fit_MRL_eps_inner = fit_object(fit_type, "MRF")
     fit_MRL_eps_inner.read_fit_data(filename, "eps_inner")
     fit_MRL_eps_outer = fit_object(fit_type, "MRF")
     fit_MRL_eps_outer.read_fit_data(filename, "eps_outer")
 
-
-    if not os.path.exists("./predictions/predictions" + name_cut + "_" + which_planets): 
-        os.makedirs("./predictions/predictions" + name_cut + "_" + which_planets)
     if rotation:
-        if not os.path.exists("./predictions/predictions" + name_cut + "_" + which_planets + "_rot"): 
-            os.makedirs("./predictions/predictions" + name_cut + "_" + which_planets + "_rot")
-
+        if not os.path.exists("./predictions/predictions" + name_cut + "_" + which_planets): 
+            os.makedirs("./predictions/predictions" + name_cut + "_" + which_planets)
+    else:
+        if not os.path.exists("./predictions/predictions" + name_cut + "_" + which_planets + "_no_rot"): 
+            os.makedirs("./predictions/predictions" + name_cut + "_" + which_planets + "_no_rot")
 
 print("Saving individual files for each planet:", end=" ")
 
@@ -653,7 +650,7 @@ print("done")
 
 print(f"----------------------------------------------------------------------")
 
-
+# print(np.max(planets.radius_obs), np.min(planets.radius_obs), np.max(planets.mass_obs), np.min(planets.mass_obs), np.max(planets.flux_obs), np.min(planets.flux_obs))
 # Repeat the everything exoplanets with some missing parameters:
 if save_plots_grid:
     print(f"Saving plots for grid models:", end=" ")
@@ -723,7 +720,7 @@ if HJ_population:
     print(f"Repeat process for exoplanets with incomplete stellar data:")
     print(f"----------------------------------------------------------------------")
 
-    fileHJ = 'predictions/PS_2026.02.18_07.09.03.csv'
+    fileHJ = 'PS_2026.02.18_07.09.03.csv'
     print("Reading gas giant explanet population " + fileHJ + ": ", end="\r")
     file=open(fileHJ, "r")
     lines = file.readlines()[43:] #50
@@ -794,19 +791,19 @@ if HJ_population:
 
     elif which_cut == "radius cut":
         valid_mask = planets.radius_obs/planets.radius_irr_est > 0.75
-        name_cut, name_cut_header = "_cut_Robs_Rirr", "Cut for Robs/Rirr > 1.05"
+        name_cut, name_cut_header = "_cut_R", "Cut for Robs/Rirr > 1.05"
         #print(radius_obs/radius_irr_est)
 
     elif which_cut == "brms cut":
         valid_mask = planets.brms_outer_est/planets.brms_inner_est < 0.25
-        name_cut, name_cut_header = "_cut_Bout_Bext", "Cut for Bout/Rext < 0.25"
+        name_cut, name_cut_header = "_cut_B", "Cut for Bout/Rext < 0.25"
         #print(brms_outer_est/brms_inner_est)
     
     if not os.path.exists("./predictions/predictions" + name_cut + "_extra"): 
         os.makedirs("./predictions/predictions" + name_cut + "_extra")
-    if rotation:
-        if not os.path.exists("./predictions/predictions" + name_cut + "_extra_rot"): 
-            os.makedirs("./predictions/predictions" + name_cut + "_extra_rot")
+    if not rotation:
+        if not os.path.exists("./predictions/predictions" + name_cut + "_extra_no_rot"): 
+            os.makedirs("./predictions/predictions" + name_cut + "_extra_no_rot")
 
 
     print("Saving individual files for each planet:", end=" ")
