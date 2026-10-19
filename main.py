@@ -63,7 +63,7 @@ if __name__ == "__main__":
     
     parser.add_argument("--fit_type", type=str, default="gaussian",
                         choices=["simple", "gaussian", "odr"],
-                        help="default='simple'.Type of fit to use for the scaling law.")
+                        help="default='gaussian'. Type of fit to use for the scaling law.")
     parser.add_argument("--N_gauss_fits", type=int, default=10000,
                         help="default=10000. Number of gaussian fits to perform for the scaling law. Only used if fit_type='gaussian'.")
     parser.add_argument("--print_scaling_law", action="store_true",
@@ -85,6 +85,9 @@ current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
 # Add the parent directory to the sys.path
 sys.path.append(parent)
+# Work from the repository folder, so the relative paths to the tables, the CSV files and the
+# output folders (plots/, predictions/) are valid wherever main.py is launched from
+os.chdir(current)
 
 # --------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------- Saving and printing ------------------------------------------------

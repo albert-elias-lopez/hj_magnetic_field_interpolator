@@ -1,9 +1,14 @@
 import sys
 import os
+import shutil
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import table_predictions_save
+
+# Use LaTeX for the plot labels only if it is installed. Otherwise matplotlib's own
+# math renderer is used (with mathtext.fontset = 'cm' the plots look almost the same)
+USE_TEX = shutil.which("latex") is not None
 
 def plot_output_grid(masses,
                     fluxes,
@@ -31,7 +36,7 @@ def plot_output_grid(masses,
             os.makedirs("./plots/" + names_mass[index_mass])
 
         fontsize = 26
-        plt.rcParams['text.usetex'] = True
+        plt.rcParams['text.usetex'] = USE_TEX
         fig = plt.figure(figsize=(11, 8), constrained_layout=True)
         plt.rcParams["figure.figsize"] = (11, 8)
         plt.rcParams['font.size'] = fontsize
@@ -219,7 +224,7 @@ def plot_grid(masses,
     heat_effs = 100*heat_effs
 
     fontsize = 28
-    plt.rcParams['text.usetex'] = True
+    plt.rcParams['text.usetex'] = USE_TEX
     fig = plt.figure(figsize=(10, 9.5))
     plt.rcParams["figure.figsize"] = (14, 10)
     plt.rcParams['font.size'] = fontsize
@@ -445,7 +450,7 @@ def plot_population(planets,
             os.makedirs("./plots/general_predictions_comparison_no_rot")
 
     fontsize = 32
-    plt.rcParams['text.usetex'] = True
+    plt.rcParams['text.usetex'] = USE_TEX
     fig = plt.figure(figsize=(11, 8), constrained_layout=True)
     plt.rcParams["figure.figsize"] = (11, 8)
     plt.rcParams['font.size'] = fontsize
@@ -1150,7 +1155,7 @@ def plot_population_fits(planets,
     label_irr = r"$\epsilon = 0$" #r"$B_{\rm irr}$"
     
     fontsize = 32
-    plt.rcParams['text.usetex'] = True
+    plt.rcParams['text.usetex'] = USE_TEX
     fig = plt.figure(figsize=(11, 8), constrained_layout=True)
     plt.rcParams["figure.figsize"] = (11, 8)
     plt.rcParams['font.size'] = fontsize
@@ -1483,7 +1488,7 @@ def plot_population_fits(planets,
     ## General plot for comparing fits
 
     fontsize = 27
-    plt.rcParams['text.usetex'] = True
+    plt.rcParams['text.usetex'] = USE_TEX
     fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(22,15), sharey=True)
     plt.rcParams["figure.figsize"] = (22, 15)
     plt.rcParams['font.size'] = fontsize
@@ -1592,7 +1597,7 @@ def plot_population_fits(planets,
     plt.savefig(path + "general_comparison_b_rms_dyn.png", bbox_inches='tight')
 
 
-    plt.rcParams['text.usetex'] = True
+    plt.rcParams['text.usetex'] = USE_TEX
     fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(22,15), sharey=True)
     plt.rcParams["figure.figsize"] = (22, 15)
     plt.rcParams['font.size'] = fontsize
@@ -1725,7 +1730,7 @@ def plot_population_fits_eps(planets,
     else: path = "plots/fits_eps" + name_cut + "_no_rot/"
 
     fontsize = 32
-    plt.rcParams['text.usetex'] = True
+    plt.rcParams['text.usetex'] = USE_TEX
     fig = plt.figure(figsize=(11, 8), constrained_layout=True)
     plt.rcParams["figure.figsize"] = (11, 8)
     plt.rcParams['font.size'] = fontsize
@@ -1777,7 +1782,7 @@ def plot_population_fits_eps(planets,
                          r"$\, R_P^{{{:.4f}}}$".format(fit_MRL_eps_outer.beta) + \
                          r"$\, F_{\rm irr}$" + r"$\, ^{{{:.4f}}}$".format(fit_MRL_eps_outer.gamma)]
 
-    plt.rcParams['text.usetex'] = True
+    plt.rcParams['text.usetex'] = USE_TEX
     fig = plt.figure(figsize=(11, 8), constrained_layout=True)
     plt.rcParams["figure.figsize"] = (11, 8)
     plt.rcParams['font.size'] = fontsize
