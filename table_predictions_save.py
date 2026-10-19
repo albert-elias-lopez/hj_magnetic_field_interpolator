@@ -57,6 +57,11 @@ def sample_split_normal(mode, sigma_minus, sigma_plus, size=100000):
     z = np.random.normal(0, 1, size)
     return mode + np.where(z < 0, z * sigma_minus, z * sigma_plus)
 
+def sample_obs(value, err, N):
+    # err is one symmetric error or a (lower, upper) pair, sampled as a split normal
+    if np.ndim(err) == 0: return np.random.normal(value, err, N)
+    return sample_split_normal(value, err[0], err[1], N)
+
 def scaling_law(fit_object, mass, radius, conv_or_flux):
     brms = fit_object.K * mass ** fit_object.alpha * radius ** fit_object.beta * conv_or_flux ** fit_object.gamma
     return brms
@@ -89,8 +94,8 @@ def get_scaling_law_err(fit_object,
             else:
                 gamma_s = sample_split_normal(fit_object.gamma, fit_object.gamma_err[0], fit_object.gamma_err[1], Nerr)
 
-        mass_s          = np.random.normal(mass, mass_err, Nerr)
-        radius_s        = np.random.normal(radius, radius_err, Nerr)
+        mass_s          = sample_obs(mass, mass_err, Nerr)
+        radius_s        = sample_obs(radius, radius_err, Nerr)
         conv_or_flux_s  = np.random.normal(conv_or_flux, conv_or_flux_err, Nerr)
 
         with np.errstate(invalid='ignore'):
@@ -108,6 +113,7 @@ def get_scaling_law_err(fit_object,
             p16, p50, p84 = np.percentile(brms_s, q = [16, 50, 84])
             brms_err = np.array([p50 - p16, p84 - p50])
     else:
+        mass_err, radius_err = np.max(mass_err), np.max(radius_err)   # The analytic formula uses symmetric errors
         brms_err =  (fit_object.alpha*mass_err/mass)**2+\
                     (fit_object.beta*radius_err/radius)**2+\
                     (fit_object.gamma*conv_or_flux_err/conv_or_flux)**2+\
@@ -300,6 +306,9 @@ def table_comparision(planets,
     flux_obs_err               = planets.flux_obs_err[valid_mask]
     radius_obs                 = planets.radius_obs[valid_mask]
     radius_obs_err             = planets.radius_obs_err[valid_mask]
+    # (lower, upper) errors, used to sample mass and radius in the Monte Carlo scaling-law errors
+    mass_obs_err_asym          = planets.mass_obs_err_asym[valid_mask]
+    radius_obs_err_asym        = planets.radius_obs_err_asym[valid_mask]
     orbital_period_obs         = planets.orbital_period_obs[valid_mask]
     orbital_period_obs_err     = planets.orbital_period_obs_err[valid_mask]
 
@@ -318,13 +327,13 @@ def table_comparision(planets,
     conv_lumin_outer = np.pi*(radius_obs*6.991e+9)**2*flux_obs*heat_eff_outer_est/4.606e24
 
     if error_sym: heat_eff_inner_est_err_mean = heat_eff_inner_est_err
-    else: heat_eff_inner_est_err_mean = np.mean(heat_eff_inner_est_err)
+    else: heat_eff_inner_est_err_mean = np.mean(heat_eff_inner_est_err, axis=1)   # Mean of the lower and upper error of each planet
     conv_lumin_inner_err = conv_lumin_inner*np.sqrt((heat_eff_inner_est_err_mean/heat_eff_inner_est)**2+\
                                                                         (2*radius_obs_err/radius_obs)**2+\
                                                                         (flux_obs_err/flux_obs)**2)
     
     if error_sym: heat_eff_outer_est_err_mean = heat_eff_outer_est_err
-    else: heat_eff_outer_est_err_mean = np.mean(heat_eff_outer_est_err)
+    else: heat_eff_outer_est_err_mean = np.mean(heat_eff_outer_est_err, axis=1)   # Mean of the lower and upper error of each planet
     conv_lumin_outer_err = conv_lumin_outer*np.sqrt((heat_eff_outer_est_err_mean/heat_eff_outer_est)**2+\
                                                                         (2*radius_obs_err/radius_obs)**2+\
                                                                         (flux_obs_err/flux_obs)**2)
@@ -354,12 +363,12 @@ def table_comparision(planets,
         brms_outer_reiners = scaling_law(fit_reiners09, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_outer[index_planet])
         brms_outer_reiners_err = get_scaling_law_err(fit_reiners09, brms_outer_reiners,
                                                     mass_obs[index_planet], radius_obs[index_planet], conv_lumin_outer[index_planet],
-                                                    mass_obs_err[index_planet], radius_obs_err[index_planet], conv_lumin_outer_err[index_planet]) 
+                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], conv_lumin_outer_err[index_planet]) 
         
         brms_inner_reiners = scaling_law(fit_reiners09, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_inner[index_planet])
         brms_inner_reiners_err = get_scaling_law_err(fit_reiners09, brms_inner_reiners,
                                                     mass_obs[index_planet], radius_obs[index_planet], conv_lumin_inner[index_planet],
-                                                    mass_obs_err[index_planet], radius_obs_err[index_planet], conv_lumin_inner_err[index_planet])  
+                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], conv_lumin_inner_err[index_planet])  
 
         brms_inner_surf_reiners = brms_inner_reiners*(1-0.17/mass_obs[index_planet])**3/np.sqrt(2)
         brms_inner_surf_reiners_err = brms_inner_surf_reiners*np.sqrt((brms_inner_reiners_err/brms_inner_reiners)**2+\
@@ -370,76 +379,76 @@ def table_comparision(planets,
         brms_inner_fitMRL = scaling_law(fit_MRL_inner, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_inner[index_planet])
         brms_inner_fitMRL_err = get_scaling_law_err(fit_MRL_inner, brms_inner_fitMRL,
                                                     mass_obs[index_planet], radius_obs[index_planet], conv_lumin_inner[index_planet],
-                                                    mass_obs_err[index_planet], radius_obs_err[index_planet], conv_lumin_inner_err[index_planet])
+                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], conv_lumin_inner_err[index_planet])
 
         brms_inner_surf_fitMRL = scaling_law(fit_MRL_inner_surf, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_inner[index_planet])
         brms_inner_surf_fitMRL_err = get_scaling_law_err(fit_MRL_inner_surf, brms_inner_surf_fitMRL,
                                                     mass_obs[index_planet], radius_obs[index_planet], conv_lumin_inner[index_planet],
-                                                    mass_obs_err[index_planet], radius_obs_err[index_planet], conv_lumin_inner_err[index_planet])
+                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], conv_lumin_inner_err[index_planet])
 
         brms_outer_fitMRL = scaling_law(fit_MRL_outer, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_outer[index_planet])
         brms_outer_fitMRL_err = get_scaling_law_err(fit_MRL_outer, brms_outer_fitMRL,
                                                     mass_obs[index_planet], radius_obs[index_planet], conv_lumin_outer[index_planet],
-                                                    mass_obs_err[index_planet], radius_obs_err[index_planet], conv_lumin_outer_err[index_planet])
+                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], conv_lumin_outer_err[index_planet])
 
         brms_outer_surf_fitMRL = scaling_law(fit_MRL_outer_surf, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_outer[index_planet])
         brms_outer_surf_fitMRL_err = get_scaling_law_err(fit_MRL_outer_surf, brms_outer_surf_fitMRL,
                                                     mass_obs[index_planet], radius_obs[index_planet], conv_lumin_outer[index_planet],
-                                                    mass_obs_err[index_planet], radius_obs_err[index_planet], conv_lumin_outer_err[index_planet])
+                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], conv_lumin_outer_err[index_planet])
         
         
         
         brms_inner_fitMRF = scaling_law(fit_MRF_inner, mass_obs[index_planet], radius_obs[index_planet], (flux_obs[index_planet]/1e9))
         brms_inner_fitMRF_err = get_scaling_law_err(fit_MRF_inner, brms_inner_fitMRF,
                                                     mass_obs[index_planet], radius_obs[index_planet], (flux_obs[index_planet]/1e9),
-                                                    mass_obs_err[index_planet], radius_obs_err[index_planet], (flux_obs_err[index_planet]/1e9))
+                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], (flux_obs_err[index_planet]/1e9))
         
         brms_inner_surf_fitMRF = scaling_law(fit_MRF_inner_surf, mass_obs[index_planet], radius_obs[index_planet], (flux_obs[index_planet]/1e9))
         brms_inner_surf_fitMRF_err = get_scaling_law_err(fit_MRF_inner_surf, brms_inner_surf_fitMRF,
                                                     mass_obs[index_planet], radius_obs[index_planet], (flux_obs[index_planet]/1e9),
-                                                    mass_obs_err[index_planet], radius_obs_err[index_planet], (flux_obs_err[index_planet]/1e9))
+                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], (flux_obs_err[index_planet]/1e9))
 
         brms_outer_fitMRF = scaling_law(fit_MRF_outer, mass_obs[index_planet], radius_obs[index_planet], (flux_obs[index_planet]/1e9))
         brms_outer_fitMRF_err = get_scaling_law_err(fit_MRF_outer, brms_outer_fitMRF,
                                                     mass_obs[index_planet], radius_obs[index_planet], (flux_obs[index_planet]/1e9),
-                                                    mass_obs_err[index_planet], radius_obs_err[index_planet], (flux_obs_err[index_planet]/1e9))
+                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], (flux_obs_err[index_planet]/1e9))
 
         brms_outer_surf_fitMRF = scaling_law(fit_MRF_outer_surf, mass_obs[index_planet], radius_obs[index_planet], (flux_obs[index_planet]/1e9))
         brms_outer_surf_fitMRF_err = get_scaling_law_err(fit_MRF_outer_surf, brms_outer_surf_fitMRF,
                                                     mass_obs[index_planet], radius_obs[index_planet], (flux_obs[index_planet]/1e9),
-                                                    mass_obs_err[index_planet], radius_obs_err[index_planet], (flux_obs_err[index_planet]/1e9))
+                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], (flux_obs_err[index_planet]/1e9))
 
         
 
         brms_inner_fitMR = scaling_law(fit_MR_inner,mass_obs[index_planet],radius_obs[index_planet],1)
         brms_inner_fitMR_err = get_scaling_law_err(fit_MR_inner, brms_inner_fitMR,
                                                     mass_obs[index_planet],radius_obs[index_planet],1,
-                                                    mass_obs_err[index_planet], radius_obs_err[index_planet],1)
+                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet],1)
 
         brms_inner_surf_fitMR = scaling_law(fit_MR_inner_surf,mass_obs[index_planet],radius_obs[index_planet],1)
         brms_inner_surf_fitMR_err = get_scaling_law_err(fit_MR_inner_surf, brms_inner_surf_fitMR,
                                                     mass_obs[index_planet],radius_obs[index_planet],1,
-                                                    mass_obs_err[index_planet], radius_obs_err[index_planet],1)
+                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet],1)
 
         brms_outer_fitMR = scaling_law(fit_MR_outer,mass_obs[index_planet],radius_obs[index_planet],1)
         brms_outer_fitMR_err = get_scaling_law_err(fit_MR_outer, brms_outer_fitMR,
                                                     mass_obs[index_planet],radius_obs[index_planet],1,
-                                                    mass_obs_err[index_planet], radius_obs_err[index_planet],1)
+                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet],1)
 
         brms_outer_surf_fitMR = scaling_law(fit_MR_outer_surf,mass_obs[index_planet],radius_obs[index_planet],1)
         brms_outer_surf_fitMR_err = get_scaling_law_err(fit_MR_outer_surf, brms_outer_surf_fitMR,
                                                     mass_obs[index_planet],radius_obs[index_planet],1,
-                                                    mass_obs_err[index_planet], radius_obs_err[index_planet],1)
+                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet],1)
 
         brms_irr_fitMR = scaling_law(fit_MR_irr_all,mass_obs[index_planet],radius_obs[index_planet],1)
         brms_irr_fitMR_err = get_scaling_law_err(fit_MR_irr_all, brms_irr_fitMR,
                                                     mass_obs[index_planet],radius_obs[index_planet],1,
-                                                    mass_obs_err[index_planet], radius_obs_err[index_planet],1)
+                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet],1)
 
         brms_irr_surf_fitMR = scaling_law(fit_MR_irr_all_surf,mass_obs[index_planet],radius_obs[index_planet], 1)
         brms_irr_surf_fitMR_err = get_scaling_law_err(fit_MR_irr_all_surf, brms_irr_surf_fitMR,
                                                     mass_obs[index_planet],radius_obs[index_planet], 1,
-                                                    mass_obs_err[index_planet], radius_obs_err[index_planet], 1)
+                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], 1)
 
         mass_obs_print = get_print_string(mass_obs[index_planet],mass_obs_err[index_planet],"mass",error_sym=True)
         radius_obs_print = get_print_string(radius_obs[index_planet],radius_obs_err[index_planet],"radius",error_sym=True)
@@ -498,7 +507,7 @@ def table_comparision(planets,
         brms_inner_thorn_18 = scaling_law(fit_reiners09, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_thorn18)
         brms_inner_thorn_18_err = get_scaling_law_err(fit_reiners09, brms_inner_thorn_18,
                                                       mass_obs[index_planet], radius_obs[index_planet], conv_lumin_thorn18,
-                                                      mass_obs_err[index_planet], radius_obs_err[index_planet], conv_lumin_thorn18_err)
+                                                      mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], conv_lumin_thorn18_err)
         brms_inner_thorn_18_print = get_print_string(brms_inner_thorn_18, brms_inner_thorn_18_err, "brms", error_sym=error_sym_fits)    
 
 

@@ -7,11 +7,6 @@ import emcee
 from tqdm import tqdm
 import table_predictions_save
 
-def sample_obs(value, err, N):
-    # err is one symmetric error or a (lower, upper) pair, sampled as a split normal
-    if np.ndim(err) == 0: return np.random.normal(value, err, N)
-    return table_predictions_save.sample_split_normal(value, err[0], err[1], N)
-
 def get_error(interpolator,
               mass, mass_err,
               flux, flux_err,
@@ -47,20 +42,13 @@ def get_error_gaussian(interpolator,
                         min_mass = 0.3, max_mass = 12,
                         min_flux = 1e7, max_flux = 1.58e10):
     
-    if np.any(np.isnan(mass_err)):
-        masses_s = mass*np.ones(N)
-    else:
-        masses_s = sample_obs(mass, mass_err, N)
+    # A missing (NaN) observational error gives a missing (NaN) error, as in get_scaling_law_err
+    if np.any(np.isnan(mass_err)) or np.any(np.isnan(flux_err)) or np.any(np.isnan(radius_err)):
+        return np.nan, np.nan
 
-    if np.any(np.isnan(flux_err)):
-        fluxes_s = flux*np.ones(N)
-    else:
-        fluxes_s = sample_obs(flux, flux_err, N)
-
-    if np.any(np.isnan(radius_err)):
-        radii_s = radius*np.ones(N)
-    else:
-        radii_s = sample_obs(radius, radius_err, N)
+    masses_s = table_predictions_save.sample_obs(mass, mass_err, N)
+    fluxes_s = table_predictions_save.sample_obs(flux, flux_err, N)
+    radii_s = table_predictions_save.sample_obs(radius, radius_err, N)
 
     mask = (masses_s > min_mass) & (masses_s < max_mass) & (fluxes_s > min_flux) & (fluxes_s < max_flux) & (radii_s > radius_irr)
     samples = interpolator(masses_s[mask],np.log10(fluxes_s[mask]),radii_s[mask])
@@ -192,15 +180,12 @@ def get_error_irr_gaussian(interpolator,
                         min_mass = 0.3, max_mass = 12,
                         min_flux = 1e7, max_flux = 1.58e10):
     
-    if np.any(np.isnan(mass_err)):
-        masses_s = mass*np.ones(N)
-    else:
-        masses_s = sample_obs(mass, mass_err, N)
+    # A missing (NaN) observational error gives a missing (NaN) error, as in get_scaling_law_err
+    if np.any(np.isnan(mass_err)) or np.any(np.isnan(flux_err)):
+        return np.nan, np.nan
 
-    if np.any(np.isnan(flux_err)):
-        fluxes_s = flux*np.ones(N)
-    else:
-        fluxes_s = sample_obs(flux, flux_err, N)
+    masses_s = table_predictions_save.sample_obs(mass, mass_err, N)
+    fluxes_s = table_predictions_save.sample_obs(flux, flux_err, N)
 
     mask = (masses_s > min_mass) & (masses_s < max_mass) & (fluxes_s > min_flux) & (fluxes_s < max_flux)
     samples = interpolator(masses_s[mask],np.log10(fluxes_s[mask]))
