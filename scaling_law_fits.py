@@ -4,6 +4,7 @@ import numpy as np
 from scipy.optimize import curve_fit 
 from scipy.stats import chisquare, pearsonr, spearmanr
 from odrpack import odr_fit
+from table_predictions_save import sample_split_normal
 
 def power_law(vars, K, alpha, beta, gamma):
     lnmass, lnradius, lnconv_lum = vars
@@ -172,6 +173,10 @@ def general_fit(planets,
     flux_obs_err    = planets.flux_obs_err[valid_mask]
     radius_obs      = planets.radius_obs[valid_mask]
     radius_obs_err  = planets.radius_obs_err[valid_mask]
+    # (lower, upper) errors, used to sample the observed values in the gaussian fits
+    mass_obs_err_asym   = planets.mass_obs_err_asym[valid_mask]
+    flux_obs_err_asym   = planets.flux_obs_err_asym[valid_mask]
+    radius_obs_err_asym = planets.radius_obs_err_asym[valid_mask]
     
     # Remove the predictions with Brms = 0, to not include them for the Brms_outer fits
     valid_mask = brms_est > 0
@@ -180,6 +185,9 @@ def general_fit(planets,
     mass_obs, mass_obs_err          = mass_obs[valid_mask], mass_obs_err[valid_mask]
     flux_obs, flux_obs_err          = flux_obs[valid_mask], flux_obs_err[valid_mask]
     radius_obs, radius_obs_err      = radius_obs[valid_mask], radius_obs_err[valid_mask]
+    mass_obs_err_asym   = mass_obs_err_asym[valid_mask]
+    flux_obs_err_asym   = flux_obs_err_asym[valid_mask]
+    radius_obs_err_asym = radius_obs_err_asym[valid_mask]
 
     if not error_sym:
         heat_eff_est_err = np.mean(heat_eff_est_err, axis=1)
@@ -246,8 +254,8 @@ def general_fit(planets,
             param_samples = []
             #cov_samples = []
             for _ in range(N_gauss):
-                mass_s = np.random.normal(mass_obs, mass_obs_err)
-                radius_s = np.random.normal(radius_obs, radius_obs_err)
+                mass_s = sample_split_normal(mass_obs, mass_obs_err_asym[:,0], mass_obs_err_asym[:,1], len(mass_obs))
+                radius_s = sample_split_normal(radius_obs, radius_obs_err_asym[:,0], radius_obs_err_asym[:,1], len(radius_obs))
                 conv_lum_s = np.random.normal(conv_lumin, conv_lumin_err)
                 brms_s = np.random.normal(brms_est, brms_est_err)
 
@@ -332,9 +340,9 @@ def general_fit(planets,
         elif fit_type == "gaussian":
             param_samples = []
             for _ in range(N_gauss):
-                mass_s = np.random.normal(mass_obs, mass_obs_err)
-                radius_s = np.random.normal(radius_obs, radius_obs_err)
-                flux_s = np.random.normal(flux_obs, flux_obs_err)
+                mass_s = sample_split_normal(mass_obs, mass_obs_err_asym[:,0], mass_obs_err_asym[:,1], len(mass_obs))
+                radius_s = sample_split_normal(radius_obs, radius_obs_err_asym[:,0], radius_obs_err_asym[:,1], len(radius_obs))
+                flux_s = sample_split_normal(flux_obs, flux_obs_err_asym[:,0], flux_obs_err_asym[:,1], len(flux_obs))
                 brms_s = np.random.normal(brms_est, brms_est_err)
 
                 valid_mask = (mass_s > 0) & (radius_s > 0) & (flux_s > 0) & (brms_s > 0)
@@ -418,8 +426,8 @@ def general_fit(planets,
         elif fit_type == "gaussian":
             param_samples = []
             for _ in range(N_gauss):
-                mass_s = np.random.normal(mass_obs, mass_obs_err)
-                radius_s = np.random.normal(radius_obs, radius_obs_err)
+                mass_s = sample_split_normal(mass_obs, mass_obs_err_asym[:,0], mass_obs_err_asym[:,1], len(mass_obs))
+                radius_s = sample_split_normal(radius_obs, radius_obs_err_asym[:,0], radius_obs_err_asym[:,1], len(radius_obs))
                 brms_s = np.random.normal(brms_est, brms_est_err)
 
                 valid_mask = (mass_s > 0) & (radius_s > 0) & (brms_s > 0)
@@ -502,9 +510,9 @@ def general_fit(planets,
         elif fit_type == "gaussian":
             param_samples = []
             for _ in range(N_gauss):
-                mass_s = np.random.normal(mass_obs, mass_obs_err)
-                radius_s = np.random.normal(radius_obs, radius_obs_err)
-                flux_s = np.random.normal(flux_obs, flux_obs_err)
+                mass_s = sample_split_normal(mass_obs, mass_obs_err_asym[:,0], mass_obs_err_asym[:,1], len(mass_obs))
+                radius_s = sample_split_normal(radius_obs, radius_obs_err_asym[:,0], radius_obs_err_asym[:,1], len(radius_obs))
+                flux_s = sample_split_normal(flux_obs, flux_obs_err_asym[:,0], flux_obs_err_asym[:,1], len(flux_obs))
                 heat_eff_s = np.random.normal(heat_eff_est, heat_eff_est_err)
 
                 valid_mask = (mass_s > 0) & (radius_s > 0) & (flux_s > 0) & (heat_eff_s > 0)

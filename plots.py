@@ -415,6 +415,10 @@ def plot_population(planets,
     radius_obs_err          = planets.radius_obs_err
     orbital_period_obs      = planets.orbital_period_obs
     orbital_period_obs_err  = planets.orbital_period_obs_err
+    # (lower, upper) errors of the observed values as (2, N) arrays for the error bars
+    mass_obs_err_bar        = planets.mass_obs_err_asym.T
+    flux_obs_err_bar        = planets.flux_obs_err_asym.T
+    radius_obs_err_bar      = planets.radius_obs_err_asym.T
     
     label_inner = r"$\epsilon_{\rm inner}$" #r"$B_{\rm dip, \, inner}$"
     label_outer = r"$\epsilon_{\rm outer}$" #r"$B_{\rm dip, \, outer}$"
@@ -506,7 +510,7 @@ def plot_population(planets,
         ax = plt.axes()
         ax.errorbar(flux_obs[valid_mask],
                     variables[index_variable][valid_mask],
-                    xerr=flux_obs_err[valid_mask],
+                    xerr=flux_obs_err_bar[:,valid_mask],
                     yerr=variables_err[index_variable][:,valid_mask],
                     zorder=1,alpha=.5,
                     ls="none",ecolor="k")
@@ -519,7 +523,7 @@ def plot_population(planets,
         if cut:
             ax.errorbar(flux_obs[~valid_mask],
                         variables[index_variable][~valid_mask],
-                        xerr=flux_obs_err[~valid_mask],
+                        xerr=flux_obs_err_bar[:,~valid_mask],
                         yerr=variables_err[index_variable][:,~valid_mask],
                         zorder=1,alpha=.1,
                         ls="none",ecolor="k")
@@ -545,9 +549,9 @@ def plot_population(planets,
     variables = [flux_obs,
                  mass_obs,
                  mass_obs]
-    variables_err = [flux_obs_err,
-                    mass_obs_err,
-                    mass_obs_err]
+    variables_err = [flux_obs_err_bar,
+                    mass_obs_err_bar,
+                    mass_obs_err_bar]
     colors = [mass_obs,
                     brms_inner_est,
                     brms_outer_est]
@@ -587,8 +591,8 @@ def plot_population(planets,
         ax = plt.axes()
         ax.errorbar(variables[index_variable][valid_mask],
                     radius_obs[valid_mask],
-                    xerr=variables_err[index_variable][valid_mask],
-                    yerr=radius_obs_err[valid_mask],
+                    xerr=variables_err[index_variable][:,valid_mask],
+                    yerr=radius_obs_err_bar[:,valid_mask],
                     zorder=1,alpha=.5,
                     ls="none",ecolor="k")
         cs = ax.scatter(variables[index_variable][valid_mask],
@@ -600,8 +604,8 @@ def plot_population(planets,
         if cut:
             ax.errorbar(variables[index_variable][~valid_mask],
                         radius_obs[~valid_mask],
-                        xerr=variables_err[index_variable][~valid_mask],
-                        yerr=radius_obs_err[~valid_mask],
+                        xerr=variables_err[index_variable][:,~valid_mask],
+                        yerr=radius_obs_err_bar[:,~valid_mask],
                         zorder=1,alpha=.1,
                         ls="none",ecolor="k")
             ax.scatter(variables[index_variable][~valid_mask],
@@ -665,7 +669,7 @@ def plot_population(planets,
         ax = plt.axes()
         ax.errorbar(radius_obs[valid_mask],
                     variables[index_variable][valid_mask],
-                    xerr=radius_obs_err[valid_mask],
+                    xerr=radius_obs_err_bar[:,valid_mask],
                     yerr=variables_err[index_variable][:,valid_mask],
                     zorder=1,alpha=.5,
                     ls="none",ecolor="k")
@@ -678,7 +682,7 @@ def plot_population(planets,
         if cut:
             ax.errorbar(radius_obs[~valid_mask],
                         variables[index_variable][~valid_mask],
-                        xerr=radius_obs_err[~valid_mask],
+                        xerr=radius_obs_err_bar[:,~valid_mask],
                         yerr=variables_err[index_variable][:,~valid_mask],
                         zorder=1,alpha=.1,
                         ls="none",ecolor="k")
@@ -734,7 +738,7 @@ def plot_population(planets,
     ax = plt.axes()
     ax.errorbar(flux_obs[valid_mask],
                 100*heat_eff_inner_est[valid_mask],
-                xerr=flux_obs_err[valid_mask],
+                xerr=flux_obs_err_bar[:,valid_mask],
                 yerr=100*heat_eff_inner_est_err[:,valid_mask],
                 zorder=1,alpha=.5,
                 ls="none",ecolor="k")
@@ -751,7 +755,7 @@ def plot_population(planets,
     if cut:
         ax.errorbar(flux_obs[~valid_mask],
                     100*heat_eff_inner_est[~valid_mask],
-                    xerr=flux_obs_err[~valid_mask],
+                    xerr=flux_obs_err_bar[:,~valid_mask],
                     yerr=100*heat_eff_inner_est_err[:,~valid_mask],
                     zorder=1,alpha=.1,
                     ls="none",ecolor="k")
@@ -799,7 +803,7 @@ def plot_population(planets,
     ax = plt.axes()
     ax.errorbar(mass_obs[valid_mask],
                 100*heat_eff_inner_est[valid_mask],
-                xerr=mass_obs_err[valid_mask],
+                xerr=mass_obs_err_bar[:,valid_mask],
                 yerr=100*heat_eff_inner_est_err[:,valid_mask],
                 zorder=1,alpha=.5,
                 ls="none",ecolor="k")
@@ -812,7 +816,7 @@ def plot_population(planets,
     if cut:
         ax.errorbar(mass_obs[~valid_mask],
                     100*heat_eff_inner_est[~valid_mask],
-                    xerr=mass_obs_err[~valid_mask],
+                    xerr=mass_obs_err_bar[:,~valid_mask],
                     yerr=100*heat_eff_inner_est_err[:,~valid_mask],
                     zorder=1,alpha=.1,
                     ls="none",ecolor="k")
@@ -891,20 +895,20 @@ def plot_population(planets,
                         flux_obs*heat_eff_outer_est,
                         K_reiners*brms_outer_reiners,
                         K_reiners*brms_thorn18]
-    variables_inner_err  = [flux_obs_err,
+    variables_inner_err  = [flux_obs_err_bar,
                        orbital_period_obs_err,
                         temp_eff_obs,
-                        radius_obs_err,
-                        mass_obs_err,
+                        radius_obs_err_bar,
+                        mass_obs_err_bar,
                         surf_grav_err,
                         np.sqrt((flux_obs_err*heat_eff_inner_est)**2+(flux_obs*heat_eff_inner_est_err)**2),
                         K_reiners*brms_inner_reiners_err,
                         K_reiners*brms_thorn18_err]
-    variables_outer_err  = [flux_obs_err,
+    variables_outer_err  = [flux_obs_err_bar,
                        orbital_period_obs_err,
                         temp_eff_obs,
-                        radius_obs_err,
-                        mass_obs_err,
+                        radius_obs_err_bar,
+                        mass_obs_err_bar,
                         surf_grav_err,
                         np.sqrt((flux_obs_err*heat_eff_outer_est)**2+(flux_obs*heat_eff_outer_est_err)**2),
                         K_reiners*brms_outer_reiners_err,

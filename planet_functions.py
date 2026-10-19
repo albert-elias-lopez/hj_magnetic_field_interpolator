@@ -1,6 +1,11 @@
 import numpy as np
 import table_predictions_save
 
+def read_err_asym(file_list, index_err1):
+    # (lower, upper) error from the archive columns <name>err2 (negative) and <name>err1 (positive)
+    try: return abs(float(file_list[index_err1+1])), abs(float(file_list[index_err1]))
+    except ValueError: return np.nan, np.nan
+
 class planet_object:
     def __init__(self, N_planets, error_sym):
 
@@ -31,6 +36,12 @@ class planet_object:
         self.orbital_dist_obs           = np.zeros(N_planets)
         self.orbital_dist_obs_err       = np.zeros(N_planets)
 
+        # (lower, upper) errors of the observed values, used to sample them in the Monte Carlo errors.
+        # The *_obs_err arrays above keep max(lower, upper) for the analytic error formulas.
+        self.mass_obs_err_asym          = np.zeros((N_planets,2))
+        self.radius_obs_err_asym        = np.zeros((N_planets,2))
+        self.flux_obs_err_asym          = np.zeros((N_planets,2))
+
         # Interpolated data for inner models
         self.heat_eff_inner_est         = np.zeros(N_planets)
         self.heat_eff_inner_est_err     = np.zeros(error_array_shape)
@@ -60,6 +71,12 @@ class planet_object:
         self.flux_obs_err = 2*self.flux_obs* np.sqrt((2*self.temp_star_obs_err/self.temp_star_obs)**2 + \
                                                     (self.radius_star_obs_err/self.radius_star_obs)**2 + \
                                                     (self.orbital_dist_obs_err/self.orbital_dist_obs)**2)
+
+    def set_symmetric_asym_errors(self):
+        # Presets and --my_planet_params give one error per quantity: use it as lower and upper error
+        self.mass_obs_err_asym   = np.column_stack((self.mass_obs_err, self.mass_obs_err))
+        self.radius_obs_err_asym = np.column_stack((self.radius_obs_err, self.radius_obs_err))
+        self.flux_obs_err_asym   = np.column_stack((self.flux_obs_err, self.flux_obs_err))
 
     def read_file(self, filename, line_skip):
         # This will be used for intepolating missing stellar data from the exoplaent database
@@ -105,6 +122,11 @@ class planet_object:
         lines = file.readlines()[line_skip:] #50
         Npl = len(lines) #50
 
+        # (lower, upper) errors of the stellar values, only needed for the flux errors
+        temp_star_err_asym   = np.zeros((Npl,2))
+        radius_star_err_asym = np.zeros((Npl,2))
+        orbital_dist_err_asym = np.zeros((Npl,2))
+
         for index_planet in range(0, Npl):
             file_list = [i for i in lines[index_planet].split(',')]
             self.planet_names += [file_list[0]]
@@ -116,11 +138,13 @@ class planet_object:
             self.mass_obs[index_planet] = file_list[14]
             try: self.mass_obs_err[index_planet] = max(abs(float(file_list[15])),abs(float(file_list[16])))
             except: self.mass_obs_err[index_planet] = np.nan
+            self.mass_obs_err_asym[index_planet] = read_err_asym(file_list, 15)
 
             try:
                 self.radius_obs[index_planet] = file_list[10]
                 try: self.radius_obs_err[index_planet] = max(abs(float(file_list[11])),abs(float(file_list[12])))
                 except: self.radius_obs_err[index_planet] = np.nan
+                self.radius_obs_err_asym[index_planet] = read_err_asym(file_list, 11)
             except:
                 const, const_err = 18.6/11.2, 6.7/11.2
                 alpha, alpha_err = -0.06, 0.07
@@ -129,6 +153,7 @@ class planet_object:
                 self.radius_obs_err[index_planet] =self.radius_obs[index_planet]*np.sqrt((const_err/const)**2+\
                                                      (np.log(mass_planet)*alpha_err)**2+\
                                                      (alpha*mass_planet_err/mass_planet)**2)
+                self.radius_obs_err_asym[index_planet] = self.radius_obs_err[index_planet]
 
             self.mass_star_obs[index_planet] = file_list[27]
             try: self.mass_star_obs_err[index_planet] = max(abs(float(file_list[28])),abs(float(file_list[29])))
@@ -138,28 +163,34 @@ class planet_object:
                 self.temp_star_obs[index_planet] = file_list[19]
                 try: self.temp_star_obs_err[index_planet] = max(abs(float(file_list[20])),abs(float(file_list[21])))
                 except: self.temp_star_obs_err[index_planet] = np.nan
+                temp_star_err_asym[index_planet] = read_err_asym(file_list, 20)
             except: 
                 log_temp = np.interp(np.log(self.mass_star_obs[index_planet]),np.flip(log_star_masses),np.flip(log_star_temps))
                 self.temp_star_obs[index_planet] = np.exp(log_temp)
                 self.temp_star_obs_err[index_planet] = np.nan
+                temp_star_err_asym[index_planet] = np.nan
 
             try:
                 self.radius_star_obs[index_planet] = file_list[23]
                 try: self.radius_star_obs_err[index_planet] = max(abs(float(file_list[24])),abs(float(file_list[25])))
                 except: self.radius_star_obs_err[index_planet] = np.nan
+                radius_star_err_asym[index_planet] = read_err_asym(file_list, 24)
             except: 
                 log_radius = np.interp(np.log(self.mass_star_obs[index_planet]),np.flip(log_star_masses),np.flip(log_star_radii))
                 self.radius_star_obs[index_planet] = np.exp(log_radius)
                 self.radius_star_obs_err[index_planet] = np.nan
+                radius_star_err_asym[index_planet] = np.nan
 
             try: 
                 self.orbital_dist_obs[index_planet] = file_list[6]
                 self.orbital_dist_obs_err[index_planet] = max(abs(float(file_list[7])),abs(float(file_list[8])))
+                orbital_dist_err_asym[index_planet] = read_err_asym(file_list, 7)
             except: 
                 self.orbital_dist_obs[index_planet] = np.cbrt(7.496e-6*self.mass_star_obs[index_planet]*self.orbital_period_obs[index_planet]**2)
                 self.orbital_dist_obs_err[index_planet] = (1/3)*np.cbrt(7.496e-6*self.mass_star_obs[index_planet]/self.orbital_period_obs[index_planet])*\
                                         np.sqrt(self.orbital_period_obs[index_planet]**2*self.mass_star_obs_err[index_planet]**2/self.mass_star_obs[index_planet]**2 + \
                                         4*self.orbital_period_obs_err[index_planet]**2)
+                orbital_dist_err_asym[index_planet] = self.orbital_dist_obs_err[index_planet]
 
         albedo = 0
         self.temp_eff_obs = self.temp_star_obs*np.sqrt(np.sqrt(1-albedo))*np.sqrt(self.radius_star_obs*0.00465047/self.orbital_dist_obs/2)
@@ -169,6 +200,16 @@ class planet_object:
         self.flux_obs_err = 2*self.flux_obs* np.sqrt((2*self.temp_star_obs_err/self.temp_star_obs)**2 + \
                                                     (self.radius_star_obs_err/self.radius_star_obs)**2 + \
                                                     (self.orbital_dist_obs_err/self.orbital_dist_obs)**2)
+
+        # F ~ T^4 R_star^2 / a^2: the lower flux error comes from the lower T and R_star errors and
+        # the upper a error (and the other way around for the upper flux error)
+        flux_rel_err_lower = np.sqrt((2*temp_star_err_asym[:,0]/self.temp_star_obs)**2 + \
+                                     (radius_star_err_asym[:,0]/self.radius_star_obs)**2 + \
+                                     (orbital_dist_err_asym[:,1]/self.orbital_dist_obs)**2)
+        flux_rel_err_upper = np.sqrt((2*temp_star_err_asym[:,1]/self.temp_star_obs)**2 + \
+                                     (radius_star_err_asym[:,1]/self.radius_star_obs)**2 + \
+                                     (orbital_dist_err_asym[:,0]/self.orbital_dist_obs)**2)
+        self.flux_obs_err_asym = 2*self.flux_obs[:,None]*np.column_stack((flux_rel_err_lower, flux_rel_err_upper))
         
         #self.get_flux()
         
@@ -307,6 +348,7 @@ class planet_object:
             self.flux_obs_err               = np.array([0.51e9,     0.97e9,     0.31e9,     0.94e9,     0.79e9,     3.4e9,      0.67e9    ])
         
         self.temp_eff_obs = np.ones(len(self.planet_names))
+        self.set_symmetric_asym_errors()
 
 
     def mask_population(self, mask):
@@ -326,6 +368,9 @@ class planet_object:
         self.flux_obs_err                = self.flux_obs_err[mask]
         self.radius_obs                  = self.radius_obs[mask]
         self.radius_obs_err              = self.radius_obs_err[mask]
+        self.mass_obs_err_asym           = self.mass_obs_err_asym[mask]
+        self.radius_obs_err_asym         = self.radius_obs_err_asym[mask]
+        self.flux_obs_err_asym           = self.flux_obs_err_asym[mask]
         self.orbital_period_obs          = self.orbital_period_obs[mask]
         self.orbital_period_obs_err      = self.orbital_period_obs_err[mask]
 
@@ -416,8 +461,8 @@ class planet_object:
             print("            B_dip,surf,inner = " + brms_inner_surf_est_print + "G")
             print(f" ")
             print("  eps_outer(%):     " + heat_eff_outer_est_print)
-            print("            B_rms,inner      = " + brms_outer_est_print + "G")
-            print("            B_dip,surf,inner = " + brms_outer_surf_est_print + "G")
+            print("            B_rms,outer      = " + brms_outer_est_print + "G")
+            print("            B_dip,surf,outer = " + brms_outer_surf_est_print + "G")
             print(f" ")
             print("  eps(%) = 0 (radius of only irradiated planet: " + radius_irr_est_print + " R_J)")
             print("            B_rms,eps0       = " + brms_irr_est_print + "G")

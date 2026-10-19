@@ -206,6 +206,7 @@ else:
         planets.orbital_period_obs_err     = np.array([my_planet_params[5]])
         planets.flux_obs                   = np.array([my_planet_params[6]])
         planets.flux_obs_err               = np.array([my_planet_params[7]])
+        planets.set_symmetric_asym_errors()
 
 if rotation:
     mask_predictions = (planets.mass_obs > min_mass) & (planets.mass_obs < max_mass) & \
