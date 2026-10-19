@@ -51,7 +51,7 @@ if __name__ == "__main__":
     # If used, it will evaluate a predefined set of planets.
     parser.set_defaults(HJ_population=True)
     parser.add_argument("--no_HJ", dest="HJ_population", action="store_false",
-                        help="Disable evaluation of HJ population. Insted,a predefined set of planets will be evaluated, and precomputed scaling laws will be used.")
+                        help="Disable evaluation of HJ population. Instead, a predefined set of planets will be evaluated, and precomputed scaling laws will be used.")
     
     parser.add_argument("--which_planets", type=str, default="cauley19",
                         choices=["hats53b","wasp12b","hd209458b","cauley19","cauley19nasa","seidel26","seidel26nasa","my_own","errors"],
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     parser.add_argument("--N_gauss_fits", type=int, default=10000,
                         help="default=10000. Number of gaussian fits to perform for the scaling law. Only used if fit_type='gaussian'.")
     parser.add_argument("--print_scaling_law", action="store_true",
-                        help="Print the scaling law fit results on thermial (lengthy output, mainly used for testing)")
+                        help="Print the scaling law fit results on the terminal (lengthy output, mainly used for testing)")
     parser.add_argument("--which_cut", type=str, default="radius cut",
                         choices=["radius cut", "no cut", "flux cut", "heat cut", "brms cut"],
                         help="default='radius cut'. Which HJ population cut to use for the fits.")
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     parser.add_argument("--add_systematic_error", action="store_true",
                         help="Add a 60 percent relative systematic error to the interpolated/scaling law magnetic field estimates. " \
                         "This is a rough estimate of the error associated with the interior structure and dynamo model assumptions. " \
-                        "By default, and the uncertainty only comes from the propagation of observed data errors.")
+                        "By default, the uncertainty only comes from the propagation of observed data errors.")
 
     parser.add_argument("--seed", type=int, default=42,
                         help="default=42. Seed of the random numbers used for the Monte Carlo errors and fits. " \
@@ -85,7 +85,7 @@ if __name__ == "__main__":
     
 # Name of the current directory
 current = os.path.dirname(os.path.realpath(__file__))
-# Getthe parent directory name
+# Get the parent directory name
 parent = os.path.dirname(current)
 # Add the parent directory to the sys.path
 sys.path.append(parent)
@@ -114,7 +114,7 @@ rotation = args.rotation
 HJ_population = args.HJ_population
 fileHJ = 'PS_2026.02.18_08.49.05.csv'
 
-# In case of HJ_population = False, choose one option with the appropiate planet number.
+# In case of HJ_population = False, choose one option with the appropriate planet number.
 # If you choose your own, you should fill the values in 
 # errors,   hats53b,    cauley19,   cauley19nasa,   seidel26,   seidel26nasa, my_own
 # 11,       1,          4,          4,              7,          7,            1
@@ -188,15 +188,12 @@ print(f"----------------------------------------------------------------------")
 
 if HJ_population:
     
-    print("Reading gas giant explanet population " + fileHJ + ": ", end="\r")
-    file=open(fileHJ, "r")
-    lines = file.readlines()[46:] #50
-    Npl = len(lines) #50
-
+    print("Reading gas giant exoplanet population " + fileHJ + ": ", end="\r")
+    Npl = len(planet_functions.read_archive_csv(fileHJ))
     planets = planet_functions.planet_object(Npl,error_sym)
-    planets.read_file(fileHJ,line_skip=46)
+    planets.read_file(fileHJ)
     
-    print("Reading gas giant explanet population " + fileHJ + ": done")
+    print("Reading gas giant exoplanet population " + fileHJ + ": done")
     print(f"----------------------------------------------------------------------")
     
 else:
@@ -261,7 +258,7 @@ print(f"----------------------------------------------------------------------")
 
 if HJ_population:
 
-    print("Number ot planets at each step:")
+    print("Number of planets at each step:")
     print(table_inner.total_number_models, end="      ")
     print(f": total number of models for interpolator (inner)")
     print(table_outer.total_number_models, end="      ")
@@ -291,7 +288,7 @@ if HJ_population:
     planets.mask_population(mask_ultra_heated_models)
     number_planets_extreme_heat = len(planets.planet_names)
 
-    # Decide which mask to use before perfoming the fits. 
+    # Decide which mask to use before performing the fits. 
     if which_cut == "no cut":
         valid_mask = planets.heat_eff_inner_est > 1e-5
         name_cut, name_cut_header = "_no_cut", "No cut (actually eps > 1e-5)"
@@ -306,7 +303,7 @@ if HJ_population:
         name_cut, name_cut_header = "_cut_R", "Cut for Robs/Rirr > 1.05"
     elif which_cut == "brms cut":
         valid_mask = planets.brms_outer_est/planets.brms_inner_est < 0.25
-        name_cut, name_cut_header = "_cut_B", "Cut for Bout/Rext < 0.25"
+        name_cut, name_cut_header = "_cut_B", "Cut for Bout/Bin < 0.25"
 
     name_cut_short = name_cut
     name_cut = name_cut + "_" + fit_type + "_fit"
@@ -327,12 +324,12 @@ if HJ_population:
 
 else:
 
-    # Decide which mask to use before perfoming the fits. 
+    # Decide which mask to use before performing the fits. 
     if which_cut == "no cut": name_cut, name_cut_header = "_no_cut", "No cut (actually eps > 1e-5)"
     elif which_cut == "flux cut": name_cut, name_cut_header = "_cut_epsF", "Cut for eps*F_irr > 1e6"
     elif which_cut == "heat cut": name_cut, name_cut_header = "_cut_Qdep", "Cut for Q_dep = eps*F_irr*pi*R^2 > 1e6"
     elif which_cut == "radius cut": name_cut, name_cut_header = "_cut_R", "Cut for Robs/Rirr > 1.05"
-    elif which_cut == "brms cut": name_cut, name_cut_header = "_cut_B", "Cut for Bout/Rext < 0.25"
+    elif which_cut == "brms cut": name_cut, name_cut_header = "_cut_B", "Cut for Bout/Bin < 0.25"
 
     name_cut_short = name_cut
     name_cut = name_cut + "_" + fit_type + "_fit"
@@ -354,18 +351,18 @@ else:
     if not os.path.exists("./plots/fits" + name_cut + "_no_rot"): os.makedirs("./plots/fits" + name_cut + "_no_rot")
 
 
-fit_reiners09           = fit_object(fit_type, "reiners09")
-fit_reiners09.K         = 23
+fit_reiners10           = fit_object(fit_type, "reiners10")
+fit_reiners10.K         = 23
 if fit_type == "gaussian": 
-    fit_reiners09.K_err = np.array([15,13])
+    fit_reiners10.K_err = np.array([15,13])
 else:
-    fit_reiners09.K_err = np.mean([15,13])
-fit_reiners09.alpha     = 1/6
-fit_reiners09.alpha_err = 0
-fit_reiners09.beta      = -7/6
-fit_reiners09.beta_err  = 0
-fit_reiners09.gamma     = 1/3
-fit_reiners09.gamma_err = 0
+    fit_reiners10.K_err = np.mean([15,13])
+fit_reiners10.alpha     = 1/6
+fit_reiners10.alpha_err = 0
+fit_reiners10.beta      = -7/6
+fit_reiners10.beta_err  = 0
+fit_reiners10.gamma     = 1/3
+fit_reiners10.gamma_err = 0
 
 if HJ_population:
 
@@ -645,7 +642,7 @@ table_predictions_save.table_comparision(planets,
                                         name_cut,
                                         HJ_population,
                                         which_planets,
-                                        fit_type, fit_reiners09,
+                                        fit_type, fit_reiners10,
                                         fit_MRL_inner, fit_MRL_inner_surf, fit_MRL_outer, fit_MRL_outer_surf,
                                         fit_MRF_inner, fit_MRF_inner_surf, fit_MRF_outer, fit_MRF_outer_surf,
                                         fit_MR_inner, fit_MR_inner_surf, fit_MR_outer, fit_MR_outer_surf,
@@ -706,7 +703,7 @@ if save_plots_population and HJ_population:
     plots.plot_population_fits(planets,
                             name_cut,
                             valid_mask,
-                            fit_type, fit_reiners09,
+                            fit_type, fit_reiners10,
                             fit_MRL_inner, fit_MRL_inner_surf, fit_MRL_outer, fit_MRL_outer_surf,
                             fit_MRF_inner, fit_MRF_inner_surf, fit_MRF_outer, fit_MRF_outer_surf,
                             fit_MR_inner, fit_MR_inner_surf, fit_MR_outer, fit_MR_outer_surf,
@@ -730,13 +727,10 @@ if HJ_population:
     print(f"----------------------------------------------------------------------")
 
     fileHJ = 'PS_2026.02.18_07.09.03.csv'
-    print("Reading gas giant explanet population " + fileHJ + ": ", end="\r")
-    file=open(fileHJ, "r")
-    lines = file.readlines()[43:] #50
-    Npl = len(lines) #50
-
+    print("Reading gas giant exoplanet population " + fileHJ + ": ", end="\r")
+    Npl = len(planet_functions.read_archive_csv(fileHJ))
     planets = planet_functions.planet_object(Npl,error_sym)
-    planets.read_file(fileHJ,line_skip=43)
+    planets.read_file(fileHJ)
 
     print("done")
     print(f"----------------------------------------------------------------------")
@@ -803,7 +797,7 @@ if HJ_population:
 
     elif which_cut == "brms cut":
         valid_mask = planets.brms_outer_est/planets.brms_inner_est < 0.25
-        name_cut, name_cut_header = "_cut_B", "Cut for Bout/Rext < 0.25"
+        name_cut, name_cut_header = "_cut_B", "Cut for Bout/Bin < 0.25"
         #print(brms_outer_est/brms_inner_est)
     
     if not os.path.exists("./predictions/predictions" + name_cut + "_extra"): 
@@ -820,7 +814,7 @@ if HJ_population:
                                             name_cut,
                                             HJ_population,
                                             which_planets,
-                                            fit_type, fit_reiners09,
+                                            fit_type, fit_reiners10,
                                             fit_MRL_inner, fit_MRL_inner_surf, fit_MRL_outer, fit_MRL_outer_surf,
                                             fit_MRF_inner, fit_MRF_inner_surf, fit_MRF_outer, fit_MRF_outer_surf,
                                             fit_MR_inner, fit_MR_inner_surf, fit_MR_outer, fit_MR_outer_surf,

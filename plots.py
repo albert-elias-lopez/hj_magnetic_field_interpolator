@@ -940,7 +940,7 @@ def plot_population(planets,
                       "mass",
                       "surf_grav",
                       "conv_lum",
-                      "reiners09_law",
+                      "reiners10_law",
                       "thorn18"]
     variable_labels = [r"$F\mathrm{_{\rm irr} \, (erg \, cm^{-2} \, s^{-1})}$",
                        r"$P \, \mathrm{(days)}$",
@@ -996,7 +996,7 @@ def plot_population(planets,
             low = max(xmin, ymin)
             high = min(xmax, ymax)
             x = np.logspace(np.log10(1.1*low), np.log10(0.9*high), 20)
-            if variable_names[index_variable] == "reiners09_law": y=x
+            if variable_names[index_variable] == "reiners10_law": y=x
             else: y=x
             plt.plot(x, y, '--', color = "k", linewidth=2, label=r"$x=y$")
         ax.set_xlabel(variable_labels[index_variable], fontsize=int(fontsize))
@@ -1032,7 +1032,7 @@ def plot_population(planets,
             low = max(xmin, ymin)
             high = min(xmax, ymax)
             x = np.logspace(np.log10(1.1*low), np.log10(0.9*high), 20)
-            if variable_names[index_variable] == "reiners09_law": y=x
+            if variable_names[index_variable] == "reiners10_law": y=x
             else: y=x
             plt.plot(x, y, '--', color = "k", linewidth=2, label=r"$x=y$")
         ax.set_xlabel(variable_labels[index_variable], fontsize=int(fontsize))
@@ -1082,7 +1082,7 @@ def plot_population(planets,
             low = max(xmin, ymin)
             high = min(xmax, ymax)
             x = np.logspace(np.log10(1.1*low), np.log10(0.9*high), 20)
-            if variable_names[index_variable] == "reiners09_law": y=x
+            if variable_names[index_variable] == "reiners10_law": y=x
             else: y=x
             plt.plot(x, y, '--', color = "k", linewidth=2, label=r"$x=y$")
         ax.set_xlabel(variable_labels[index_variable], fontsize=int(fontsize))
@@ -1118,7 +1118,7 @@ def plot_population(planets,
             low = max(xmin, ymin)
             high = min(xmax, ymax)
             x = np.logspace(np.log10(1.1*low), np.log10(0.9*high), 20)
-            if variable_names[index_variable] == "reiners09_law": y=x
+            if variable_names[index_variable] == "reiners10_law": y=x
             else: y=x
             plt.plot(x, y, '--', color = "k", linewidth=2, label=r"$x=y$")
         ax.set_xlabel(variable_labels[index_variable], fontsize=int(fontsize))
@@ -1130,7 +1130,7 @@ def plot_population(planets,
 def plot_population_fits(planets,
                         name_cut,
                         valid_mask,
-                        fit_type, fit_reiners09,
+                        fit_type, fit_reiners10,
                         fit_MRL_inner, fit_MRL_inner_surf, fit_MRL_outer, fit_MRL_outer_surf,
                         fit_MRF_inner, fit_MRF_inner_surf, fit_MRF_outer, fit_MRF_outer_surf,
                         fit_MR_inner, fit_MR_inner_surf, fit_MR_outer, fit_MR_outer_surf,
@@ -1427,7 +1427,7 @@ def plot_population_fits(planets,
                 low = max(xmin, ymin)
                 high = min(xmax, ymax)
                 x = np.logspace(np.log10(1.1*low), np.log10(0.9*high), 20)
-                if variable_names[index_variable] == "reiners09_law": y=x
+                if variable_names[index_variable] == "reiners10_law": y=x
                 else: y=x
                 plt.plot(x, y, '--', color = "k")
             ax.set_xlabel(variable_labels[index_variable], fontsize=int(fontsize))

@@ -1,10 +1,22 @@
+import csv
 import numpy as np
 import table_predictions_save
 
-def read_err_asym(file_list, index_err1):
-    # (lower, upper) error from the archive columns <name>err2 (negative) and <name>err1 (positive)
-    try: return abs(float(file_list[index_err1+1])), abs(float(file_list[index_err1]))
-    except ValueError: return np.nan, np.nan
+def read_archive_csv(filename):
+    # Rows of a NASA Exoplanet Archive CSV table as dictionaries {column name: value}.
+    # The comment lines at the top start with '#', so the header length does not matter.
+    with open(filename, "r") as f:
+        return list(csv.DictReader(line for line in f if not line.startswith("#")))
+
+def read_err(row, column):
+    # Symmetric error: the larger of the archive columns <column>err1 (positive) and <column>err2 (negative)
+    try: return max(abs(float(row[column + "err1"])), abs(float(row[column + "err2"])))
+    except ValueError: return np.nan     # Missing error
+
+def read_err_asym(row, column):
+    # (lower, upper) error from the archive columns <column>err2 (negative) and <column>err1 (positive)
+    try: return abs(float(row[column + "err2"])), abs(float(row[column + "err1"]))
+    except ValueError: return np.nan, np.nan     # Missing error
 
 class planet_object:
     def __init__(self, N_planets, error_sym):
@@ -81,8 +93,10 @@ class planet_object:
         self.flux_obs_err_asym   = np.column_stack((self.flux_obs_err, self.flux_obs_err))
         self.temp_eff_obs_err_asym = np.column_stack((self.temp_eff_obs_err, self.temp_eff_obs_err))
 
-    def read_file(self, filename, line_skip):
-        # This will be used for intepolating missing stellar data from the exoplaent database
+    def read_file(self, filename):
+        # Reads a NASA Exoplanet Archive CSV table with (at least) the columns pl_name, pl_orbper, pl_orbsmax,
+        # pl_radj, pl_bmassj, st_teff, st_rad and st_mass, and their err1/err2 columns
+        # This will be used for interpolating missing stellar data from the exoplanet database
         filename_stars = './main_sequence_luminosities.txt'
         # Arrays to store values
         spectral_type = []
@@ -121,34 +135,29 @@ class planet_object:
 
 
 
-        file=open(filename, "r")
-        lines = file.readlines()[line_skip:] #50
-        Npl = len(lines) #50
+        rows = read_archive_csv(filename)
+        Npl = len(rows)
 
         # (lower, upper) errors of the stellar values, only needed for the flux errors
         temp_star_err_asym   = np.zeros((Npl,2))
         radius_star_err_asym = np.zeros((Npl,2))
         orbital_dist_err_asym = np.zeros((Npl,2))
 
-        for index_planet in range(0, Npl):
-            file_list = [i for i in lines[index_planet].split(',')]
-            self.planet_names += [file_list[0]]
+        for index_planet, row in enumerate(rows):
+            self.planet_names += [row["pl_name"]]
 
-            self.orbital_period_obs[index_planet] = file_list[2]
-            try: self.orbital_period_obs_err[index_planet] = max(abs(float(file_list[3])),abs(float(file_list[4])))
-            except: self.orbital_period_obs_err[index_planet] = np.nan
+            self.orbital_period_obs[index_planet] = row["pl_orbper"]
+            self.orbital_period_obs_err[index_planet] = read_err(row, "pl_orbper")
 
-            self.mass_obs[index_planet] = file_list[14]
-            try: self.mass_obs_err[index_planet] = max(abs(float(file_list[15])),abs(float(file_list[16])))
-            except: self.mass_obs_err[index_planet] = np.nan
-            self.mass_obs_err_asym[index_planet] = read_err_asym(file_list, 15)
+            self.mass_obs[index_planet] = row["pl_bmassj"]
+            self.mass_obs_err[index_planet] = read_err(row, "pl_bmassj")
+            self.mass_obs_err_asym[index_planet] = read_err_asym(row, "pl_bmassj")
 
             try:
-                self.radius_obs[index_planet] = file_list[10]
-                try: self.radius_obs_err[index_planet] = max(abs(float(file_list[11])),abs(float(file_list[12])))
-                except: self.radius_obs_err[index_planet] = np.nan
-                self.radius_obs_err_asym[index_planet] = read_err_asym(file_list, 11)
-            except:
+                self.radius_obs[index_planet] = row["pl_radj"]
+                self.radius_obs_err[index_planet] = read_err(row, "pl_radj")
+                self.radius_obs_err_asym[index_planet] = read_err_asym(row, "pl_radj")
+            except ValueError:    # Missing radius: mass-radius relation
                 const, const_err = 18.6/11.2, 6.7/11.2
                 alpha, alpha_err = -0.06, 0.07
                 mass_planet, mass_planet_err = self.mass_obs[index_planet]*317.8, self.mass_obs_err[index_planet]*317.8
@@ -158,38 +167,34 @@ class planet_object:
                                                      (alpha*mass_planet_err/mass_planet)**2)
                 self.radius_obs_err_asym[index_planet] = self.radius_obs_err[index_planet]
 
-            self.mass_star_obs[index_planet] = file_list[27]
-            try: self.mass_star_obs_err[index_planet] = max(abs(float(file_list[28])),abs(float(file_list[29])))
-            except: self.mass_star_obs_err[index_planet] = np.nan
+            self.mass_star_obs[index_planet] = row["st_mass"]
+            self.mass_star_obs_err[index_planet] = read_err(row, "st_mass")
 
             try:
-                self.temp_star_obs[index_planet] = file_list[19]
-                try: self.temp_star_obs_err[index_planet] = max(abs(float(file_list[20])),abs(float(file_list[21])))
-                except: self.temp_star_obs_err[index_planet] = np.nan
-                temp_star_err_asym[index_planet] = read_err_asym(file_list, 20)
-            except: 
+                self.temp_star_obs[index_planet] = row["st_teff"]
+                self.temp_star_obs_err[index_planet] = read_err(row, "st_teff")
+                temp_star_err_asym[index_planet] = read_err_asym(row, "st_teff")
+            except ValueError:    # Missing T_eff: main-sequence relation
                 log_temp = np.interp(np.log(self.mass_star_obs[index_planet]),np.flip(log_star_masses),np.flip(log_star_temps))
                 self.temp_star_obs[index_planet] = np.exp(log_temp)
                 self.temp_star_obs_err[index_planet] = np.nan
                 temp_star_err_asym[index_planet] = np.nan
 
             try:
-                self.radius_star_obs[index_planet] = file_list[23]
-                try: self.radius_star_obs_err[index_planet] = max(abs(float(file_list[24])),abs(float(file_list[25])))
-                except: self.radius_star_obs_err[index_planet] = np.nan
-                radius_star_err_asym[index_planet] = read_err_asym(file_list, 24)
-            except: 
+                self.radius_star_obs[index_planet] = row["st_rad"]
+                self.radius_star_obs_err[index_planet] = read_err(row, "st_rad")
+                radius_star_err_asym[index_planet] = read_err_asym(row, "st_rad")
+            except ValueError:    # Missing R_star: main-sequence relation
                 log_radius = np.interp(np.log(self.mass_star_obs[index_planet]),np.flip(log_star_masses),np.flip(log_star_radii))
                 self.radius_star_obs[index_planet] = np.exp(log_radius)
                 self.radius_star_obs_err[index_planet] = np.nan
                 radius_star_err_asym[index_planet] = np.nan
 
             try:
-                self.orbital_dist_obs[index_planet] = file_list[6]
-                try: self.orbital_dist_obs_err[index_planet] = max(abs(float(file_list[7])),abs(float(file_list[8])))
-                except: self.orbital_dist_obs_err[index_planet] = np.nan
-                orbital_dist_err_asym[index_planet] = read_err_asym(file_list, 7)
-            except:
+                self.orbital_dist_obs[index_planet] = row["pl_orbsmax"]
+                self.orbital_dist_obs_err[index_planet] = read_err(row, "pl_orbsmax")
+                orbital_dist_err_asym[index_planet] = read_err_asym(row, "pl_orbsmax")
+            except ValueError:    # Missing semi-major axis: Kepler's third law
                 self.orbital_dist_obs[index_planet] = np.cbrt(7.496e-6*self.mass_star_obs[index_planet]*self.orbital_period_obs[index_planet]**2)
                 self.orbital_dist_obs_err[index_planet] = (1/3)*np.cbrt(7.496e-6*self.mass_star_obs[index_planet]/self.orbital_period_obs[index_planet])*\
                                         np.sqrt(self.orbital_period_obs[index_planet]**2*self.mass_star_obs_err[index_planet]**2/self.mass_star_obs[index_planet]**2 + \
@@ -221,7 +226,7 @@ class planet_object:
         
         #self.get_flux()
         
-    # In case you want to interpolate your own inventet gas giant or an specific exoplanet you should put
+    # In case you want to interpolate your own invented gas giant or a specific exoplanet you should put
     # HJ_population = False and choose one of the options and put the appropriate number of planet for each.    
     # You can also define your own option and fill the arrays here.
     # The flux can be calculated with host star's properties
@@ -230,7 +235,7 @@ class planet_object:
     def my_planets(self, which_planets):
 
         if which_planets == "my_own":
-            # Example with inveneted exoplanets to check which error affects more significantly the magnetic stds.
+            # Example with invented exoplanets to check which error affects more significantly the magnetic stds.
             self.planet_names               = ["my_planet"]
             self.mass_obs                   = np.array([1])
             self.mass_obs_err               = np.array([0.1])
@@ -242,7 +247,7 @@ class planet_object:
             self.flux_obs_err               = np.array([1e8])
 
         elif which_planets == "errors":
-            # Example with inveneted exoplanets to check which error affects more significantly the magnetic stds.
+            # Example with invented exoplanets to check which error affects more significantly the magnetic stds.
             self.planet_names               = ["high_err_mass", "high_err_radius", "high_err_flux", "middle_err_mass", "middle_err_radius", "middle_err_flux", 
                                             "low_err_mass", "low_err_radius", "low_err_flux", "middle_err_all", "low_err_all"]
             self.mass_obs                   = np.array([1,      1,      1,      1,      1,      1,      1,      1,      1,      1,      1,      ])
@@ -285,7 +290,7 @@ class planet_object:
             self.get_flux()
 
         elif which_planets == "hd209458b":
-            # Kishlyakova 2014 values coming from Hebb et al 2009, NASA defaults are Leonardi 2024
+            # Kislyakova 2014 values coming from Hebb et al 2009, NASA defaults are Leonardi 2024
             self.planet_names               = ["HD 209458 b Kislyakova 2014"]
             self.mass_obs                   = np.array([0.714])
             self.mass_obs_err               = np.array([0.017])
@@ -331,7 +336,7 @@ class planet_object:
             self.orbital_period_obs         = np.array([3.092514,   2.218576,   3.312457,   4.617033  ])
             self.orbital_period_obs_err     = np.array([3.2e-05,    1.5e-07,    6.9e-06,    2.3e-05   ])
             self.flux_obs                   = np.array([0.696e9,    0.405e9,    1.815e9,    0.288e9   ])
-            self.flux_obs_err               = np.array([0.035e9,    0.028e9,    0.30e9,     0.014e9   ]) # Errors for HD 179949 b adn ups And b are not on the NASA arxiv. I took an relative error of 5% arbitratritly
+            self.flux_obs_err               = np.array([0.035e9,    0.028e9,    0.30e9,     0.014e9   ]) # Errors for HD 179949 b and ups And b are not in the NASA archive. I took a relative error of 5% arbitrarily
         elif which_planets == "seidel26":
             # Seidel 26 estimates
             self.planet_names               = ["WASP-76b",  "KELT-20b",  "WASP-121b",  "WASP-178b", "TOI-1518b", "HAT-P-70b",  "WASP-189b"]
@@ -340,18 +345,18 @@ class planet_object:
             self.radius_obs                 = np.array([1.83,       1.83,       1.87,       1.94,       1.88,       1.87,       1.62])
             self.radius_obs_err             = np.array([0.06,       0.07,       0.04,       0.06,       0.04,       0.15,       0.02])
             self.orbital_period_obs         = np.array([1.809882,   3.474108,   1.274925,   3.344829,   1.902611,   2.744325,   2.724033  ])
-            self.orbital_period_obs_err     = np.array([6.4e-07,    1.9e-06,    1.5e-07,    1.2e-06,    4.3e-07,    7.9e-07,    2e-06     ]) # Error for WASP-189 b are not on the NASA arxiv. I took 2e-6, a hight value in comparison to others
+            self.orbital_period_obs_err     = np.array([6.4e-07,    1.9e-06,    1.5e-07,    1.2e-06,    4.3e-07,    7.9e-07,    2e-06     ]) # Error for WASP-189 b is not in the NASA archive. I took 2e-6, a high value in comparison to others
             self.flux_obs                   = np.array([5.571e9,    5.912e9,    7.642e9,    8.431e9,    9.527e9,    9.611e9,    10.96e9   ])
             self.flux_obs_err               = np.array([0.51e9,     0.97e9,     0.31e9,     0.94e9,     0.79e9,     3.4e9,      0.67e9    ])
         elif which_planets == "seidel26nasa":
             # Seidel 26 estimates with NASA data
             self.planet_names               = ["WASP-76 b", "KELT-20b", "WASP-121 b", "WASP-178 b", "TOI-1518 b", "HAT-P-70 b", "WASP-189 b"]
             self.mass_obs                   = np.array([0.894,      3.382,      1.170,      1.660,      1.830,      6.780,      1.990     ])
-            self.mass_obs_err               = np.array([0.014,      0.17,       0.043,      0.120,      0.470,      0.34,       0.160     ]) # Errors for KELT-20b and HAT-P-70 b are not in the NASA arxiv, as M is just an upper limit. I took an relative error of 5% arbitratritly
+            self.mass_obs_err               = np.array([0.014,      0.17,       0.043,      0.120,      0.470,      0.34,       0.160     ]) # Errors for KELT-20b and HAT-P-70 b are not in the NASA archive, as M is just an upper limit. I took a relative error of 5% arbitrarily
             self.radius_obs                 = np.array([1.854,      1.741,      1.742,      1.810,      1.878,      1.870,      1.619     ])
             self.radius_obs_err             = np.array([0.077,      0.074,      0.006,      0.090,      0.042,      0.150,      0.021     ])
             self.orbital_period_obs         = np.array([1.809882,   3.474108,   1.274925,   3.344829,   1.902611,   2.744325,   2.724033  ])
-            self.orbital_period_obs_err     = np.array([6.4e-07,    1.9e-06,    1.5e-07,    1.2e-06,    4.3e-07,    7.9e-07,    2e-06     ]) # Errors for WASP-189 b are not on the NASA arxiv. I took 2e-6, a hight value in comparison to others
+            self.orbital_period_obs_err     = np.array([6.4e-07,    1.9e-06,    1.5e-07,    1.2e-06,    4.3e-07,    7.9e-07,    2e-06     ]) # Errors for WASP-189 b are not in the NASA archive. I took 2e-6, a high value in comparison to others
             self.flux_obs                   = np.array([5.571e9,    5.912e9,    7.642e9,    8.431e9,    9.527e9,    9.611e9,    10.96e9   ])
             self.flux_obs_err               = np.array([0.51e9,     0.97e9,     0.31e9,     0.94e9,     0.79e9,     3.4e9,      0.67e9    ])
         

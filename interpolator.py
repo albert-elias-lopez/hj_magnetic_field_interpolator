@@ -212,7 +212,7 @@ def linear_interpolator(table_inner,
     bscaling_irr_flat = table_inner.bscaling_heat[:,:,0].flatten()
     bscaling_surf_irr_flat = table_inner.bscaling_surf_heat[:,:,0].flatten()
 
-    # Fatten the data for the interpolator
+    # Flatten the data for the interpolator
     masses_grid_total_flat              = table_inner.masses_grid_total.flatten()
     flux_grid_total_flat                = table_inner.flux_grid_total.flatten()
     heat_effs_grid_total_flat           = table_inner.heat_effs_grid_total.flatten()

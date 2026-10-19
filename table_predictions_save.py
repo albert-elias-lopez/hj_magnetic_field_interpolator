@@ -82,7 +82,7 @@ def get_scaling_law_err(fit_object,
     if fit_object.fit_type == "gaussian":
 
         K_s     = sample_split_normal(fit_object.K, fit_object.K_err[0], fit_object.K_err[1], Nerr)
-        if fit_object.fit_function_type == "reiners09": # No error bars for the Reiners 2009 fit, since it is not a fit but a scaling law with fixed exponents
+        if fit_object.fit_function_type == "reiners10": # No error bars for the Reiners & Christensen 2010 law, since it is not a fit but a scaling law with fixed exponents
             alpha_s = fit_object.alpha
             beta_s  = fit_object.beta
             gamma_s = fit_object.gamma
@@ -270,7 +270,7 @@ def table_comparision(planets,
                         name_cut,
                         HJ_population,
                         which_planets,
-                        fit_type, fit_reiners09,
+                        fit_type, fit_reiners10,
                         fit_MRL_inner, fit_MRL_inner_surf, fit_MRL_outer, fit_MRL_outer_surf,
                         fit_MRF_inner, fit_MRF_inner_surf, fit_MRF_outer, fit_MRF_outer_surf,
                         fit_MR_inner, fit_MR_inner_surf, fit_MR_outer, fit_MR_outer_surf,
@@ -322,7 +322,7 @@ def table_comparision(planets,
         error_sym_fits = False
     else: error_sym_fits = True
     
-        # Get the convective lumosities assuming F = pi R^2 F_irr eps, and also their errors
+        # Get the convective luminosities assuming F = pi R^2 F_irr eps, and also their errors
     conv_lumin_inner = np.pi*(radius_obs*6.991e+9)**2*flux_obs*heat_eff_inner_est/4.606e24
     conv_lumin_outer = np.pi*(radius_obs*6.991e+9)**2*flux_obs*heat_eff_outer_est/4.606e24
 
@@ -359,14 +359,15 @@ def table_comparision(planets,
     
     for index_planet, name in enumerate(planet_names):
         
-        # Apply the simplest scaling law, from Reiners 2010
-        brms_outer_reiners = scaling_law(fit_reiners09, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_outer[index_planet])
-        brms_outer_reiners_err = get_scaling_law_err(fit_reiners09, brms_outer_reiners,
-                                                    mass_obs[index_planet], radius_obs[index_planet], conv_lumin_outer[index_planet],
-                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], conv_lumin_outer_err[index_planet]) 
-        
-        brms_inner_reiners = scaling_law(fit_reiners09, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_inner[index_planet])
-        brms_inner_reiners_err = get_scaling_law_err(fit_reiners09, brms_inner_reiners,
+        # Apply the simplest scaling law, from Reiners & Christensen 2010
+        # The outer-heating prediction is not written in the output files, so it is not computed
+        # brms_outer_reiners = scaling_law(fit_reiners10, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_outer[index_planet])
+        # brms_outer_reiners_err = get_scaling_law_err(fit_reiners10, brms_outer_reiners,
+        #                                             mass_obs[index_planet], radius_obs[index_planet], conv_lumin_outer[index_planet],
+        #                                             mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], conv_lumin_outer_err[index_planet])
+
+        brms_inner_reiners = scaling_law(fit_reiners10, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_inner[index_planet])
+        brms_inner_reiners_err = get_scaling_law_err(fit_reiners10, brms_inner_reiners,
                                                     mass_obs[index_planet], radius_obs[index_planet], conv_lumin_inner[index_planet],
                                                     mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], conv_lumin_inner_err[index_planet])  
 
@@ -504,8 +505,8 @@ def table_comparision(planets,
                                                                           (2*radius_obs_err[index_planet]/radius_obs[index_planet])**2+\
                                                                           (flux_obs_err[index_planet]/flux_obs[index_planet])**2)
         
-        brms_inner_thorn_18 = scaling_law(fit_reiners09, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_thorn18)
-        brms_inner_thorn_18_err = get_scaling_law_err(fit_reiners09, brms_inner_thorn_18,
+        brms_inner_thorn_18 = scaling_law(fit_reiners10, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_thorn18)
+        brms_inner_thorn_18_err = get_scaling_law_err(fit_reiners10, brms_inner_thorn_18,
                                                       mass_obs[index_planet], radius_obs[index_planet], conv_lumin_thorn18,
                                                       mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], conv_lumin_thorn18_err)
         brms_inner_thorn_18_print = get_print_string(brms_inner_thorn_18, brms_inner_thorn_18_err, "brms", error_sym=error_sym_fits)    

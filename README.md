@@ -2,24 +2,22 @@
 
 This repository contains Python tools to estimate the magnetic field strengths of giant exoplanets, particularly hot and warm Jupiters, using interpolation of one-dimensional planetary evolution models and analytical magnetic scaling laws.
 
-The interpolator is based on a precomputed grid of MESA evolutionary models combined with the dynamo scaling law of Christensen et al. (2009). It predicts:
+The interpolator is based on a precomputed grid of MESA evolutionary models combined with the dynamo scaling law of Christensen et al. (2009). For each planet it predicts:
 
+- the heating efficiency $\epsilon$ required to reproduce the observed planetary radius;
 - the rms magnetic field at the dynamo surface, $B_{\rm rms,dyn}$;
-- the surface dipolar magnetic field, $B_{\rm dip,surf}$;
-- the heating efficiency required to reproduce the observed planetary radius.
+- the surface dipolar magnetic field, $B_{\rm dip,surf}$.
 
-As an alternative to interpolation, the repository also provides simple analytical scaling laws that only depend on planetary mass, radius, and (optionally) irradiation.
+As an alternative to interpolation, the repository also provides simple analytical scaling laws, fitted to the interpolated population, that only depend on planetary mass, radius and (optionally) irradiation.
 
 ---
 
-### Repository contents
+## Repository contents
 
-The repository contains
-
-- magnetic field interpolators for the published model grids;
-- analytical scaling laws;
-- uncertainty propagation using Monte Carlo sampling;
-- scripts to reproduce the figures of Elias-López et al. (2026).
+- magnetic field interpolators for the published model grids (`<mass>_MJ/` folders);
+- analytical scaling laws fitted to the hot Jupiter population;
+- uncertainty propagation using Monte Carlo sampling, including asymmetric uncertainties;
+- scripts to reproduce the results of Elias-López et al. (2026).
 
 The planetary evolution calculations themselves are **not** included here. They were performed using the MESA stellar evolution code and are available in the repository **https://github.com/csic-ice-imagine/MESA_rossby_HJ**
 
@@ -27,16 +25,20 @@ The magnetic field tables in the `<mass>_MJ/` folders were generated from those 
 
 ---
 
-### Required inputs
+## Required inputs
 
-The interpolator requires
+For each planet the interpolator requires
 
-- Planet mass ($M_{\rm P}$)
-- Planet radius ($R_{\rm P}$)
-- Incident stellar flux ($F_{\rm irr}$)
-- Orbital period ($P_{\rm orb}$)
+- planet mass $M_{\rm P}$ (in $M_{\rm J}$);
+- planet radius $R_{\rm P}$ (in $R_{\rm J}$);
+- incident stellar flux $F_{\rm irr}$ (in erg cm$^{-2}$ s$^{-1}$);
+- orbital period $P_{\rm orb}$ (in days);
 
-By default, the code uses the rotation-corrected magnetic field tables (Fuentes et al. 2025). This correction can be disabled using the `--no_rotation` option, in which case the orbital period will not be used.
+together with their uncertainties. The model grid covers $0.3 < M_{\rm P} < 12\,M_{\rm J}$, $10^7 < F_{\rm irr} < 1.58\times10^{10}$ erg cm$^{-2}$ s$^{-1}$ and $0.1 < P_{\rm orb} < 100$ days; planets outside it are not interpolated.
+
+By default, the code uses the rotation-corrected magnetic field tables (Fuentes et al. 2025), which assume tidally locked planets. This correction can be disabled with the `--no_rotation` option, in which case the orbital period is not used.
+
+For the hot Jupiter population, the inputs are read from the NASA Exoplanet Archive tables included in the repository (`PS_2026.02.18_*.csv`). Missing stellar temperatures and radii are estimated from a main-sequence relation (`main_sequence_luminosities.txt`), and a missing semi-major axis from Kepler's third law.
 
 ---
 
@@ -61,13 +63,17 @@ python main.py --help
 
 ## Running the code
 
-The main script can be executed from the command line:
+To reproduce the results of Elias-López et al. (2026), run these three commands in this order (the last two use the scaling-law fits saved by the first one):
 
 ```
-python main.py
+python main.py --save_plot_population
+python main.py --no_HJ --which_planets seidel26 --add_systematic_error
+python main.py --no_HJ --which_planets cauley19 --add_systematic_error
 ```
 
-or with additional options, for example
+The first command uses the defaults `--fit_type gaussian`, `--N_gauss_fits 10000` and `--which_cut "radius cut"`, and takes about 10 minutes. The Monte Carlo uncertainties and fits use a fixed random seed (`--seed`, default 42), so the same command always gives exactly the same results.
+
+Other examples:
 
 ```
 python main.py --save_plot_population --fit_type simple
@@ -75,45 +81,81 @@ python main.py --no_rotation --no_HJ --which_planets seidel26
 python main.py --no_HJ --which_planets my_own --my_planet_params 1.2 0.1 1.5 0.1 1 1e-6 1e9 1e8
 ```
 
-To reproduce the results in Elias-López et al 2026:
+The last one estimates the magnetic field of your own planet (here $M_{\rm P} = 1.2 \pm 0.1\,M_{\rm J}$, $R_{\rm P} = 1.5 \pm 0.1\,R_{\rm J}$, $P_{\rm orb} = 1$ day, $F_{\rm irr} = (1.0 \pm 0.1)\times10^9$ erg cm$^{-2}$ s$^{-1}$) and prints the results in the terminal.
 
-```
-python main.py --save_plot_population (by default fit_type=gaussian, N_gauss_fits=10000, which_cut=radius cut)
-python main.py --no_HJ --which_planets seidel26 --add_systematic_error
-python main.py --no_HJ --which_planets cauley19 --add_systematic_error
-```
+The code can be launched from any folder; the outputs are always written in the repository folders `predictions/` and `plots/`.
 
 ---
 
-### Command-line options
+## Command-line options
 
-|       Option              | Description |
+| Option | Description |
 |----------|-------------|
-| General                   |       |
-| `--save_plot_grid`        | Save the interpolation grid figures (mainly for testing). *(default)=False* |
-| `--save_plot_3D_grid`     | Save a schematic 3D representation of the interpolation grid. *(default)=False* |
-| `--save_plot_population`  | Save the magnetic field plots for the hot Jupiter population. *(default)=False* |
-| `--print_planet_output`   | Print interpolator results for every planet. *(default)=False*, automatically enabled with `--no_HJ` |
-| Rotation                  |       |
-| *(default)*               | Use the rotation-corrected magnetic field tables. |
-| `--no_rotation`           | Disable the rotation correction. |
-| Scaling-law fitting       |       |
-| `--fit_type`              | Fitting methods are available: `simple`, `gaussian` *(default)*, `odr`. |
-| `--N_gauss_fits`          | Number of Monte Carlo realizations *(default)=10000* |
-| `--print_scaling_law`     | Print the scaling-law fit results in the terminal (long output, mainly for testing). *(default)=False* |
-| `--which_cut`             | Different population cuts before scaling law fits: `radius cut` *(default)*, `flux cut`, `heat cut`, `brms cut`, `no cut`  |
-| Planet selection          |       |
-| *(default)*               | Evaluates the full hot Jupiter population and calculates scaling law fits. |
-| `--no_HJ`                 | Instead evaluates one of several predefined samples. |
-| `--which_planets`         | Used if --no_HJ. It can be  `cauley19` *(default)*, `cauley19nasa`, `seidel26`, `seidel26nasa`, `hats53b`, `wasp12b`, `hd209458b`, `my_own`, `errors`|
-| `--my_planet_params`      | Used if `--no_HJ --which_planets my_own`. Specifies your own planet parameters: $M_{\rm P}$, $\sigma_{M_{\rm P}}$, $R_{\rm P}$ , $\sigma_{R_{\rm P}}$, $P_{\rm orb}$, $\sigma_{P_{\rm orb}}$, $F_{\rm irr}$, $\sigma_{F_{\rm irr}}$. The default is `--my_planet_params 1.2 0.1 1.5 0.1 1 1e-6 1e9 1e8`|
-| Uncertainties             |       |
-| `--add_systematic_error`  | Add a 60 percent relative systematic error to the interpolated/scaling law magnetic field estimates. This is a rough estimate of the error associated with the interior structure and dynamo model assumptions. By default, and the uncertainty only comes from the propagation of observed data errors.|
-| `--seed`                  | Seed of the random numbers used for the Monte Carlo errors and fits. The same seed gives exactly the same results. *(default)=42* |
+| **General** | |
+| `--save_plot_grid` | Save the interpolation grid figures (mainly for testing). *(default: False)* |
+| `--save_plot_3D_grid` | Save a schematic 3D representation of the interpolation grid. *(default: False)* |
+| `--save_plot_population` | Save the magnetic field plots for the hot Jupiter population. *(default: False)* |
+| `--print_planet_output` | Print the interpolator results for every planet. *(default: False; always on with `--no_HJ`)* |
+| **Rotation** | |
+| *(default)* | Use the rotation-corrected magnetic field tables. |
+| `--no_rotation` | Disable the rotation correction. |
+| **Scaling-law fitting** | |
+| `--fit_type` | Fitting method: `simple` (least squares), `gaussian` (Monte Carlo, *default*) or `odr` (orthogonal distance regression). |
+| `--N_gauss_fits` | Number of Monte Carlo realizations of the `gaussian` fits. *(default: 10000)* |
+| `--print_scaling_law` | Print the scaling-law fit results in the terminal (long output, mainly for testing). *(default: False)* |
+| `--which_cut` | Population cut applied before the scaling-law fits: `radius cut` (*default*, $R_{\rm obs}/R_{\rm irr} > 1.05$), `flux cut`, `heat cut`, `brms cut` or `no cut`. |
+| **Planet selection** | |
+| *(default)* | Evaluate the full hot Jupiter population and calculate the scaling-law fits. |
+| `--no_HJ` | Instead evaluate one of several predefined samples, using the previously saved scaling-law fits. |
+| `--which_planets` | Sample used with `--no_HJ`: `cauley19` *(default)*, `cauley19nasa`, `seidel26`, `seidel26nasa`, `hats53b`, `wasp12b`, `hd209458b`, `my_own` or `errors`. |
+| `--my_planet_params` | Used with `--no_HJ --which_planets my_own`: $M_{\rm P}$, $\sigma_{M_{\rm P}}$, $R_{\rm P}$, $\sigma_{R_{\rm P}}$, $P_{\rm orb}$, $\sigma_{P_{\rm orb}}$, $F_{\rm irr}$, $\sigma_{F_{\rm irr}}$ in the units above. Without it, `my_own` uses `1 0.1 1.5 0.1 1 1e-6 1e9 1e8`. |
+| **Uncertainties** | |
+| `--add_systematic_error` | Add a 60 percent relative systematic error to the interpolated and scaling-law magnetic field estimates, a rough estimate of the uncertainty of the interior structure and dynamo model assumptions. By default, the uncertainty only comes from the propagation of the observational errors. |
+| `--seed` | Seed of the random numbers used for the Monte Carlo uncertainties and fits. The same seed gives exactly the same results. *(default: 42)* |
 
 ---
 
-# Model assumptions
+## Output files
+
+Values with uncertainties are written as `value$_{-lower}^{+upper}$` (or `value$\pm$error` for the observed values), ready to be used in LaTeX tables. Dashes mean that the value or its uncertainty is not available, for example when the observed radius is smaller than the radius of a purely irradiated planet, or when an observational uncertainty is missing in the archive.
+
+The two heating cases bracket the magnetic field: heat deposited in the interior ("inner") gives an upper estimate and heat deposited in the outer layers ("outer") a lower estimate. "irr" refers to the purely irradiated models ($\epsilon = 0$).
+
+**`predictions/predictions_<sample>.txt`** (one line per planet). For the population, `<sample>` is `hot_jupiter_populations` (planets with complete data) or `hot_jupiter_populations_extra` (planets with incomplete stellar data, not used in the fits); otherwise it is the `--which_planets` sample. The suffixes `_syst_err` and `_no_rot` mark runs with `--add_systematic_error` and `--no_rotation`.
+
+| Column | Meaning |
+|---|---|
+| `M(MJ)`, `R(RJ)`, `F(erg cm-2 s-1)`, `P(days)` | observed mass, radius, irradiation flux and orbital period |
+| `R_irr(RJ)` | radius of the purely irradiated planet ($\epsilon = 0$) |
+| `eps_up(%)`, `eps_low(%)` | heating efficiency needed for the observed radius, inner and outer heating |
+| `eps_th18(%)` | heating efficiency from the empirical relation of Thorngren & Fortney (2018) |
+| `bdyn_up(G)`, `bdyn_irr(G)`, `bdyn_low(G)` | $B_{\rm rms,dyn}$ for inner heating, no heating and outer heating |
+| `bdipsurf_up(G)`, `bdipsurf_irr(G)`, `bdipsurf_low(G)` | $B_{\rm dip,surf}$ for the same three cases |
+
+**`predictions/predictions_cut_R_<fit_type>_fit[_<sample>]/<planet>.txt`** (one file per planet). Comparison of the interpolated magnetic fields with the scaling-law predictions, for inner heating, outer heating and no heating:
+
+- `Interpolator`: interpolated value;
+- `FitMRL`, `FitMRF`, `FitMR`: the scaling laws fitted in this work (see below);
+- `R10`, `R10+Th18`: the scaling law of Reiners & Christensen (2010) with fixed exponents, using the interpolated heating efficiency or the Thorngren & Fortney (2018) one.
+
+The folder `predictions_cut_R_extra/` contains the same files for the planets with incomplete stellar data.
+
+**`plots/fits_cut_R_<fit_type>_fit/`**: the fitted scaling laws for the magnetic field,
+
+- `fit_general*` (MRL): $B = K\, M^\alpha R^\beta (\epsilon \pi R^2 F_{\rm irr} / 4.606\times10^{24}\,{\rm erg\,s^{-1}})^\gamma$;
+- `fit_no_eps*` (MRF): $B = K\, M^\alpha R^\beta (F_{\rm irr}/10^9\,{\rm erg\,cm^{-2}\,s^{-1}})^\gamma$;
+- `fit_no_flux*` (MR): $B = K\, M^\alpha R^\beta$;
+- `fit_irr*`: MR fits for the planets that do not pass the cut (`fit_irr_brms_inner*`, `fit_irr_brms_outer*`) and for the purely irradiated estimates of all planets (`fit_irr_brms_irr*`);
+
+with $M$ in $M_{\rm J}$, $R$ in $R_{\rm J}$ and $B$ in G. The files `fit_<name>.txt` give a readable summary of each group of fits. In the files `fit_<name>_<field>.txt` the first row contains the parameters ($\alpha$, $\beta$, $\gamma$, $K$) and the next two rows their lower and upper uncertainties; `*_cov_matrix.txt` contains the covariance matrices. These files are read by the `--no_HJ` runs.
+
+**`plots/fits_eps_cut_R_<fit_type>_fit/`**: the same kind of fit for the heating efficiency, $\epsilon = K\, M^\alpha R^\beta (F_{\rm irr}/10^9)^\gamma$, and the related figures.
+
+**`plots/general_predictions*/`**: figures of the population (with `--save_plot_population`).
+
+---
+
+## Model assumptions
 
 The interpolator assumes
 
@@ -126,9 +168,8 @@ The results should therefore be regarded as order-of-magnitude magnetic field es
 
 ---
 
-# Citation
+## Citation
 
 If you use this repository, please cite
 
 > Elias-López et al. (2026), *Scaling laws for strong and weak hot Jupiter magnetism*.
-
