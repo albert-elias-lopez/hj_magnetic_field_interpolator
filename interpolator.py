@@ -209,7 +209,6 @@ def linear_interpolator(table_inner,
                         table_outer,
                         planets,
                         mask_predictions,
-                        print_all = True,
                         error_sym = False):
     
     # Save the epsilon = 0 data to interpolate and give estimates for the only irradiated models
@@ -293,11 +292,6 @@ def linear_interpolator(table_inner,
     linear_interp_brms_surf_irr = LinearNDInterpolator(list(zip(masses_irr_flat, 
                                                                   np.log10(flux_irr_flat))), 
                                                                   bscaling_surf_irr_flat)
-
-
-    index_loop=0
-
-    if print_all: print(f"----------------------------------------------------------------------")
     
     #for index_planet, name in enumerate(planet_names):
     for index_planet in tqdm(range(planets.n_planets)):
@@ -395,71 +389,3 @@ def linear_interpolator(table_inner,
                     planets.brms_outer_surf_est_err[index_planet, 0],planets.brms_outer_surf_est_err[index_planet, 1] =\
                                             get_error_gaussian(linear_interp_brms_surf_outer, 
                                             mass, mass_err,flux, flux_err, radius, radius_err, planets.radius_irr_est[index_planet])
-                    
-                          
-
-            if print_all:
-                
-                print("   " + name + ": " + fr"({mass:.3f}$\pm${mass_err:.3f})MJ, " + \
-                                            fr"({radius:.3f}$\pm${radius:.3f})RJ, " + \
-                                            fr"({flux:.4e}$\pm${flux_err:.4e})erg cm-2 s-1")
-                print("                          eps (%)                    brms,dyn (G)                  bdip,surf (G)")
-
-                heat_eff_inner_est_print = table_predictions_save.get_print_string(100*planets.heat_eff_inner_est[index_planet],
-                                                        100*planets.heat_eff_inner_est_err[index_planet], 
-                                                        "heat",error_sym=error_sym)
-                brms_inner_est_print = table_predictions_save.get_print_string(planets.brms_inner_est[index_planet],
-                                                        planets.brms_inner_est_err[index_planet], 
-                                                        "brms",error_sym=error_sym)
-                brms_inner_surf_est_print = table_predictions_save.get_print_string(planets.brms_inner_surf_est[index_planet],
-                                                        planets.brms_inner_surf_est_err[index_planet], 
-                                                        "brms",error_sym=error_sym)
-                
-
-                print("Inner heat:  " + heat_eff_inner_est_print + "    "  + \
-                                        brms_inner_est_print + "    "  + \
-                                        brms_inner_surf_est_print)
-                
-                heat_eff_irr_est = 0
-                if error_sym: heat_eff_irr_est_err=0
-                else: heat_eff_irr_est_err=np.array([0,0])
-                
-                heat_eff_irr_est_print = table_predictions_save.get_print_string(100*heat_eff_irr_est,
-                                                                                    100*heat_eff_irr_est_err, 
-                                                                                    "heat",error_sym=error_sym)
-                
-                brms_irr_est_print = table_predictions_save.get_print_string(planets.brms_irr_est[index_planet],
-                                                               planets.brms_irr_est_err[index_planet], 
-                                                               "brms",error_sym=error_sym)
-                brms_irr_surf_est_print = table_predictions_save.get_print_string(planets.brms_irr_surf_est[index_planet],
-                                                                planets.brms_irr_surf_est_err[index_planet], 
-                                                                "brms",error_sym=error_sym)
-                radius_irr_surf_est_print = table_predictions_save.get_print_string(planets.radius_irr_surf_est[index_planet],
-                                                                planets.radius_irr_surf_est_err[index_planet], 
-                                                                "radius",error_sym=error_sym)
-
-                print("Only irr:    " + heat_eff_irr_est_print + "    "  + \
-                                brms_irr_est_print + "    "  + \
-                                brms_irr_surf_est_print + "    "  + \
-                                radius_irr_surf_est_print)
-                
-                heat_eff_outer_est_print = table_predictions_save.get_print_string(100*planets.heat_eff_outer_est[index_planet],
-                                                                        100*planets.heat_eff_outer_est_err[index_planet], 
-                                                                        "heat",error_sym=error_sym)
-                brms_outer_est_print = table_predictions_save.get_print_string(planets.brms_outer_est[index_planet],
-                                                                planets.brms_outer_est_err[index_planet], 
-                                                                "brms",error_sym=error_sym)
-                brms_outer_surf_est_print = table_predictions_save.get_print_string(planets.brms_outer_surf_est[index_planet],
-                                                        planets.brms_outer_surf_est_err[index_planet], 
-                                                        "brms",error_sym=error_sym)
-            
-                print("Outer heat:  " + heat_eff_outer_est_print + "    "  + \
-                                        brms_outer_est_print + "    "  + \
-                                        brms_outer_surf_est_print)
-                
-                print(f"----------------------------------------------------------------------")
-            #else:
-            #    if index_loop % 12==0: print(name)
-            #    else: print(name, end=" ")
-            index_loop +=1
-

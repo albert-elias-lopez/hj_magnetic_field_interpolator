@@ -953,7 +953,7 @@ def plot_population(planets,
                         variables_outer[index_variable][index_planet]])
             y = np.array([brms_inner_est[index_planet],
                         brms_outer_est[index_planet]])
-            ax.plot(x, y, alpha=.5, color = "k", ls = ":")
+            #ax.plot(x, y, alpha=.5, color = "k", ls = ":")
             
         ax.scatter(variables_inner[index_variable][valid_mask],
                     brms_inner_est[valid_mask],
@@ -1039,7 +1039,7 @@ def plot_population(planets,
                         variables_outer[index_variable][index_planet]])
             y = np.array([brms_inner_surf_est[index_planet],
                         brms_outer_surf_est[index_planet]])
-            ax.plot(x, y, alpha=.5, color = "k", ls = ":")
+            #ax.plot(x, y, alpha=.5, color = "k", ls = ":")
 
         ax.scatter(variables_inner[index_variable][valid_mask],
                     brms_inner_surf_est[valid_mask],

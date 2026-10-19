@@ -114,7 +114,7 @@ def get_scaling_law_err(fit_object,
                     (fit_object.K_err/fit_object.K)**2+\
                     (np.log(mass)*fit_object.alpha_err)**2+\
                     (np.log(radius)*fit_object.beta_err)**2+\
-                    (np.log(conv_or_flux_err)*fit_object.gamma_err)**2
+                    (np.log(conv_or_flux)*fit_object.gamma_err)**2
         brms_err = brms*np.sqrt(brms_err)
 
     # Derivative vector

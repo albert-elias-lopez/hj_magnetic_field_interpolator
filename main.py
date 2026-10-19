@@ -38,7 +38,7 @@ if __name__ == "__main__":
                         help="Save a schematic 3D grid plot (Firr, M, R)")
     parser.add_argument("--save_plot_population", action="store_true",
                         help="Save the plots with interpolator and fits results for the HJ population")
-    parser.add_argument("--print_interpolator", action="store_true",
+    parser.add_argument("--print_planet_output", action="store_true",
                         help="Print the interpolator results for each planet (very long terminal output, only used for testing)")
     
     # By default, the program will use the magnetic field tables that use the rotation factor. 
@@ -92,7 +92,7 @@ sys.path.append(parent)
 save_plots_grid = args.save_plot_grid
 save_plots_3D_grid = args.save_plot_3D_grid
 save_plots_population = args.save_plot_population
-print_interpolator = args.print_interpolator
+print_planet_output = args.print_planet_output
 
 error_sym = False               # To use symmetric errors for the interpolator. Should be kept as False.
 add_systematic_error = args.add_systematic_error
@@ -113,6 +113,7 @@ if which_planets == "cauley19" or which_planets == "cauley19nasa": Npl = 4
 elif which_planets == "seidel26" or which_planets == "seidel26nasa": Npl = 7
 elif which_planets == "errors": Npl = 11
 elif which_planets == "hats53b" or which_planets == "wasp12b" or which_planets == "hd209458b" or which_planets == "my_own": Npl = 1
+if not HJ_population: print_planet_output = True  # To print the interpolator results for each planet.
 
 # Scaling law properties
 print_scaling_law = args.print_scaling_law
@@ -125,8 +126,8 @@ bounds_simple=([1e-5, -np.inf, -np.inf], [np.inf, np.inf, np.inf])
 # Which HJ population cut to use for the fits. The options are defined later
 which_cut = args.which_cut
 
-if rotation: b_factor = 1
-else: b_factor = 1/3
+#if rotation: b_factor = 1
+#else: b_factor = 1/3 All factors to match the scaling law with Jupiter's B_dip,surf
 
 # Grid limits which will be used to mask the exoplanet population before interpolating.
 min_mass, max_mass = 0.3, 12
@@ -218,14 +219,12 @@ if rotation:
                                         planets,
                                         periods,
                                         mask_predictions,
-                                        print_all = print_interpolator,
                                         error_sym=error_sym)
 
 else:
     interpolator.linear_interpolator(table_inner, table_outer,
                                     planets,
                                     mask_predictions,
-                                    print_all = print_interpolator,
                                     error_sym=error_sym)
 
                                     
@@ -245,17 +244,17 @@ table_predictions_save.table_predictions(planets,
                                         rotation = rotation)
 
 
-
+if print_planet_output: planets.print_output(error_sym)
 
 print(f"----------------------------------------------------------------------")
-print("Number ot planets at each step:")
-print(table_inner.total_number_models, end="      ")
-print(f": total number of models for interpolator (inner)")
-print(table_outer.total_number_models, end="      ")
-print(f": total number of models for interpolator (outer)")
-
 
 if HJ_population:
+
+    print("Number ot planets at each step:")
+    print(table_inner.total_number_models, end="      ")
+    print(f": total number of models for interpolator (inner)")
+    print(table_outer.total_number_models, end="      ")
+    print(f": total number of models for interpolator (outer)")
 
     # Masking the population for the fits. The number of planets at each step is printed.
     number_planets_total = len(planets.planet_names)
@@ -331,8 +330,7 @@ else:
     valid_mask = planets.mass_obs > 0
 
     number_planets_total = len(planets.planet_names)
-    print(number_planets_total, end="       ")
-    print(f": total number of planets")
+    print(f"Number of interpolated planets: {number_planets_total}")
     print(f"----------------------------------------------------------------------")
 
 
@@ -749,7 +747,6 @@ if HJ_population:
                                             planets,
                                             periods,
                                             mask_predictions,
-                                            print_all = print_interpolator,
                                             error_sym=error_sym)
         
 
@@ -757,7 +754,6 @@ if HJ_population:
         interpolator.linear_interpolator(table_inner, table_outer,
                                         planets,
                                         mask_predictions,
-                                        print_all = print_interpolator,
                                         error_sym=error_sym)
     
     print("done")
@@ -791,7 +787,7 @@ if HJ_population:
 
     elif which_cut == "radius cut":
         valid_mask = planets.radius_obs/planets.radius_irr_est > 0.75
-        name_cut, name_cut_header = "_cut_R", "Cut for Robs/Rirr > 1.05"
+        name_cut, name_cut_header = "_cut_R", "Cut for Robs/Rirr > 0.75"
         #print(radius_obs/radius_irr_est)
 
     elif which_cut == "brms cut":

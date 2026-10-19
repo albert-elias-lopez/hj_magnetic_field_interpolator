@@ -1,4 +1,5 @@
 import numpy as np
+import table_predictions_save
 
 class planet_object:
     def __init__(self, N_planets, error_sym):
@@ -129,12 +130,16 @@ class planet_object:
                                                      (np.log(mass_planet)*alpha_err)**2+\
                                                      (alpha*mass_planet_err/mass_planet)**2)
 
+            self.mass_star_obs[index_planet] = file_list[27]
+            try: self.mass_star_obs_err[index_planet] = max(abs(float(file_list[28])),abs(float(file_list[29])))
+            except: self.mass_star_obs_err[index_planet] = np.nan
+
             try:
                 self.temp_star_obs[index_planet] = file_list[19]
                 try: self.temp_star_obs_err[index_planet] = max(abs(float(file_list[20])),abs(float(file_list[21])))
                 except: self.temp_star_obs_err[index_planet] = np.nan
             except: 
-                log_temp = np.interp(np.log(self.mass_obs[index_planet]),np.flip(log_star_masses),np.flip(log_star_temps))
+                log_temp = np.interp(np.log(self.mass_star_obs[index_planet]),np.flip(log_star_masses),np.flip(log_star_temps))
                 self.temp_star_obs[index_planet] = np.exp(log_temp)
                 self.temp_star_obs_err[index_planet] = np.nan
 
@@ -143,19 +148,15 @@ class planet_object:
                 try: self.radius_star_obs_err[index_planet] = max(abs(float(file_list[24])),abs(float(file_list[25])))
                 except: self.radius_star_obs_err[index_planet] = np.nan
             except: 
-                log_radius = np.interp(np.log(self.mass_obs[index_planet]),np.flip(log_star_masses),np.flip(log_star_radii))
+                log_radius = np.interp(np.log(self.mass_star_obs[index_planet]),np.flip(log_star_masses),np.flip(log_star_radii))
                 self.radius_star_obs[index_planet] = np.exp(log_radius)
                 self.radius_star_obs_err[index_planet] = np.nan
-
-            self.mass_star_obs[index_planet] = file_list[27]
-            try: self.mass_star_obs_err[index_planet] = max(abs(float(file_list[28])),abs(float(file_list[29])))
-            except: self.mass_star_obs_err[index_planet] = np.nan
 
             try: 
                 self.orbital_dist_obs[index_planet] = file_list[6]
                 self.orbital_dist_obs_err[index_planet] = max(abs(float(file_list[7])),abs(float(file_list[8])))
             except: 
-                self.orbital_dist_obs[index_planet] = np.cbrt(7.496e-6*self.orbital_period_obs[index_planet]**2)
+                self.orbital_dist_obs[index_planet] = np.cbrt(7.496e-6*self.mass_star_obs[index_planet]*self.orbital_period_obs[index_planet]**2)
                 self.orbital_dist_obs_err[index_planet] = (1/3)*np.cbrt(7.496e-6*self.mass_star_obs[index_planet]/self.orbital_period_obs[index_planet])*\
                                         np.sqrt(self.orbital_period_obs[index_planet]**2*self.mass_star_obs_err[index_planet]**2/self.mass_star_obs[index_planet]**2 + \
                                         4*self.orbital_period_obs_err[index_planet]**2)
@@ -351,3 +352,76 @@ class planet_object:
         self.brms_irr_est_err            = self.brms_irr_est_err[mask]
         self.brms_irr_surf_est           = self.brms_irr_surf_est[mask]
         self.brms_irr_surf_est_err       = self.brms_irr_surf_est_err[mask]
+
+
+    def print_output(self, error_sym):
+
+        print(f"----------------------------------------------------------------------")
+
+        for index_planet, name in enumerate(self.planet_names):
+
+            heat_eff_inner_est_print = table_predictions_save.get_print_string(100*self.heat_eff_inner_est[index_planet],
+                                                    100*self.heat_eff_inner_est_err[index_planet], 
+                                                    "heat",error_sym=error_sym)
+            brms_inner_est_print = table_predictions_save.get_print_string(self.brms_inner_est[index_planet],
+                                                    self.brms_inner_est_err[index_planet], 
+                                                    "brms",error_sym=error_sym)
+            brms_inner_surf_est_print = table_predictions_save.get_print_string(self.brms_inner_surf_est[index_planet],
+                                                    self.brms_inner_surf_est_err[index_planet], 
+                                                    "brms",error_sym=error_sym)
+                                    
+            heat_eff_irr_est = 0
+            if error_sym: heat_eff_irr_est_err=0
+            else: heat_eff_irr_est_err=np.array([0,0])
+            
+            heat_eff_irr_est_print = table_predictions_save.get_print_string(100*heat_eff_irr_est,
+                                                                                100*heat_eff_irr_est_err, 
+                                                                                "heat",error_sym=error_sym)
+            
+            brms_irr_est_print = table_predictions_save.get_print_string(self.brms_irr_est[index_planet],
+                                                            self.brms_irr_est_err[index_planet], 
+                                                            "brms",error_sym=error_sym)
+            brms_irr_surf_est_print = table_predictions_save.get_print_string(self.brms_irr_surf_est[index_planet],
+                                                            self.brms_irr_surf_est_err[index_planet], 
+                                                            "brms",error_sym=error_sym)
+            radius_irr_est_print = table_predictions_save.get_print_string(self.radius_irr_est[index_planet],
+                                                            self.radius_irr_est_err[index_planet], 
+                                                            "radius",error_sym=error_sym)        
+
+            
+            heat_eff_outer_est_print = table_predictions_save.get_print_string(100*self.heat_eff_outer_est[index_planet],
+                                                                    100*self.heat_eff_outer_est_err[index_planet], 
+                                                                    "heat",error_sym=error_sym)
+            brms_outer_est_print = table_predictions_save.get_print_string(self.brms_outer_est[index_planet],
+                                                            self.brms_outer_est_err[index_planet], 
+                                                            "brms",error_sym=error_sym)
+            brms_outer_surf_est_print = table_predictions_save.get_print_string(self.brms_outer_surf_est[index_planet],
+                                                    self.brms_outer_surf_est_err[index_planet], 
+                                                    "brms",error_sym=error_sym)
+
+            thorn_eff_18 = table_predictions_save.get_thorn18_eff(self.flux_obs[index_planet])
+            thorn_eff_18_err = table_predictions_save.get_thorn18_err(self.flux_obs[index_planet], 10000)
+            heat_eff_thorn_print = table_predictions_save.get_print_string(100*thorn_eff_18, 100*thorn_eff_18_err, "heat",error_sym=False)
+    
+            if error_sym: space_interpolator = "                     "
+            else:  space_interpolator = "         "
+
+            print("   " + name + ": " + fr"{self.mass_obs[index_planet]:.3f} MJ, " + \
+                    fr"{self.radius_obs[index_planet]:.3f} RJ, " + \
+                    fr"{self.orbital_period_obs[index_planet]:.3f} days, " + \
+                    fr"{self.flux_obs[index_planet]:.4e} erg cm-2 s-1")
+            print(f" ")
+            print("  eps_inner(%):     " + heat_eff_inner_est_print)
+            print("            B_rms,inner      = " + brms_inner_est_print + "G")
+            print("            B_dip,surf,inner = " + brms_inner_surf_est_print + "G")
+            print(f" ")
+            print("  eps_outer(%):     " + heat_eff_outer_est_print)
+            print("            B_rms,inner      = " + brms_outer_est_print + "G")
+            print("            B_dip,surf,inner = " + brms_outer_surf_est_print + "G")
+            print(f" ")
+            print("  eps(%) = 0 (radius of only irradiated planet: " + radius_irr_est_print + " R_J)")
+            print("            B_rms,eps0       = " + brms_irr_est_print + "G")
+            print("            B_dip,surf,eps0  = " + brms_irr_surf_est_print + "G")
+            print(f" ")
+            print("  eps_thorn18(%):   " + heat_eff_thorn_print  +  '\n')
+            print(f"----------------------------------------------------------------------")
