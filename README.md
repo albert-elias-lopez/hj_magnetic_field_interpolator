@@ -23,6 +23,8 @@ The repository contains
 
 The planetary evolution calculations themselves are **not** included here. They were performed using the MESA stellar evolution code and are available in the repository **https://github.com/csic-ice-imagine/MESA_rossby_HJ**
 
+The magnetic field tables in the `<mass>_MJ/` folders were generated from those runs with `table_generator.py` (`python table_generator.py` for the tables with rotation, `--no_rotation` for the tables without it). The script needs the MESA output and the module `radial_functions`, which are not included here but can be provided upon request.
+
 ---
 
 ### Required inputs
@@ -35,6 +37,25 @@ The interpolator requires
 - Orbital period ($P_{\rm orb}$)
 
 By default, the code uses the rotation-corrected magnetic field tables (Fuentes et al. 2025). This correction can be disabled using the `--no_rotation` option, in which case the orbital period will not be used.
+
+---
+
+## Installation
+
+Requirements: Python >= 3.10 (developed with Python 3.12). A LaTeX installation is optional: if it is found, it is used for the plot labels; otherwise matplotlib's own math rendering is used.
+
+```
+git clone https://github.com/albert-elias-lopez/hj_magnetic_field_interpolator.git
+cd hj_magnetic_field_interpolator
+python set_up.py
+```
+
+`set_up.py` creates a virtual environment in `.venv` and installs the required packages (numpy, scipy, matplotlib, tqdm, emcee, odrpack). Activate it before running the code:
+
+```
+source .venv/bin/activate        (Windows: .venv\Scripts\activate)
+python main.py --help
+```
 
 ---
 
