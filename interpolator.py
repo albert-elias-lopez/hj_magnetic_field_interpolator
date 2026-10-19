@@ -54,6 +54,7 @@ def get_error_gaussian(interpolator,
 
     mask_nans = ~np.isnan(samples)
     samples = samples[mask_nans]
+    if samples.size == 0: return np.nan, np.nan   # No sample inside the grid: no error bar instead of a crash
     p16, p50, p84 = np.percentile(samples, [16, 50, 84])
 
     #acceptance = np.sum(mask)/N
@@ -145,6 +146,7 @@ def get_error_mcmc(interpolator,
 
     B_s = interpolator(M_s, np.log10(F_s), R_s)
     B_s = B_s[np.isfinite(B_s)]
+    if B_s.size == 0: return np.nan, np.nan   # No sample inside the grid: no error bar instead of a crash
 
     p16, p50, p84 = np.percentile(B_s, [16, 50, 84])
 
@@ -191,6 +193,7 @@ def get_error_irr_gaussian(interpolator,
 
     mask_nans = ~np.isnan(samples)
     samples = samples[mask_nans]
+    if samples.size == 0: return np.nan, np.nan   # No sample inside the grid: no error bar instead of a crash
     p16, p50, p84 = np.percentile(samples, [16, 50, 84])
 
     return p50 - p16, p84 - p50 # estimate error minus, estimate error plus

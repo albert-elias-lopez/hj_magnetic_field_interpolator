@@ -77,6 +77,10 @@ if __name__ == "__main__":
                         "This is a rough estimate of the error associated with the interior structure and dynamo model assumptions. " \
                         "By default, and the uncertainty only comes from the propagation of observed data errors.")
 
+    parser.add_argument("--seed", type=int, default=42,
+                        help="default=42. Seed of the random numbers used for the Monte Carlo errors and fits. " \
+                        "The same seed gives exactly the same results.")
+
     args = parser.parse_args()
     
 # Name of the current directory
@@ -88,6 +92,9 @@ sys.path.append(parent)
 # Work from the repository folder, so the relative paths to the tables, the CSV files and the
 # output folders (plots/, predictions/) are valid wherever main.py is launched from
 os.chdir(current)
+
+# Fix the random numbers of the Monte Carlo errors and fits, so every run with the same seed gives the same results
+np.random.seed(args.seed)
 
 # --------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------- Saving and printing ------------------------------------------------

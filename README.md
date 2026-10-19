@@ -109,6 +109,7 @@ python main.py --no_HJ --which_planets cauley19 --add_systematic_error
 | `--my_planet_params`      | Used if `--no_HJ --which_planets my_own`. Specifies your own planet parameters: $M_{\rm P}$, $\sigma_{M_{\rm P}}$, $R_{\rm P}$ , $\sigma_{R_{\rm P}}$, $P_{\rm orb}$, $\sigma_{P_{\rm orb}}$, $F_{\rm irr}$, $\sigma_{F_{\rm irr}}$. The default is `--my_planet_params 1.2 0.1 1.5 0.1 1 1e-6 1e9 1e8`|
 | Uncertainties             |       |
 | `--add_systematic_error`  | Add a 60 percent relative systematic error to the interpolated/scaling law magnetic field estimates. This is a rough estimate of the error associated with the interior structure and dynamo model assumptions. By default, and the uncertainty only comes from the propagation of observed data errors.|
+| `--seed`                  | Seed of the random numbers used for the Monte Carlo errors and fits. The same seed gives exactly the same results. *(default)=42* |
 
 ---
 
