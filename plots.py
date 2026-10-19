@@ -419,6 +419,7 @@ def plot_population(planets,
     mass_obs_err_bar        = planets.mass_obs_err_asym.T
     flux_obs_err_bar        = planets.flux_obs_err_asym.T
     radius_obs_err_bar      = planets.radius_obs_err_asym.T
+    temp_eff_obs_err_bar    = planets.temp_eff_obs_err_asym.T
     
     label_inner = r"$\epsilon_{\rm inner}$" #r"$B_{\rm dip, \, inner}$"
     label_outer = r"$\epsilon_{\rm outer}$" #r"$B_{\rm dip, \, outer}$"
@@ -897,7 +898,7 @@ def plot_population(planets,
                         K_reiners*brms_thorn18]
     variables_inner_err  = [flux_obs_err_bar,
                        orbital_period_obs_err,
-                        temp_eff_obs,
+                        temp_eff_obs_err_bar,
                         radius_obs_err_bar,
                         mass_obs_err_bar,
                         surf_grav_err,
@@ -906,7 +907,7 @@ def plot_population(planets,
                         K_reiners*brms_thorn18_err]
     variables_outer_err  = [flux_obs_err_bar,
                        orbital_period_obs_err,
-                        temp_eff_obs,
+                        temp_eff_obs_err_bar,
                         radius_obs_err_bar,
                         mass_obs_err_bar,
                         surf_grav_err,

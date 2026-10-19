@@ -20,6 +20,7 @@ class planet_object:
         self.mass_obs                   = np.zeros(N_planets)
         self.mass_obs_err               = np.zeros(N_planets)
         self.temp_eff_obs               = np.zeros(N_planets)
+        self.temp_eff_obs_err           = np.zeros(N_planets)
         self.flux_obs                   = np.zeros(N_planets)
         self.flux_obs_err               = np.zeros(N_planets)
         self.radius_obs                 = np.zeros(N_planets)
@@ -41,6 +42,7 @@ class planet_object:
         self.mass_obs_err_asym          = np.zeros((N_planets,2))
         self.radius_obs_err_asym        = np.zeros((N_planets,2))
         self.flux_obs_err_asym          = np.zeros((N_planets,2))
+        self.temp_eff_obs_err_asym      = np.zeros((N_planets,2))
 
         # Interpolated data for inner models
         self.heat_eff_inner_est         = np.zeros(N_planets)
@@ -77,6 +79,7 @@ class planet_object:
         self.mass_obs_err_asym   = np.column_stack((self.mass_obs_err, self.mass_obs_err))
         self.radius_obs_err_asym = np.column_stack((self.radius_obs_err, self.radius_obs_err))
         self.flux_obs_err_asym   = np.column_stack((self.flux_obs_err, self.flux_obs_err))
+        self.temp_eff_obs_err_asym = np.column_stack((self.temp_eff_obs_err, self.temp_eff_obs_err))
 
     def read_file(self, filename, line_skip):
         # This will be used for intepolating missing stellar data from the exoplaent database
@@ -181,11 +184,12 @@ class planet_object:
                 self.radius_star_obs_err[index_planet] = np.nan
                 radius_star_err_asym[index_planet] = np.nan
 
-            try: 
+            try:
                 self.orbital_dist_obs[index_planet] = file_list[6]
-                self.orbital_dist_obs_err[index_planet] = max(abs(float(file_list[7])),abs(float(file_list[8])))
+                try: self.orbital_dist_obs_err[index_planet] = max(abs(float(file_list[7])),abs(float(file_list[8])))
+                except: self.orbital_dist_obs_err[index_planet] = np.nan
                 orbital_dist_err_asym[index_planet] = read_err_asym(file_list, 7)
-            except: 
+            except:
                 self.orbital_dist_obs[index_planet] = np.cbrt(7.496e-6*self.mass_star_obs[index_planet]*self.orbital_period_obs[index_planet]**2)
                 self.orbital_dist_obs_err[index_planet] = (1/3)*np.cbrt(7.496e-6*self.mass_star_obs[index_planet]/self.orbital_period_obs[index_planet])*\
                                         np.sqrt(self.orbital_period_obs[index_planet]**2*self.mass_star_obs_err[index_planet]**2/self.mass_star_obs[index_planet]**2 + \
@@ -210,6 +214,10 @@ class planet_object:
                                      (radius_star_err_asym[:,1]/self.radius_star_obs)**2 + \
                                      (orbital_dist_err_asym[:,0]/self.orbital_dist_obs)**2)
         self.flux_obs_err_asym = 2*self.flux_obs[:,None]*np.column_stack((flux_rel_err_lower, flux_rel_err_upper))
+
+        # T_eff ~ T_star R_star^(1/2) / a^(1/2) ~ F^(1/4): its relative error is a quarter of the flux one
+        self.temp_eff_obs_err = self.temp_eff_obs*self.flux_obs_err/self.flux_obs/4
+        self.temp_eff_obs_err_asym = self.temp_eff_obs[:,None]*self.flux_obs_err_asym/self.flux_obs[:,None]/4
         
         #self.get_flux()
         
@@ -348,6 +356,7 @@ class planet_object:
             self.flux_obs_err               = np.array([0.51e9,     0.97e9,     0.31e9,     0.94e9,     0.79e9,     3.4e9,      0.67e9    ])
         
         self.temp_eff_obs = np.ones(len(self.planet_names))
+        self.temp_eff_obs_err = np.nan*np.ones(len(self.planet_names))   # T_eff is not computed for the presets
         self.set_symmetric_asym_errors()
 
 
@@ -364,6 +373,8 @@ class planet_object:
         self.mass_obs                    = self.mass_obs[mask]
         self.mass_obs_err                = self.mass_obs_err[mask]
         self.temp_eff_obs                = self.temp_eff_obs[mask]
+        self.temp_eff_obs_err            = self.temp_eff_obs_err[mask]
+        self.temp_eff_obs_err_asym       = self.temp_eff_obs_err_asym[mask]
         self.flux_obs                    = self.flux_obs[mask]
         self.flux_obs_err                = self.flux_obs_err[mask]
         self.radius_obs                  = self.radius_obs[mask]
