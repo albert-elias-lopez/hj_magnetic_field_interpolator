@@ -1,0 +1,39 @@
+# Reruns a few short samples with the pinned package versions and fails if
+# the outputs differ from the files committed in predictions/.
+name: Check results
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check-results:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install packages
+        run: pip install -r requirements.txt
+
+      - name: Run short samples
+        run: |
+          python main.py --no_HJ --which_planets wasp12b
+          python main.py --no_HJ --which_planets hd209458b
+          python main.py --no_HJ --which_planets seidel26
+
+      - name: Compare with the committed outputs
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "The outputs differ from the committed files:"
+            git status --porcelain
+            git diff
+            exit 1
+          fi
+          echo "The outputs match the committed files."
