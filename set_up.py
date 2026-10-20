@@ -1,19 +1,37 @@
 """
 Create a Python environment with everything the interpolator needs.
 
-Usage (works from any folder):
-    python set_up.py             install the versions used in the paper
-                                 (requirements.txt, needs Python 3.11 or 3.12)
-    python set_up.py --latest    install the newest versions instead
-                                 (any Python >= 3.10; the last digits of the
-                                 results may differ slightly from the paper)
+HOW TO USE
 
-The environment is created in the folder .venv of the repository. Running the
-script again reuses it; delete .venv to start from scratch.
+1. Create the environment (only once). From the repository folder:
+       python3 set_up.py
+   This creates the folder .venv in the repository, installs the package
+   versions used in the paper (requirements.txt) and checks that the code
+   runs. With these versions, the default random seed reproduces the results
+   of the paper exactly. The script can also be run from any other folder,
+   e.g. python3 path/to/set_up.py.
 
-Then activate it and run the code:
-    source .venv/bin/activate        (Windows: .venv\\Scripts\\activate)
-    python main.py --help
+2. Activate the environment (every time you open a new terminal):
+       source .venv/bin/activate        (Windows: .venv\\Scripts\\activate)
+   and run the code, e.g.
+       python main.py --help
+       python main.py --no_HJ --which_planets my_own
+   Type "deactivate" to leave the environment. Without activating it, you
+   can also run .venv/bin/python main.py (Windows: .venv\\Scripts\\python main.py).
+
+OPTIONS AND COMMON PROBLEMS
+
+- The package versions of the paper need Python 3.11 or 3.12. If your
+  default Python is another version but one of these is installed, run the
+  script with it, e.g. python3.12 set_up.py.
+- python3 set_up.py --latest installs the newest package versions instead
+  (any Python >= 3.10). The last digits of the results may then differ
+  slightly from the paper.
+- On Debian/Ubuntu, if creating the environment fails, install the venv
+  module first (e.g. sudo apt install python3.12-venv) and run the script
+  again.
+- Running the script again reuses the existing environment. To start from
+  scratch, delete the folder .venv first.
 
 LaTeX is optional: if it is installed, it is used for the plot labels.
 """
@@ -30,7 +48,7 @@ repo = Path(__file__).resolve().parent
 env = repo / ".venv"
 python = env / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
 
-parser = argparse.ArgumentParser(description="Create the Python environment for the interpolator.")
+parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("--latest", action="store_true",
                     help="install the newest package versions instead of the ones used in the paper")
 latest = parser.parse_args().latest

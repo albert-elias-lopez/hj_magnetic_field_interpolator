@@ -44,24 +44,34 @@ For the hot Jupiter population, the inputs are read from the NASA Exoplanet Arch
 
 ## Installation
 
-Requirements: Python 3.11 or 3.12 for the package versions used in the paper (`requirements.txt`), or any Python >= 3.10 with the newest versions. A LaTeX installation is optional: if it is found, it is used for the plot labels; otherwise matplotlib's own math rendering is used.
+You need Python 3.11 or 3.12 (check with `python3 --version`). These are the versions that work with the packages used in the paper. Any Python >= 3.10 also works with the `--latest` option below. LaTeX is optional: if it is installed, it is used for the plot labels; otherwise matplotlib's own math rendering is used.
+
+**1. Download the code and create the environment** (only once):
 
 ```
 git clone https://github.com/albert-elias-lopez/hj_magnetic_field_interpolator.git
 cd hj_magnetic_field_interpolator
-python set_up.py
+python3 set_up.py
 ```
 
-`set_up.py` creates a virtual environment in `.venv`, installs the package versions used in the paper (numpy, scipy, matplotlib, tqdm, emcee, odrpack; see `requirements.txt`) and checks that the code runs. With these versions the default random seed reproduces the results of the paper exactly. Use `python set_up.py --latest` to install the newest versions instead (the last digits of the results may then differ slightly). On Debian/Ubuntu, creating the environment may first need `sudo apt install python3.12-venv`.
+`set_up.py` creates a virtual environment in the folder `.venv` of the repository, installs the package versions used in the paper (numpy, scipy, matplotlib, tqdm, emcee, odrpack; see `requirements.txt`) and checks that the code runs. With these versions, the default random seed reproduces the results of the paper exactly. It can be run from any folder, e.g. `python3 path/to/set_up.py`.
 
-If you prefer to manage your own environment: `pip install -r requirements.txt`.
+Options and common problems:
 
-Activate the environment before running the code:
+- `python3 set_up.py --latest` installs the newest package versions instead, for other Python versions. The last digits of the results may then differ slightly from the paper.
+- If your default Python is not 3.11 or 3.12 but one of them is installed, run the script with it, e.g. `python3.12 set_up.py`.
+- On Debian/Ubuntu, if creating the environment fails, install the venv module first (`sudo apt install python3.12-venv`, with your Python version) and run the script again.
+- Running `set_up.py` again reuses the existing environment. To start from scratch, delete the folder `.venv` first.
+- If you prefer to manage your own environment: `pip install -r requirements.txt`.
+
+**2. Activate the environment** (every time you open a new terminal):
 
 ```
 source .venv/bin/activate        (Windows: .venv\Scripts\activate)
 python main.py --help
 ```
+
+When you are done, `deactivate` leaves the environment. Without activating it, you can also run the code directly with `.venv/bin/python main.py` (Windows: `.venv\Scripts\python main.py`).
 
 ---
 
@@ -149,6 +159,8 @@ The two heating cases bracket the magnetic field: heat deposited in the interior
 - `R09`, `R09+Th18`: the scaling law of Reiners et al. (2009) with fixed exponents, using the interpolated heating efficiency or the Thorngren & Fortney (2018) one.
 
 The folder `predictions_cut_R_extra/` contains the same files for the planets with incomplete stellar data.
+
+Files and folders ending in `_no_rot` contain the same outputs without the rotation correction (`python main.py --no_rotation`). They are not used in the paper and are included for transparency.
 
 **`plots/fits_cut_R_<fit_type>_fit/`**: the fitted scaling laws for the magnetic field,
 
