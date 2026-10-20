@@ -1,0 +1,9 @@
+# Package versions used for the results of Elias-López et al. (2026).
+# With these versions, the default random seed reproduces the results exactly.
+# They need Python 3.11 or 3.12.
+numpy==1.26.4
+scipy==1.16.2
+matplotlib==3.10.6
+tqdm==4.67.1
+emcee==3.1.6
+odrpack==0.5.0

@@ -44,7 +44,7 @@ For the hot Jupiter population, the inputs are read from the NASA Exoplanet Arch
 
 ## Installation
 
-Requirements: Python >= 3.10 (developed with Python 3.12). A LaTeX installation is optional: if it is found, it is used for the plot labels; otherwise matplotlib's own math rendering is used.
+Requirements: Python 3.11 or 3.12 for the package versions used in the paper (`requirements.txt`), or any Python >= 3.10 with the newest versions. A LaTeX installation is optional: if it is found, it is used for the plot labels; otherwise matplotlib's own math rendering is used.
 
 ```
 git clone https://github.com/albert-elias-lopez/hj_magnetic_field_interpolator.git
@@ -52,7 +52,11 @@ cd hj_magnetic_field_interpolator
 python set_up.py
 ```
 
-`set_up.py` creates a virtual environment in `.venv` and installs the required packages (numpy, scipy, matplotlib, tqdm, emcee, odrpack). Activate it before running the code:
+`set_up.py` creates a virtual environment in `.venv`, installs the package versions used in the paper (numpy, scipy, matplotlib, tqdm, emcee, odrpack; see `requirements.txt`) and checks that the code runs. With these versions the default random seed reproduces the results of the paper exactly. Use `python set_up.py --latest` to install the newest versions instead (the last digits of the results may then differ slightly). On Debian/Ubuntu, creating the environment may first need `sudo apt install python3.12-venv`.
+
+If you prefer to manage your own environment: `pip install -r requirements.txt`.
+
+Activate the environment before running the code:
 
 ```
 source .venv/bin/activate        (Windows: .venv\Scripts\activate)
@@ -63,13 +67,19 @@ python main.py --help
 
 ## Running the code
 
-To reproduce the results of Elias-López et al. (2026), run these three commands in this order (the last two use the scaling-law fits saved by the first one):
+To reproduce the results of Elias-López et al. (2026), run these commands in this order (all but the first use the scaling-law fits saved by the first one):
 
 ```
 python main.py --save_plot_population
 python main.py --no_HJ --which_planets seidel26 --add_systematic_error
 python main.py --no_HJ --which_planets cauley19 --add_systematic_error
+python main.py --no_HJ --which_planets seidel26
+python main.py --no_HJ --which_planets cauley19
+python main.py --no_HJ --which_planets wasp12b
+python main.py --no_HJ --which_planets hd209458b
 ```
+
+The runs with `--add_systematic_error` include the 60% systematic uncertainty used in the literature comparison figure; the others only include the observational uncertainties, as in the literature comparison table.
 
 The first command uses the defaults `--fit_type gaussian`, `--N_gauss_fits 10000` and `--which_cut "radius cut"`, and takes about 10 minutes. The Monte Carlo uncertainties and fits use a fixed random seed (`--seed`, default 42), so the same command always gives exactly the same results.
 
@@ -136,7 +146,7 @@ The two heating cases bracket the magnetic field: heat deposited in the interior
 
 - `Interpolator`: interpolated value;
 - `FitMRL`, `FitMRF`, `FitMR`: the scaling laws fitted in this work (see below);
-- `R10`, `R10+Th18`: the scaling law of Reiners & Christensen (2010) with fixed exponents, using the interpolated heating efficiency or the Thorngren & Fortney (2018) one.
+- `R09`, `R09+Th18`: the scaling law of Reiners et al. (2009) with fixed exponents, using the interpolated heating efficiency or the Thorngren & Fortney (2018) one.
 
 The folder `predictions_cut_R_extra/` contains the same files for the planets with incomplete stellar data.
 
@@ -172,4 +182,10 @@ The results should therefore be regarded as order-of-magnitude magnetic field es
 
 If you use this repository, please cite
 
-> Elias-López et al. (2026), *Scaling laws for strong and weak hot Jupiter magnetism*.
+> Elias-López et al. (2026), *Estimations for strong and weak hot Jupiter magnetism*.
+
+---
+
+## License
+
+This code is released under the MIT License (see `LICENSE`).

@@ -351,18 +351,18 @@ else:
     if not os.path.exists("./plots/fits" + name_cut + "_no_rot"): os.makedirs("./plots/fits" + name_cut + "_no_rot")
 
 
-fit_reiners10           = fit_object(fit_type, "reiners10")
-fit_reiners10.K         = 23
+fit_reiners09           = fit_object(fit_type, "reiners09")
+fit_reiners09.K         = 23
 if fit_type == "gaussian": 
-    fit_reiners10.K_err = np.array([15,13])
+    fit_reiners09.K_err = np.array([15,13])
 else:
-    fit_reiners10.K_err = np.mean([15,13])
-fit_reiners10.alpha     = 1/6
-fit_reiners10.alpha_err = 0
-fit_reiners10.beta      = -7/6
-fit_reiners10.beta_err  = 0
-fit_reiners10.gamma     = 1/3
-fit_reiners10.gamma_err = 0
+    fit_reiners09.K_err = np.mean([15,13])
+fit_reiners09.alpha     = 1/6
+fit_reiners09.alpha_err = 0
+fit_reiners09.beta      = -7/6
+fit_reiners09.beta_err  = 0
+fit_reiners09.gamma     = 1/3
+fit_reiners09.gamma_err = 0
 
 if HJ_population:
 
@@ -642,7 +642,7 @@ table_predictions_save.table_comparision(planets,
                                         name_cut,
                                         HJ_population,
                                         which_planets,
-                                        fit_type, fit_reiners10,
+                                        fit_type, fit_reiners09,
                                         fit_MRL_inner, fit_MRL_inner_surf, fit_MRL_outer, fit_MRL_outer_surf,
                                         fit_MRF_inner, fit_MRF_inner_surf, fit_MRF_outer, fit_MRF_outer_surf,
                                         fit_MR_inner, fit_MR_inner_surf, fit_MR_outer, fit_MR_outer_surf,
@@ -703,7 +703,7 @@ if save_plots_population and HJ_population:
     plots.plot_population_fits(planets,
                             name_cut,
                             valid_mask,
-                            fit_type, fit_reiners10,
+                            fit_type, fit_reiners09,
                             fit_MRL_inner, fit_MRL_inner_surf, fit_MRL_outer, fit_MRL_outer_surf,
                             fit_MRF_inner, fit_MRF_inner_surf, fit_MRF_outer, fit_MRF_outer_surf,
                             fit_MR_inner, fit_MR_inner_surf, fit_MR_outer, fit_MR_outer_surf,
@@ -814,7 +814,7 @@ if HJ_population:
                                             name_cut,
                                             HJ_population,
                                             which_planets,
-                                            fit_type, fit_reiners10,
+                                            fit_type, fit_reiners09,
                                             fit_MRL_inner, fit_MRL_inner_surf, fit_MRL_outer, fit_MRL_outer_surf,
                                             fit_MRF_inner, fit_MRF_inner_surf, fit_MRF_outer, fit_MRF_outer_surf,
                                             fit_MR_inner, fit_MR_inner_surf, fit_MR_outer, fit_MR_outer_surf,
