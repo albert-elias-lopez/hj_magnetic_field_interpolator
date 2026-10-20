@@ -6,7 +6,7 @@ HOW TO USE
 1. Create the environment (only once). From the repository folder:
        python3 set_up.py
    This creates the folder .venv in the repository, installs the package
-   versions used in the paper (requirements.txt) and checks that the code
+   versions used in the paper (PACKAGES below) and checks that the code
    runs. With these versions, the default random seed reproduces the results
    of the paper exactly. The script can also be run from any other folder,
    e.g. python3 path/to/set_up.py.
@@ -42,7 +42,16 @@ import sys
 import venv
 from pathlib import Path
 
-PACKAGES = ["numpy", "scipy", "matplotlib", "tqdm", "emcee", "odrpack"]
+# Package versions used for the results of the paper. With these versions,
+# the default random seed reproduces the results exactly.
+PACKAGES = {
+    "numpy": "1.26.4",
+    "scipy": "1.16.2",
+    "matplotlib": "3.10.6",
+    "tqdm": "4.67.1",
+    "emcee": "3.1.6",
+    "odrpack": "0.5.0",
+}
 
 repo = Path(__file__).resolve().parent
 env = repo / ".venv"
@@ -81,7 +90,8 @@ subprocess.check_call([python, "-m", "pip", "install", "--upgrade", "pip"])
 if latest:
     subprocess.check_call([python, "-m", "pip", "install", "--upgrade", *PACKAGES])
 else:
-    subprocess.check_call([python, "-m", "pip", "install", "-r", repo / "requirements.txt"])
+    subprocess.check_call([python, "-m", "pip", "install",
+                           *[f"{name}=={number}" for name, number in PACKAGES.items()]])
 
 # 4. Check that the code runs
 subprocess.check_call([python, repo / "main.py", "--help"], stdout=subprocess.DEVNULL)

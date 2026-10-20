@@ -54,7 +54,7 @@ cd hj_magnetic_field_interpolator
 python3 set_up.py
 ```
 
-`set_up.py` creates a virtual environment in the folder `.venv` of the repository, installs the package versions used in the paper (numpy, scipy, matplotlib, tqdm, emcee, odrpack; see `requirements.txt`) and checks that the code runs. With these versions, the default random seed reproduces the results of the paper exactly. It can be run from any folder, e.g. `python3 path/to/set_up.py`.
+`set_up.py` creates a virtual environment in the folder `.venv` of the repository, installs the package versions used in the paper (see [Package versions](#package-versions)) and checks that the code runs. With these versions, the default random seed reproduces the results of the paper exactly. It can be run from any folder, e.g. `python3 path/to/set_up.py`.
 
 Options and common problems:
 
@@ -62,7 +62,7 @@ Options and common problems:
 - If your default Python is not 3.11 or 3.12 but one of them is installed, run the script with it, e.g. `python3.12 set_up.py`.
 - On Debian/Ubuntu, if creating the environment fails, install the venv module first (`sudo apt install python3.12-venv`, with your Python version) and run the script again.
 - Running `set_up.py` again reuses the existing environment. To start from scratch, delete the folder `.venv` first.
-- If you prefer to manage your own environment: `pip install -r requirements.txt`.
+- If you prefer to manage your own environment, install the packages listed in [Package versions](#package-versions).
 
 **2. Activate the environment** (every time you open a new terminal):
 
@@ -72,6 +72,25 @@ python main.py --help
 ```
 
 When you are done, `deactivate` leaves the environment. Without activating it, you can also run the code directly with `.venv/bin/python main.py` (Windows: `.venv\Scripts\python main.py`).
+
+### Package versions
+
+`set_up.py` installs the package versions used for the results of the paper, which need Python 3.11 or 3.12. With these versions, the default random seed reproduces the results exactly.
+
+| Package | Version |
+|---|---|
+| numpy | 1.26.4 |
+| scipy | 1.16.2 |
+| matplotlib | 3.10.6 |
+| tqdm | 4.67.1 |
+| emcee | 3.1.6 |
+| odrpack | 0.5.0 |
+
+To install them in your own environment instead:
+
+```
+pip install numpy==1.26.4 scipy==1.16.2 matplotlib==3.10.6 tqdm==4.67.1 emcee==3.1.6 odrpack==0.5.0
+```
 
 ---
 

@@ -18,15 +18,16 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: set_up.py
 
-      - name: Install packages
-        run: pip install -r requirements.txt
+      - name: Create the environment with set_up.py
+        run: python set_up.py
 
       - name: Run short samples
         run: |
-          python main.py --no_HJ --which_planets wasp12b
-          python main.py --no_HJ --which_planets hd209458b
-          python main.py --no_HJ --which_planets seidel26
+          .venv/bin/python main.py --no_HJ --which_planets wasp12b
+          .venv/bin/python main.py --no_HJ --which_planets hd209458b
+          .venv/bin/python main.py --no_HJ --which_planets seidel26
 
       - name: Compare with the committed outputs
         run: |
