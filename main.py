@@ -9,7 +9,6 @@ from scaling_law_fits import fit_object
 from table_reader import table_object
 import planet_functions
 import table_predictions_save
-import interpolator_rot
 import interpolator
 
 if __name__ == "__main__":
@@ -222,7 +221,7 @@ else:
 
 print("Interpolating exoplanets within simulation grid: ")
 if rotation:
-    interpolator_rot.linear_interpolator(table_inner, 
+    interpolator.linear_interpolator_rot(table_inner, 
                                          table_outer, 
                                         planets,
                                         periods,
@@ -747,7 +746,7 @@ if HJ_population:
 
     print("Interpolating exoplanets within simulation grid: ")
     if rotation:
-        interpolator_rot.linear_interpolator(table_inner, 
+        interpolator.linear_interpolator_rot(table_inner, 
                                             table_outer, 
                                             planets,
                                             periods,

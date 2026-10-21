@@ -1,7 +1,6 @@
-import sys
-import os
 import numpy as np
 from scipy.interpolate import LinearNDInterpolator
+from scipy.spatial import Delaunay
 import emcee
 from tqdm import tqdm
 import table_predictions_save
@@ -198,192 +197,176 @@ def get_error_irr_gaussian(interpolator,
 
     return p50 - p16, p84 - p50 # estimate error minus, estimate error plus
  
-def linear_interpolator(table_inner, 
+# Estimates stored in planets as <name>_est and <name>_est_err, in the order they are computed
+# (the order matters: the Monte Carlo errors draw from the same random number generator)
+IRR_QUANTITIES  = ["brms_irr", "brms_irr_surf"]
+HEAT_QUANTITIES = ["heat_eff_inner", "brms_inner", "brms_inner_surf",
+                   "heat_eff_outer", "brms_outer", "brms_outer_surf"]
+
+def get_error_irr_any(interpolator, mass, mass_err, flux, flux_err, error_sym):
+    if error_sym: return get_error_irr(interpolator, mass, mass_err, flux, flux_err)
+    return get_error_irr_gaussian(interpolator, mass, mass_err, flux, flux_err)
+
+def get_error_any(interpolator, mass, mass_err, flux, flux_err, radius, radius_err, radius_irr, error_sym):
+    if error_sym: return get_error(interpolator, mass, mass_err, flux, flux_err, radius, radius_err)
+    return get_error_gaussian(interpolator, mass, mass_err, flux, flux_err, radius, radius_err, radius_irr)
+
+def build_interpolators(table_inner, table_outer, index_period = None):
+    # The rotation tables have an extra last axis for the orbital period
+    def grid(array):
+        return array if index_period is None else array[..., index_period]
+
+    masses_grid = grid(table_inner.masses_grid_total)
+    flux_grid   = grid(table_inner.flux_grid_total)
+    heat_effs_grid_flat = grid(table_inner.heat_effs_grid_total).flatten()
+
+    interpolators = {}
+    for heating, table in (("inner", table_inner), ("outer", table_outer)):
+        radii_heat_flat = grid(table.radius_heat).flatten()
+        # Create a mask for valid simulation points (radius > 0)
+        valid_mask = radii_heat_flat > 0
+        # One triangulation shared by the interpolators with the same points
+        points = Delaunay(list(zip(masses_grid.flatten()[valid_mask],
+                                   np.log10(flux_grid.flatten()[valid_mask]),
+                                   radii_heat_flat[valid_mask])))
+        interpolators["heat_eff_" + heating]    = LinearNDInterpolator(points, heat_effs_grid_flat[valid_mask])
+        interpolators["brms_" + heating]        = LinearNDInterpolator(points, grid(table.bscaling_heat).flatten()[valid_mask])
+        interpolators["brms_" + heating + "_surf"] = LinearNDInterpolator(points, grid(table.bscaling_surf_heat).flatten()[valid_mask])
+
+    # The epsilon = 0 data give the estimates for the only irradiated models.
+    # It doesn't matter to take the radius and magnetic field estimation from inner or outer, as eps=0
+    radii_irr_flat = grid(table_inner.radius_heat)[:,:,0].flatten()
+    # Some small planets with high irradiations explode, even without inflation
+    valid_mask_irr = radii_irr_flat > 0
+    points_irr = Delaunay(list(zip(masses_grid[:,:,0].flatten()[valid_mask_irr],
+                                   np.log10(flux_grid[:,:,0].flatten()[valid_mask_irr]))))
+    interpolators["radius_irr"]    = LinearNDInterpolator(points_irr, radii_irr_flat[valid_mask_irr])
+    interpolators["brms_irr"]      = LinearNDInterpolator(points_irr, grid(table_inner.bscaling_heat)[:,:,0].flatten()[valid_mask_irr])
+    interpolators["brms_irr_surf"] = LinearNDInterpolator(points_irr, grid(table_inner.bscaling_surf_heat)[:,:,0].flatten()[valid_mask_irr])
+    return interpolators
+
+def get_observed_values(planets, index_planet, error_sym):
+    mass_err   = planets.mass_obs_err[index_planet]
+    flux_err   = planets.flux_obs_err[index_planet]
+    radius_err = planets.radius_obs_err[index_planet]
+    if not error_sym:
+        # The Monte Carlo errors sample the observed values with their (lower, upper) errors
+        mass_err   = planets.mass_obs_err_asym[index_planet]
+        flux_err   = planets.flux_obs_err_asym[index_planet]
+        radius_err = planets.radius_obs_err_asym[index_planet]
+    return (planets.mass_obs[index_planet], mass_err,
+            planets.flux_obs[index_planet], flux_err,
+            planets.radius_obs[index_planet], radius_err)
+
+def set_radius_irr(planets, index_planet, interpolator_radius_irr, mass, mass_err, flux, flux_err, radius, error_sym):
+    # Store the radius without heating. Returns False (with no B or heating estimates) if the planet is smaller
+    planets.radius_irr_est[index_planet]     = interpolator_radius_irr(mass, np.log10(flux))
+    planets.radius_irr_est_err[index_planet] = get_error_irr_any(interpolator_radius_irr, mass, mass_err, flux, flux_err, error_sym)
+
+    if radius < planets.radius_irr_est[index_planet]:
+        for name in IRR_QUANTITIES + HEAT_QUANTITIES:
+            getattr(planets, name + "_est")[index_planet]     = np.nan
+            getattr(planets, name + "_est_err")[index_planet] = np.nan
+        return False
+    return True
+
+def linear_interpolator(table_inner,
                         table_outer,
                         planets,
                         mask_predictions,
                         error_sym = False):
-    
-    # Save the epsilon = 0 data to interpolate and give estimates for the only irradiated models
-    masses_irr_flat = table_inner.masses_grid_total[:,:,0].flatten()
-    flux_irr_flat = table_inner.flux_grid_total[:,:,0].flatten()
-    # It doesn't matter to take the radius and magnetic field estimation from inner or outer, as eps=0
-    radii_irr_flat = table_inner.radius_heat[:,:,0].flatten()
-    bscaling_irr_flat = table_inner.bscaling_heat[:,:,0].flatten()
-    bscaling_surf_irr_flat = table_inner.bscaling_surf_heat[:,:,0].flatten()
+    # Estimates without the rotation correction: the grid has no period axis
 
-    # Flatten the data for the interpolator
-    masses_grid_total_flat              = table_inner.masses_grid_total.flatten()
-    flux_grid_total_flat                = table_inner.flux_grid_total.flatten()
-    heat_effs_grid_total_flat           = table_inner.heat_effs_grid_total.flatten()
-    radii_heat_inner_flat               = table_inner.radius_heat.flatten()
-    radii_heat_outer_flat               = table_outer.radius_heat.flatten()
-    bscaling_heat_inner_flat            = table_inner.bscaling_heat.flatten()
-    bscaling_heat_outer_flat            = table_outer.bscaling_heat.flatten()
-    bscaling_surf_heat_inner_flat       = table_inner.bscaling_surf_heat.flatten()
-    bscaling_surf_heat_outer_flat       = table_outer.bscaling_surf_heat.flatten()
+    interpolators = build_interpolators(table_inner, table_outer)
 
-    # Create a mask for valid simulation points (radius > 0)
-    valid_mask_inner = radii_heat_inner_flat > 0
-    masses_grid_inner_flat           = masses_grid_total_flat[valid_mask_inner]
-    flux_grid_inner_flat             = flux_grid_total_flat[valid_mask_inner]
-    heat_effs_grid_inner_flat        = heat_effs_grid_total_flat[valid_mask_inner]
-    radii_heat_inner_flat            = radii_heat_inner_flat[valid_mask_inner]
-    bscaling_heat_inner_flat         = bscaling_heat_inner_flat[valid_mask_inner]
-    bscaling_surf_heat_inner_flat    = bscaling_surf_heat_inner_flat[valid_mask_inner]
-
-    # Repeat the same for the outer heated models
-    valid_mask_outer = radii_heat_outer_flat > 0
-    masses_grid_outer_flat              = masses_grid_total_flat[valid_mask_outer]
-    flux_grid_outer_flat                = flux_grid_total_flat[valid_mask_outer]
-    heat_effs_grid_outer_flat           = heat_effs_grid_total_flat[valid_mask_outer]
-    radii_heat_outer_flat               = radii_heat_outer_flat[valid_mask_outer]
-    bscaling_heat_outer_flat            = bscaling_heat_outer_flat[valid_mask_outer]
-    bscaling_surf_heat_outer_flat       = bscaling_surf_heat_outer_flat[valid_mask_outer]
-
-    # Repeat the same of the irradiated models (some small planets with high irradiations explode, even without inflation)
-    valid_mask_irr = radii_irr_flat > 0
-    masses_irr_flat = masses_irr_flat[valid_mask_irr] 
-    flux_irr_flat = flux_irr_flat[valid_mask_irr] 
-    radii_irr_flat = radii_irr_flat[valid_mask_irr]  
-    bscaling_irr_flat = bscaling_irr_flat[valid_mask_irr]  
-    bscaling_surf_irr_flat = bscaling_surf_irr_flat[valid_mask_irr]
-
-    linear_interp_heat_effs_inner = LinearNDInterpolator(list(zip(masses_grid_inner_flat, 
-                                                                     np.log10(flux_grid_inner_flat), 
-                                                                     radii_heat_inner_flat)), 
-                                                                     heat_effs_grid_inner_flat)
-    linear_interp_brms_inner = LinearNDInterpolator(list(zip(masses_grid_inner_flat, 
-                                                                np.log10(flux_grid_inner_flat), 
-                                                                radii_heat_inner_flat)), 
-                                                                bscaling_heat_inner_flat)
-    linear_interp_brms_surf_inner = LinearNDInterpolator(list(zip(masses_grid_inner_flat, 
-                                                                     np.log10(flux_grid_inner_flat), 
-                                                                     radii_heat_inner_flat)), 
-                                                                     bscaling_surf_heat_inner_flat)
-
-    linear_interp_heat_effs_outer = LinearNDInterpolator(list(zip(masses_grid_outer_flat, 
-                                                                  np.log10(flux_grid_outer_flat), 
-                                                                  radii_heat_outer_flat)), 
-                                                                  heat_effs_grid_outer_flat)
-    linear_interp_brms_outer = LinearNDInterpolator(list(zip(masses_grid_outer_flat, 
-                                                             np.log10(flux_grid_outer_flat), 
-                                                             radii_heat_outer_flat)), 
-                                                             bscaling_heat_outer_flat)
-    linear_interp_brms_surf_outer = LinearNDInterpolator(list(zip(masses_grid_outer_flat, 
-                                                                  np.log10(flux_grid_outer_flat), 
-                                                                  radii_heat_outer_flat)), 
-                                                                  bscaling_surf_heat_outer_flat)
-    
-
-    linear_interp_radius_irr = LinearNDInterpolator(list(zip(masses_irr_flat, 
-                                                                  np.log10(flux_irr_flat))), 
-                                                                  radii_irr_flat)
-    linear_interp_brms_irr = LinearNDInterpolator(list(zip(masses_irr_flat, 
-                                                                  np.log10(flux_irr_flat))), 
-                                                                  bscaling_irr_flat)
-    linear_interp_brms_surf_irr = LinearNDInterpolator(list(zip(masses_irr_flat, 
-                                                                  np.log10(flux_irr_flat))), 
-                                                                  bscaling_surf_irr_flat)
-    
-    #for index_planet, name in enumerate(planet_names):
     for index_planet in tqdm(range(planets.n_planets)):
-        name = planets.planet_names[index_planet]
+        if not mask_predictions[index_planet]: continue
 
-        mass = planets.mass_obs[index_planet]
-        mass_err = planets.mass_obs_err[index_planet]
-        flux = planets.flux_obs[index_planet]
-        flux_err = planets.flux_obs_err[index_planet]
-        radius = planets.radius_obs[index_planet]
-        radius_err = planets.radius_obs_err[index_planet]
-        if not error_sym:
-            # The Monte Carlo errors sample the observed values with their (lower, upper) errors
-            mass_err = planets.mass_obs_err_asym[index_planet]
-            flux_err = planets.flux_obs_err_asym[index_planet]
-            radius_err = planets.radius_obs_err_asym[index_planet]
-        
-        if mask_predictions[index_planet]:
+        mass, mass_err, flux, flux_err, radius, radius_err = get_observed_values(planets, index_planet, error_sym)
 
-            planets.radius_irr_est[index_planet]    = linear_interp_radius_irr(mass,np.log10(flux))
-            if error_sym: planets.radius_irr_est_err[index_planet] =  get_error_irr(linear_interp_radius_irr, mass, mass_err, flux, flux_err)
-            else: planets.radius_irr_est_err[index_planet, 0], planets.radius_irr_est_err[index_planet, 1]  =\
-                                                        get_error_irr_gaussian(linear_interp_radius_irr, mass, mass_err,flux, flux_err)
-            
-            if radius < planets.radius_irr_est[index_planet]:
-                planets.brms_irr_est[index_planet]                    = np.nan
-                planets.brms_irr_surf_est[index_planet]         = np.nan
-                planets.heat_eff_inner_est[index_planet]     = np.nan
-                planets.brms_inner_est[index_planet]         = np.nan
-                planets.brms_inner_surf_est[index_planet]    = np.nan
-                planets.heat_eff_outer_est[index_planet]        = np.nan
-                planets.brms_outer_est[index_planet]            = np.nan
-                planets.brms_outer_surf_est[index_planet]       = np.nan
+        if not set_radius_irr(planets, index_planet, interpolators["radius_irr"],
+                              mass, mass_err, flux, flux_err, radius, error_sym): continue
+        radius_irr = planets.radius_irr_est[index_planet]
 
-                if error_sym: 
-                    planets.brms_irr_est_err[index_planet]  = np.nan
-                    planets.brms_irr_surf_est_err[index_planet] = np.nan
-                    planets.heat_eff_inner_est_err[index_planet] = np.nan
-                    planets.brms_inner_est_err[index_planet]     = np.nan
-                    planets.brms_inner_surf_est_err[index_planet]= np.nan
-                    planets.heat_eff_outer_est_err[index_planet]    = np.nan
-                    planets.brms_outer_est_err[index_planet]        = np.nan
-                    planets.brms_outer_surf_est_err[index_planet]   = np.nan
-                else: 
-                    planets.brms_irr_est_err[index_planet, :] = np.nan
-                    planets.brms_irr_surf_est_err[index_planet, :] = np.nan
-                    planets.heat_eff_inner_est_err[index_planet, :] = np.nan
-                    planets.brms_inner_est_err[index_planet, :]     = np.nan
-                    planets.brms_inner_surf_est_err[index_planet, :]= np.nan
-                    planets.heat_eff_outer_est_err[index_planet, :]    = np.nan
-                    planets.brms_outer_est_err[index_planet, :]        = np.nan
-                    planets.brms_outer_surf_est_err[index_planet, :]   = np.nan
+        for name in IRR_QUANTITIES:
+            getattr(planets, name + "_est")[index_planet]     = interpolators[name](mass, np.log10(flux))
+            getattr(planets, name + "_est_err")[index_planet] = get_error_irr_any(interpolators[name],
+                                                                    mass, mass_err, flux, flux_err, error_sym)
+        for name in HEAT_QUANTITIES:
+            getattr(planets, name + "_est")[index_planet]     = interpolators[name](mass, np.log10(flux), radius)
+            getattr(planets, name + "_est_err")[index_planet] = get_error_any(interpolators[name],
+                                                                    mass, mass_err, flux, flux_err, radius, radius_err, radius_irr, error_sym)
 
+def get_b_value(interpolator, index_period, fraction, *coordinates):
+    brms_upper        = interpolator[index_period](*coordinates)
+    brms_lower        = interpolator[index_period-1](*coordinates)
+    brms_est          = brms_lower + fraction * (brms_upper - brms_lower)
+    delta_brms_est    = brms_upper - brms_lower
+    return brms_est, delta_brms_est
+
+def get_b_err_value(interpolator, index_period, fraction, fraction_bis, log_period_err, error_function, *error_args):
+    # error_function gives one symmetric error or the (minus, plus) errors
+    brms_err_upper = error_function(interpolator[index_period], *error_args)
+    brms_err_lower = error_function(interpolator[index_period-1], *error_args)
+
+    def combine(brms_err_lower, brms_err_upper):
+        brms_est_err = (1-fraction)**2*brms_err_lower**2 + fraction**2*brms_err_upper**2+fraction_bis**2*log_period_err**2
+        return np.sqrt(brms_est_err)
+
+    if isinstance(brms_err_upper, tuple):
+        return tuple(combine(lower, upper) for lower, upper in zip(brms_err_lower, brms_err_upper))
+    return combine(brms_err_lower, brms_err_upper)
+
+def linear_interpolator_rot(table_inner,
+                            table_outer,
+                            planets,
+                            periods,
+                            mask_predictions,
+                            error_sym = False):
+    # Estimates with the rotation correction: B is interpolated linearly in log(period)
+    # between the grids of the two closest periods
+
+    interpolators_s = [build_interpolators(table_inner, table_outer, index_period)
+                       for index_period in range(len(periods))]
+    # The heat efficiency and radius_irr interpolators are the same for all periods
+    interpolators = interpolators_s[0]
+
+    for index_planet in tqdm(range(planets.n_planets)):
+        if not mask_predictions[index_planet]: continue
+
+        mass, mass_err, flux, flux_err, radius, radius_err = get_observed_values(planets, index_planet, error_sym)
+        period = planets.orbital_period_obs[index_planet]
+        period_err = planets.orbital_period_obs_err[index_planet]
+        log_period_err = period_err/period/np.log(10)
+
+        if not set_radius_irr(planets, index_planet, interpolators["radius_irr"],
+                              mass, mass_err, flux, flux_err, radius, error_sym): continue
+        radius_irr = planets.radius_irr_est[index_planet]
+
+        idx_upper = np.searchsorted(periods, period)
+        idx_lower = idx_upper - 1
+        period_upper = periods[idx_upper]
+        period_lower = periods[idx_lower]
+        fraction = (np.log10(period) - np.log10(period_lower)) / (np.log10(period_upper) - np.log10(period_lower))
+        # FIXME: the errors use the two last periods of the grid instead of idx_upper (kept from the old code)
+        idx_err = len(periods) - 1
+
+        for name in IRR_QUANTITIES + [name for name in HEAT_QUANTITIES if name.startswith("brms")]:
+            if name in IRR_QUANTITIES:
+                coordinates = (mass, np.log10(flux))
+                error_function, error_args = get_error_irr_any, (mass, mass_err, flux, flux_err, error_sym)
             else:
-                planets.brms_irr_est[index_planet]        = linear_interp_brms_irr(mass,np.log10(flux))
-                planets.brms_irr_surf_est[index_planet]   = linear_interp_brms_surf_irr(mass,np.log10(flux))
+                coordinates = (mass, np.log10(flux), radius)
+                error_function, error_args = get_error_any, (mass, mass_err, flux, flux_err, radius, radius_err, radius_irr, error_sym)
 
-                planets.heat_eff_inner_est[index_planet]     = linear_interp_heat_effs_inner(mass,np.log10(flux),radius) 
-                planets.brms_inner_est[index_planet]         = linear_interp_brms_inner(mass,np.log10(flux),radius)
-                planets.brms_inner_surf_est[index_planet]    = linear_interp_brms_surf_inner(mass,np.log10(flux),radius)
+            interpolator = [interpolators_period[name] for interpolators_period in interpolators_s]
+            getattr(planets, name + "_est")[index_planet], delta_brms_est = get_b_value(interpolator,
+                                                                                idx_upper, fraction, *coordinates)
+            fraction_bis = delta_brms_est/(np.log10(period_upper) - np.log10(period_lower))
+            getattr(planets, name + "_est_err")[index_planet] = get_b_err_value(interpolator, idx_err, fraction, fraction_bis,
+                                                                    log_period_err, error_function, *error_args)
 
-                planets.heat_eff_outer_est[index_planet]    = linear_interp_heat_effs_outer(mass,np.log10(flux),radius)
-                planets.brms_outer_est[index_planet]        = linear_interp_brms_outer(mass,np.log10(flux),radius)
-                planets.brms_outer_surf_est[index_planet]   = linear_interp_brms_surf_outer(mass,np.log10(flux),radius)
-
-                if error_sym: 
-                    planets.brms_irr_est_err[index_planet] =  get_error_irr(linear_interp_brms_irr, mass, mass_err, flux, flux_err)
-                    planets.brms_irr_surf_est_err[index_planet] =  get_error_irr(linear_interp_brms_surf_irr, mass, mass_err, flux, flux_err)
-
-                    planets.heat_eff_inner_est_err[index_planet] =  get_error(linear_interp_heat_effs_inner, mass, mass_err,flux, flux_err, radius, radius_err)
-                    planets.brms_inner_est_err[index_planet] =  get_error(linear_interp_brms_inner, mass, mass_err,flux, flux_err, radius, radius_err)
-                    planets.brms_inner_surf_est_err[index_planet] =  get_error(linear_interp_brms_surf_inner, mass, mass_err,flux, flux_err, radius, radius_err)  
-                    
-                    planets.heat_eff_outer_est_err[index_planet] =  get_error(linear_interp_heat_effs_outer, mass, mass_err,flux, flux_err, radius, radius_err)
-                    planets.brms_outer_est_err[index_planet] =  get_error(linear_interp_brms_outer, mass, mass_err,flux, flux_err,radius, radius_err)
-                    planets.brms_outer_surf_est_err[index_planet] =  get_error(linear_interp_brms_surf_outer, mass, mass_err,flux, flux_err, radius, radius_err)
-                
-                else:
-                    planets.brms_irr_est_err[index_planet, 0], planets.brms_irr_est_err[index_planet, 1]  =\
-                                                        get_error_irr_gaussian(linear_interp_brms_irr, mass, mass_err,flux, flux_err)  
-                    planets.brms_irr_surf_est_err[index_planet, 0], planets.brms_irr_surf_est_err[index_planet, 1]  =\
-                                                        get_error_irr_gaussian(linear_interp_brms_surf_irr, mass, mass_err,flux, flux_err)
-
-                    planets.heat_eff_inner_est_err[index_planet, 0],planets.heat_eff_inner_est_err[index_planet, 1] =\
-                                                        get_error_gaussian(linear_interp_heat_effs_inner, 
-                                                        mass, mass_err,flux, flux_err, radius, radius_err, planets.radius_irr_est[index_planet])
-                    planets.brms_inner_est_err[index_planet, 0],planets.brms_inner_est_err[index_planet, 1] =\
-                                            get_error_gaussian(linear_interp_brms_inner, 
-                                            mass, mass_err,flux, flux_err, radius, radius_err, planets.radius_irr_est[index_planet])
-                    planets.brms_inner_surf_est_err[index_planet, 0],planets.brms_inner_surf_est_err[index_planet, 1] =\
-                                            get_error_gaussian(linear_interp_brms_surf_inner, 
-                                            mass, mass_err,flux, flux_err, radius, radius_err, planets.radius_irr_est[index_planet])
-                    
-                    planets.heat_eff_outer_est_err[index_planet, 0],planets.heat_eff_outer_est_err[index_planet, 1] =\
-                                                        get_error_gaussian(linear_interp_heat_effs_outer, 
-                                                        mass, mass_err,flux, flux_err, radius, radius_err, planets.radius_irr_est[index_planet])
-                    planets.brms_outer_est_err[index_planet, 0],planets.brms_outer_est_err[index_planet, 1] =\
-                                            get_error_gaussian(linear_interp_brms_outer, 
-                                            mass, mass_err,flux, flux_err, radius, radius_err, planets.radius_irr_est[index_planet])
-                    planets.brms_outer_surf_est_err[index_planet, 0],planets.brms_outer_surf_est_err[index_planet, 1] =\
-                                            get_error_gaussian(linear_interp_brms_surf_outer, 
-                                            mass, mass_err,flux, flux_err, radius, radius_err, planets.radius_irr_est[index_planet])
+        for name in ["heat_eff_inner", "heat_eff_outer"]:
+            getattr(planets, name + "_est")[index_planet]     = interpolators[name](mass, np.log10(flux), radius)
+            getattr(planets, name + "_est_err")[index_planet] = get_error_any(interpolators[name],
+                                                                    mass, mass_err, flux, flux_err, radius, radius_err, radius_irr, error_sym)
