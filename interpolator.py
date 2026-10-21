@@ -318,7 +318,7 @@ def get_error_gaussian_rot(interpolator, periods,
     # sampled together, and each sample is interpolated in log(period) between its own two grid periods
 
     # A missing (NaN) observational error gives a missing (NaN) error, as in get_scaling_law_err
-    if np.any(np.isnan(mass_err)) or np.any(np.isnan(flux_err)) or np.isnan(period_err) or \
+    if np.any(np.isnan(mass_err)) or np.any(np.isnan(flux_err)) or \
        (not only_irr and np.any(np.isnan(radius_err))):
         return np.nan, np.nan
 
@@ -370,6 +370,9 @@ def linear_interpolator_rot(table_inner,
         mass, mass_err, flux, flux_err, radius, radius_err = get_observed_values(planets, index_planet, error_sym)
         period = planets.orbital_period_obs[index_planet]
         period_err = planets.orbital_period_obs_err[index_planet]
+        # Some archive planets have no period error. Periods are known to better than ~1%,
+        # so a missing error is taken as zero instead of removing the B error bars
+        if np.isnan(period_err): period_err = 0.0
 
         if not set_radius_irr(planets, index_planet, interpolators["radius_irr"],
                               mass, mass_err, flux, flux_err, radius, error_sym): continue
