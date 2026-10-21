@@ -1539,8 +1539,8 @@ def plot_population_fits(planets,
             index_variable = 6
             label, label_cut = None, None
         elif index_axis == 2:
-            label = label_inner_cut
-            label_cut = label_inner
+            label = label_outer_cut
+            label_cut = label_outer
             index_variable = 10
         axes[1,index_axis].scatter(variables_inner[index_variable][~valid_masks[index_variable]],
                             brms_inner_est[~valid_masks[index_variable]],
@@ -1648,7 +1648,7 @@ def plot_population_fits(planets,
             index_variable = 7
             label, label_cut = None, None
         elif index_axis == 2:
-            label = label_inner_cut
+            label = label_outer_cut
             label_cut = label_outer
             index_variable = 11
         axes[1,index_axis].scatter(variables_inner[index_variable][~valid_masks[index_variable]],
