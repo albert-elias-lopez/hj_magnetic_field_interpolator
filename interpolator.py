@@ -304,18 +304,51 @@ def get_b_value(interpolator, index_period, fraction, *coordinates):
     delta_brms_est    = brms_upper - brms_lower
     return brms_est, delta_brms_est
 
-def get_b_err_value(interpolator, index_period, fraction, fraction_bis, log_period_err, error_function, *error_args):
-    # error_function gives one symmetric error or the (minus, plus) errors
-    brms_err_upper = error_function(interpolator[index_period], *error_args)
-    brms_err_lower = error_function(interpolator[index_period-1], *error_args)
+def get_error_gaussian_rot(interpolator, periods,
+                           mass, mass_err,
+                           flux, flux_err,
+                           radius, radius_err,
+                           radius_irr,
+                           period, period_err,
+                           only_irr = False,
+                           N = 10000,
+                           min_mass = 0.3, max_mass = 12,
+                           min_flux = 1e7, max_flux = 1.58e10):
+    # interpolator has one interpolator per period of the grid. Mass, flux, radius and period are
+    # sampled together, and each sample is interpolated in log(period) between its own two grid periods
 
-    def combine(brms_err_lower, brms_err_upper):
-        brms_est_err = (1-fraction)**2*brms_err_lower**2 + fraction**2*brms_err_upper**2+fraction_bis**2*log_period_err**2
-        return np.sqrt(brms_est_err)
+    # A missing (NaN) observational error gives a missing (NaN) error, as in get_scaling_law_err
+    if np.any(np.isnan(mass_err)) or np.any(np.isnan(flux_err)) or np.isnan(period_err) or \
+       (not only_irr and np.any(np.isnan(radius_err))):
+        return np.nan, np.nan
 
-    if isinstance(brms_err_upper, tuple):
-        return tuple(combine(lower, upper) for lower, upper in zip(brms_err_lower, brms_err_upper))
-    return combine(brms_err_lower, brms_err_upper)
+    masses_s  = table_predictions_save.sample_obs(mass, mass_err, N)
+    fluxes_s  = table_predictions_save.sample_obs(flux, flux_err, N)
+    if not only_irr: radii_s = table_predictions_save.sample_obs(radius, radius_err, N)
+    periods_s = np.random.normal(period, period_err, N)
+
+    mask = (masses_s > min_mass) & (masses_s < max_mass) & (fluxes_s > min_flux) & (fluxes_s < max_flux) & \
+           (periods_s > periods[0]) & (periods_s < periods[-1])
+    if not only_irr: mask &= radii_s > radius_irr
+
+    masses_s, log_fluxes_s, periods_s = masses_s[mask], np.log10(fluxes_s[mask]), periods_s[mask]
+    if not only_irr: radii_s = radii_s[mask]
+
+    idx_upper = np.searchsorted(periods, periods_s)
+    fraction = (np.log10(periods_s) - np.log10(periods[idx_upper-1])) / (np.log10(periods[idx_upper]) - np.log10(periods[idx_upper-1]))
+
+    samples = np.empty(periods_s.size)
+    for index_period in np.unique(idx_upper):
+        in_bracket = idx_upper == index_period
+        coordinates = (masses_s[in_bracket], log_fluxes_s[in_bracket])
+        if not only_irr: coordinates += (radii_s[in_bracket],)
+        samples[in_bracket], _ = get_b_value(interpolator, index_period, fraction[in_bracket], *coordinates)
+
+    samples = samples[~np.isnan(samples)]
+    if samples.size == 0: return np.nan, np.nan   # No sample inside the grid: no error bar instead of a crash
+    p16, p50, p84 = np.percentile(samples, [16, 50, 84])
+
+    return p50 - p16, p84 - p50 # estimate error minus, estimate error plus
 
 def linear_interpolator_rot(table_inner,
                             table_outer,
@@ -337,7 +370,6 @@ def linear_interpolator_rot(table_inner,
         mass, mass_err, flux, flux_err, radius, radius_err = get_observed_values(planets, index_planet, error_sym)
         period = planets.orbital_period_obs[index_planet]
         period_err = planets.orbital_period_obs_err[index_planet]
-        log_period_err = period_err/period/np.log(10)
 
         if not set_radius_irr(planets, index_planet, interpolators["radius_irr"],
                               mass, mass_err, flux, flux_err, radius, error_sym): continue
@@ -348,23 +380,27 @@ def linear_interpolator_rot(table_inner,
         period_upper = periods[idx_upper]
         period_lower = periods[idx_lower]
         fraction = (np.log10(period) - np.log10(period_lower)) / (np.log10(period_upper) - np.log10(period_lower))
-        # FIXME: the errors use the two last periods of the grid instead of idx_upper (kept from the old code)
-        idx_err = len(periods) - 1
 
         for name in IRR_QUANTITIES + [name for name in HEAT_QUANTITIES if name.startswith("brms")]:
-            if name in IRR_QUANTITIES:
-                coordinates = (mass, np.log10(flux))
-                error_function, error_args = get_error_irr_any, (mass, mass_err, flux, flux_err, error_sym)
-            else:
-                coordinates = (mass, np.log10(flux), radius)
-                error_function, error_args = get_error_any, (mass, mass_err, flux, flux_err, radius, radius_err, radius_irr, error_sym)
+            only_irr = name in IRR_QUANTITIES
+            coordinates = (mass, np.log10(flux)) if only_irr else (mass, np.log10(flux), radius)
 
             interpolator = [interpolators_period[name] for interpolators_period in interpolators_s]
             getattr(planets, name + "_est")[index_planet], delta_brms_est = get_b_value(interpolator,
                                                                                 idx_upper, fraction, *coordinates)
-            fraction_bis = delta_brms_est/(np.log10(period_upper) - np.log10(period_lower))
-            getattr(planets, name + "_est_err")[index_planet] = get_b_err_value(interpolator, idx_err, fraction, fraction_bis,
-                                                                    log_period_err, error_function, *error_args)
+            if error_sym:
+                # Linear propagation through B interpolated at the planet's period, plus the period term
+                def interpolator_period(*coordinates):
+                    return get_b_value(interpolator, idx_upper, fraction, *coordinates)[0]
+                if only_irr: brms_err = get_error_irr(interpolator_period, mass, mass_err, flux, flux_err)
+                else:        brms_err = get_error(interpolator_period, mass, mass_err, flux, flux_err, radius, radius_err)
+                dbrms_dlogperiod = delta_brms_est/(np.log10(period_upper) - np.log10(period_lower))
+                log_period_err = period_err/period/np.log(10)
+                getattr(planets, name + "_est_err")[index_planet] = np.sqrt(brms_err**2 + dbrms_dlogperiod**2*log_period_err**2)
+            else:
+                getattr(planets, name + "_est_err")[index_planet] = get_error_gaussian_rot(interpolator, periods,
+                                                                        mass, mass_err, flux, flux_err, radius, radius_err, radius_irr,
+                                                                        period, period_err, only_irr = only_irr)
 
         for name in ["heat_eff_inner", "heat_eff_outer"]:
             getattr(planets, name + "_est")[index_planet]     = interpolators[name](mass, np.log10(flux), radius)
