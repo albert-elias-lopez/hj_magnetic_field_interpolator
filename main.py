@@ -72,7 +72,7 @@ if __name__ == "__main__":
                         help="default='radius cut'. Which HJ population cut to use for the fits.")
 
     parser.add_argument("--add_systematic_error", action="store_true",
-                        help="Add a 60 percent relative systematic error to the interpolated/scaling law magnetic field estimates. " \
+                        help="Add a factor-of-2 systematic error (x1/2 below, x2 above) to the interpolated estimates. " \
                         "This is a rough estimate of the error associated with the interior structure and dynamo model assumptions. " \
                         "By default, the uncertainty only comes from the propagation of observed data errors.")
 

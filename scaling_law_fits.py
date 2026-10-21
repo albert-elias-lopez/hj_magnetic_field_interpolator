@@ -195,11 +195,6 @@ def general_fit(planets,
     if not error_sym:
         heat_eff_est_err = np.mean(heat_eff_est_err, axis=1)
         brms_est_err = np.mean(brms_est_err, axis=1)
-    # Add a systematic uncertainty to brms_est_err by 75% in quadrature
-    # It comes from assuming that the model uncertainty is about a factor of 2:
-    # for example, B_{-0.5B}^{B}, which has a spread of 1.5 around the mean, i.e., 75% of the mean above and below. 
-    # This is a rough estimate, but it is better than nothing.
-    brms_est_err = np.sqrt(brms_est_err**2 + (brms_est * 0.75)**2)
 
 
     conv_lumin = np.pi*(radius_obs*6.991e+9)**2*flux_obs*heat_eff_est/4.606e24
@@ -221,7 +216,8 @@ def general_fit(planets,
     lnconv_lum_err = conv_lumin_err / conv_lumin
 
     lnbrms = np.log(brms_est)
-    lnbrms_err = brms_est_err / brms_est
+    # Add the model systematic uncertainty, a factor of 2 (x2 above, x1/2 below), in quadrature in ln B
+    lnbrms_err = np.sqrt((brms_est_err / brms_est)**2 + np.log(2)**2)
 
     lnheat = np.log(heat_eff_est)
     lnheat_err = heat_eff_est_err / heat_eff_est
@@ -260,14 +256,14 @@ def general_fit(planets,
                 mass_s = sample_split_normal(mass_obs, mass_obs_err_asym[:,0], mass_obs_err_asym[:,1], len(mass_obs))
                 radius_s = sample_split_normal(radius_obs, radius_obs_err_asym[:,0], radius_obs_err_asym[:,1], len(radius_obs))
                 conv_lum_s = np.random.normal(conv_lumin, conv_lumin_err)
-                brms_s = np.random.normal(brms_est, brms_est_err)
+                lnbrms_s = np.random.normal(lnbrms, lnbrms_err)
 
-                valid_mask = (mass_s > 0) & (radius_s > 0) & (conv_lum_s > 0) & (brms_s > 0)
+                valid_mask = (mass_s > 0) & (radius_s > 0) & (conv_lum_s > 0) & ~np.isnan(lnbrms_s)
 
                 lnmass_s = np.log(mass_s[valid_mask])
                 lnradius_s = np.log(radius_s[valid_mask])
                 lnconv_lum_s = np.log(conv_lum_s[valid_mask])
-                lnbrms_s = np.log(brms_s[valid_mask])
+                lnbrms_s = lnbrms_s[valid_mask]
 
                 params, cov = curve_fit(power_law,
                                         (lnmass_s,lnradius_s,lnconv_lum_s),
@@ -346,14 +342,14 @@ def general_fit(planets,
                 mass_s = sample_split_normal(mass_obs, mass_obs_err_asym[:,0], mass_obs_err_asym[:,1], len(mass_obs))
                 radius_s = sample_split_normal(radius_obs, radius_obs_err_asym[:,0], radius_obs_err_asym[:,1], len(radius_obs))
                 flux_s = sample_split_normal(flux_obs, flux_obs_err_asym[:,0], flux_obs_err_asym[:,1], len(flux_obs))
-                brms_s = np.random.normal(brms_est, brms_est_err)
+                lnbrms_s = np.random.normal(lnbrms, lnbrms_err)
 
-                valid_mask = (mass_s > 0) & (radius_s > 0) & (flux_s > 0) & (brms_s > 0)
+                valid_mask = (mass_s > 0) & (radius_s > 0) & (flux_s > 0) & ~np.isnan(lnbrms_s)
 
                 lnmass_s = np.log(mass_s[valid_mask])
                 lnradius_s = np.log(radius_s[valid_mask])
                 lnflux_s = np.log(flux_s[valid_mask]/1e9)
-                lnbrms_s = np.log(brms_s[valid_mask])
+                lnbrms_s = lnbrms_s[valid_mask]
 
                 params, cov = curve_fit(power_law,
                                         (lnmass_s,lnradius_s,lnflux_s),
@@ -431,13 +427,13 @@ def general_fit(planets,
             for _ in range(N_gauss):
                 mass_s = sample_split_normal(mass_obs, mass_obs_err_asym[:,0], mass_obs_err_asym[:,1], len(mass_obs))
                 radius_s = sample_split_normal(radius_obs, radius_obs_err_asym[:,0], radius_obs_err_asym[:,1], len(radius_obs))
-                brms_s = np.random.normal(brms_est, brms_est_err)
+                lnbrms_s = np.random.normal(lnbrms, lnbrms_err)
 
-                valid_mask = (mass_s > 0) & (radius_s > 0) & (brms_s > 0)
+                valid_mask = (mass_s > 0) & (radius_s > 0) & ~np.isnan(lnbrms_s)
 
                 lnmass_s = np.log(mass_s[valid_mask])
                 lnradius_s = np.log(radius_s[valid_mask])
-                lnbrms_s = np.log(brms_s[valid_mask])
+                lnbrms_s = lnbrms_s[valid_mask]
 
                 params, cov = curve_fit(power_law_two,
                                         (lnmass_s,lnradius_s),

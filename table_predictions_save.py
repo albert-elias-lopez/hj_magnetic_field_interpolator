@@ -67,8 +67,13 @@ def scaling_law(fit_object, mass, radius, conv_or_flux):
     return brms
 
 def add_syst_error(mean, error):
-    systematic_error = 0.6 * mean
-    return np.sqrt(np.asarray(error)**2 + systematic_error**2)
+    # Model systematic uncertainty of a factor of 2 (x1/2 below, x2 above), added in quadrature
+    # to the (lower, upper) errors; a symmetric error gets the mean of both sides
+    lower, upper = (error, error) if np.ndim(error) == 0 else (error[0], error[1])
+    error_lower = np.sqrt(lower**2 + (0.5 * mean)**2)
+    error_upper = np.sqrt(upper**2 + mean**2)
+    if np.ndim(error) == 0: return (error_lower + error_upper) / 2
+    return np.array([error_lower, error_upper])
 
 def get_scaling_law_err(fit_object,
                         brms, 

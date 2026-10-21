@@ -108,7 +108,7 @@ python main.py --no_HJ --which_planets wasp12b
 python main.py --no_HJ --which_planets hd209458b
 ```
 
-The runs with `--add_systematic_error` include the 60% systematic uncertainty used in the literature comparison figure; the others only include the observational uncertainties, as in the literature comparison table.
+The runs with `--add_systematic_error` include a factor-of-2 systematic uncertainty (×½ below, ×2 above), as in the literature comparison figure; the others only include the observational uncertainties, as in the literature comparison table.
 
 The first command uses the defaults `--fit_type gaussian`, `--N_gauss_fits 10000` and `--which_cut "radius cut"`, and takes about 10 minutes. The Monte Carlo uncertainties and fits use a fixed random seed (`--seed`, default 42), so the same command always gives exactly the same results.
 
@@ -149,7 +149,7 @@ The code can be launched from any folder; the outputs are always written in the 
 | `--which_planets` | Sample used with `--no_HJ`: `cauley19` *(default)*, `cauley19nasa`, `seidel26`, `seidel26nasa`, `hats53b`, `wasp12b`, `hd209458b`, `my_own` or `errors`. |
 | `--my_planet_params` | Used with `--no_HJ --which_planets my_own`: $M_{\rm P}$, $\sigma_{M_{\rm P}}$, $R_{\rm P}$, $\sigma_{R_{\rm P}}$, $P_{\rm orb}$, $\sigma_{P_{\rm orb}}$, $F_{\rm irr}$, $\sigma_{F_{\rm irr}}$ in the units above. Without it, `my_own` uses `1 0.1 1.5 0.1 1 1e-6 1e9 1e8`. |
 | **Uncertainties** | |
-| `--add_systematic_error` | Add a 60 percent relative systematic error to the interpolated and scaling-law magnetic field estimates, a rough estimate of the uncertainty of the interior structure and dynamo model assumptions. By default, the uncertainty only comes from the propagation of the observational errors. |
+| `--add_systematic_error` | Add a factor-of-2 systematic error (×½ below, ×2 above) in quadrature to the interpolated estimates, a rough estimate of the uncertainty of the interior structure and dynamo model assumptions. By default, the uncertainty only comes from the propagation of the observational errors. |
 | `--seed` | Seed of the random numbers used for the Monte Carlo uncertainties and fits. The same seed gives exactly the same results. *(default: 42)* |
 
 ---
