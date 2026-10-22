@@ -160,7 +160,7 @@ Values with uncertainties are written as `value$_{-lower}^{+upper}$` (or `value$
 
 The two heating cases bracket the magnetic field: heat deposited in the interior ("inner") gives an upper estimate and heat deposited in the outer layers ("outer") a lower estimate. "irr" refers to the purely irradiated models ($\epsilon = 0$).
 
-**`predictions/predictions_<sample>.txt`** (one line per planet). For the population, `<sample>` is `hot_jupiter_populations` (planets with complete data) or `hot_jupiter_populations_extra` (planets with incomplete stellar data, not used in the fits); otherwise it is the `--which_planets` sample. The suffixes `_syst_err` and `_no_rot` mark runs with `--add_systematic_error` and `--no_rotation`.
+**`predictions/predictions_<sample>.txt`** (one line per planet). For the population, `<sample>` is `hot_jupiter_populations` (planets with complete data) or `hot_jupiter_populations_extra` (all gas giants in the archive table, including those with incomplete stellar data, whose missing stellar radius and temperature are taken from main-sequence relations; not used in the fits); otherwise it is the `--which_planets` sample. The suffixes `_syst_err` and `_no_rot` mark runs with `--add_systematic_error` and `--no_rotation`.
 
 | Column | Meaning |
 |---|---|
@@ -177,7 +177,7 @@ The two heating cases bracket the magnetic field: heat deposited in the interior
 - `FitMRL`, `FitMRF`, `FitMR`: the scaling laws fitted in this work (see below);
 - `R09`, `R09+Th18`: the scaling law of Reiners et al. (2009) with fixed exponents, using the interpolated heating efficiency or the Thorngren & Fortney (2018) one.
 
-The folder `predictions_cut_R_extra/` contains the same files for the planets with incomplete stellar data.
+The folder `predictions_cut_R_extra/` contains the same files for the `_extra` population, for every planet with $R_{\rm P}/R_{\epsilon=0} > 0.75$ (a looser cut than the $R_{\rm P} > 1.05\,R_{\epsilon=0}$ used for the fits).
 
 Files and folders ending in `_no_rot` contain the same outputs without the rotation correction (`python main.py --no_rotation`). They are not used in the paper and are included for transparency.
 

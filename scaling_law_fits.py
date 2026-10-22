@@ -58,35 +58,36 @@ class fit_object:
     def print_fit_results(self, file, filename, header):
         file.writelines(header + '\n')
         # The heating-efficiency fits (header "eps_...") are dimensionless; the other fits are Brms in G
-        if header.startswith("eps"): quantity, unit = "eps ", "  "
-        else: quantity, unit = "Brms", " G"
+        # K_format: the eps normalisation is ~1e-4, so it is written in scientific notation
+        if header.startswith("eps"): quantity, unit, K_format = "eps ", "  ", ".4e"
+        else: quantity, unit, K_format = "Brms", " G", ".4f"
         if self.fit_function_type == "MRL":
-            file.writelines(f"      {quantity} = {self.K:.4f}{unit} * M^{self.alpha:.4f} * R^{self.beta:.4f} * (eps * pi * R^2 * F_irr)^{self.gamma:.4f}" + '\n')
+            file.writelines(f"      {quantity} = {self.K:{K_format}}{unit} * M^{self.alpha:.4f} * R^{self.beta:.4f} * (eps * pi * R^2 * F_irr)^{self.gamma:.4f}" + '\n')
             if self.fit_type == "gaussian":
-                file.writelines(f"             -{self.K_err[0]:.4f}      -{self.alpha_err[0]:.4f}    -{self.beta_err[0]:.4f}                           -{self.gamma_err[0]:.4f}" + '\n')
-                file.writelines(f"             +{self.K_err[1]:.4f}      +{self.alpha_err[1]:.4f}    +{self.beta_err[1]:.4f}                           +{self.gamma_err[1]:.4f}" + '\n')
+                file.writelines(f"             -{self.K_err[0]:{K_format}}      -{self.alpha_err[0]:.4f}    -{self.beta_err[0]:.4f}                           -{self.gamma_err[0]:.4f}" + '\n')
+                file.writelines(f"             +{self.K_err[1]:{K_format}}      +{self.alpha_err[1]:.4f}    +{self.beta_err[1]:.4f}                           +{self.gamma_err[1]:.4f}" + '\n')
             else:
-                file.writelines(f"              {self.K_err:.4f}       {self.alpha_err:.4f}     {self.beta_err:.4f}                            {self.gamma_err:.4f}" + '\n')
+                file.writelines(f"              {self.K_err:{K_format}}       {self.alpha_err:.4f}     {self.beta_err:.4f}                            {self.gamma_err:.4f}" + '\n')
             #file.writelines(f"      chi_2 = {self.chi_2:.4f};   chi_squared = {self.chisquared[0]:.4f}, {self.chisquared[1]:.4f} " + '\n')
             file.writelines(f"      pearson = {self.pearson[0]:.4f}, {self.pearson[1]:.4e} " + '\n')
             #file.writelines(f"      spearman = {self.spearman[0]:.4f}, {self.spearman[1]:.4e} " + '\n')
         elif self.fit_function_type == "MRF":
-            file.writelines(f"      {quantity} = {self.K:.4f}{unit} * M^{self.alpha:.4f} * R^{self.beta:.4f} * (F_irr/1e9)^{self.gamma:.4f}" + '\n')
+            file.writelines(f"      {quantity} = {self.K:{K_format}}{unit} * M^{self.alpha:.4f} * R^{self.beta:.4f} * (F_irr/1e9)^{self.gamma:.4f}" + '\n')
             if self.fit_type == "gaussian":
-                file.writelines(f"             -{self.K_err[0]:.4f}      -{self.alpha_err[0]:.4f}    -{self.beta_err[0]:.4f}               -{self.gamma_err[0]:.4f}" + '\n')
-                file.writelines(f"             +{self.K_err[1]:.4f}      +{self.alpha_err[1]:.4f}    +{self.beta_err[1]:.4f}               +{self.gamma_err[1]:.4f}" + '\n')
+                file.writelines(f"             -{self.K_err[0]:{K_format}}      -{self.alpha_err[0]:.4f}    -{self.beta_err[0]:.4f}               -{self.gamma_err[0]:.4f}" + '\n')
+                file.writelines(f"             +{self.K_err[1]:{K_format}}      +{self.alpha_err[1]:.4f}    +{self.beta_err[1]:.4f}               +{self.gamma_err[1]:.4f}" + '\n')
             else:
-                file.writelines(f"             {self.K_err:.4f}      {self.alpha_err:.4f}     {self.beta_err:.4f}                 {self.gamma_err:.4f}" + '\n')
+                file.writelines(f"             {self.K_err:{K_format}}      {self.alpha_err:.4f}     {self.beta_err:.4f}                 {self.gamma_err:.4f}" + '\n')
             #file.writelines(f"      chi_2 = {self.chi_2:.4f};   chi_squared = {self.chisquared[0]:.4f}, {self.chisquared[1]:.4f} " + '\n')
             file.writelines(f"      pearson = {self.pearson[0]:.4f}, {self.pearson[1]:.4e} " + '\n')
             #file.writelines(f"      spearman = {self.spearman[0]:.4f}, {self.spearman[1]:.4e} " + '\n')
         elif self.fit_function_type == "MR":
-            file.writelines(f"      {quantity} = {self.K:.4f}{unit} * M^{self.alpha:.4f} * R^{self.beta:.4f}" + '\n')
+            file.writelines(f"      {quantity} = {self.K:{K_format}}{unit} * M^{self.alpha:.4f} * R^{self.beta:.4f}" + '\n')
             if self.fit_type == "gaussian":
-                file.writelines(f"             -{self.K_err[0]:.4f}      -{self.alpha_err[0]:.4f}    -{self.beta_err[0]:.4f}" + '\n')
-                file.writelines(f"             +{self.K_err[1]:.4f}      +{self.alpha_err[1]:.4f}    +{self.beta_err[1]:.4f}" + '\n')
+                file.writelines(f"             -{self.K_err[0]:{K_format}}      -{self.alpha_err[0]:.4f}    -{self.beta_err[0]:.4f}" + '\n')
+                file.writelines(f"             +{self.K_err[1]:{K_format}}      +{self.alpha_err[1]:.4f}    +{self.beta_err[1]:.4f}" + '\n')
             else:
-                file.writelines(f"              {self.K_err:.4f}       {self.alpha_err:.4f}     {self.beta_err:.4f}" + '\n')
+                file.writelines(f"              {self.K_err:{K_format}}       {self.alpha_err:.4f}     {self.beta_err:.4f}" + '\n')
             #file.writelines(f"      chi_2 = {self.chi_2:.4f};   chi_squared = {self.chisquared[0]:.4f}, {self.chisquared[1]:.4f} " + '\n')
             file.writelines(f"      pearson = {self.pearson[0]:.4f}, {self.pearson[1]:.4e} " + '\n')
             #file.writelines(f"      spearman = {self.spearman[0]:.4f}, {self.spearman[1]:.4e} " + '\n')

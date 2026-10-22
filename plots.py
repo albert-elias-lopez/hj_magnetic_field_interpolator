@@ -839,7 +839,7 @@ def plot_population(planets,
 
 
     surf_grav = 6.67e-11*1.8981e27/6.9911e7**2  *mass_obs/radius_obs**2 # N (m/kg)^2
-    surf_grav_err = 6.67e-11*1.8981e27/6.9911e7**2 /radius_obs**2 * np.sqrt(mass_obs_err**2+(4*mass_obs*radius_obs_err/radius_obs)**2)
+    surf_grav_err = 6.67e-11*1.8981e27/6.9911e7**2 /radius_obs**2 * np.sqrt(mass_obs_err**2+(2*mass_obs*radius_obs_err/radius_obs)**2)
 
 
     conv_lumin_inner_reiners = np.pi*(radius_obs*6.991e+9)**2*flux_obs*heat_eff_inner_est/4.606e24
@@ -1377,15 +1377,15 @@ def plot_population_fits(planets,
 
     for index_variable in range(0,len(variables_inner)):
 
-        if variable_names[index_variable] != "fit_general_inner_surf" + name_cut and \
-           variable_names[index_variable] != "fit_general_outer_surf" + name_cut and \
-           variable_names[index_variable] != "fit_no_eps_inner_surf" + name_cut and \
-           variable_names[index_variable] != "fit_no_eps_outer_surf" + name_cut and \
-           variable_names[index_variable] != "fit_no_flux_inner_surf" + name_cut and \
-           variable_names[index_variable] != "fit_no_flux_outer_surf" + name_cut and \
-           variable_names[index_variable] != "fit_irr_inner_surf" + name_cut and \
-           variable_names[index_variable] != "fit_irr_outer_surf" + name_cut and \
-           variable_names[index_variable] != "fit_irr_all_surf" + name_cut:
+        if variable_names[index_variable] != "fit_general_inner_surf" and \
+           variable_names[index_variable] != "fit_general_outer_surf" and \
+           variable_names[index_variable] != "fit_no_eps_inner_surf" and \
+           variable_names[index_variable] != "fit_no_eps_outer_surf" and \
+           variable_names[index_variable] != "fit_no_flux_inner_surf" and \
+           variable_names[index_variable] != "fit_no_flux_outer_surf" and \
+           variable_names[index_variable] != "fit_irr_inner_surf" and \
+           variable_names[index_variable] != "fit_irr_outer_surf" and \
+           variable_names[index_variable] != "fit_irr_all_surf":
 
             markersize = 100*radius_obs**2
             if variable_names[index_variable] == "radius": markersize = 20*np.sqrt(flux_obs/1e7)
@@ -1436,15 +1436,15 @@ def plot_population_fits(planets,
             plt.legend(fontsize=int(fontsize))
             plt.savefig(path + variable_names[index_variable] + "_bdyn.png")
 
-        if variable_names[index_variable] != "fit_general_inner" + name_cut and \
-           variable_names[index_variable] != "fit_general_outer" + name_cut and \
-           variable_names[index_variable] != "fit_no_eps_inner" + name_cut and \
-           variable_names[index_variable] != "fit_no_eps_outer" + name_cut and \
-           variable_names[index_variable] != "fit_no_flux_inner" + name_cut and \
-           variable_names[index_variable] != "fit_no_flux_outer" + name_cut and \
-           variable_names[index_variable] != "fit_irr_inner" + name_cut and \
-           variable_names[index_variable] != "fit_irr_outer" + name_cut and  \
-           variable_names[index_variable] != "fit_irr_all" + name_cut:
+        if variable_names[index_variable] != "fit_general_inner" and \
+           variable_names[index_variable] != "fit_general_outer" and \
+           variable_names[index_variable] != "fit_no_eps_inner" and \
+           variable_names[index_variable] != "fit_no_eps_outer" and \
+           variable_names[index_variable] != "fit_no_flux_inner" and \
+           variable_names[index_variable] != "fit_no_flux_outer" and \
+           variable_names[index_variable] != "fit_irr_inner" and \
+           variable_names[index_variable] != "fit_irr_outer" and  \
+           variable_names[index_variable] != "fit_irr_all":
 
             plt.clf()
             ax = plt.axes()
@@ -1779,11 +1779,11 @@ def plot_population_fits_eps(planets,
                        r"$R_P \, \mathrm{(R_J)}$",
                        r"$M_P \, \mathrm{(M_J)}$",
                        r"$g_{\rm surf} \, \mathrm{(m \, s^{-2})}$",
-                       r"${{{:.3e}}}$".format(fit_MRL_eps_inner.K) + r"$ \, \mathrm{\%}$" + \
+                       r"${{{:.3e}}}$".format(fit_MRL_eps_inner.K) + \
                          r"$\, M_P^{{{:.4f}}}$".format(fit_MRL_eps_inner.alpha) + \
                          r"$\, R_P^{{{:.4f}}}$".format(fit_MRL_eps_inner.beta) +  \
                          r"$\, F_{\rm irr}$" + r"$\, ^{{{:.4f}}}$".format(fit_MRL_eps_inner.gamma),
-                       r"${{{:.3e}}}$".format(fit_MRL_eps_outer.K) + r"$ \, \mathrm{\%}$" + \
+                       r"${{{:.3e}}}$".format(fit_MRL_eps_outer.K) + \
                          r"$\, M_P^{{{:.4f}}}$".format(fit_MRL_eps_outer.alpha) + \
                          r"$\, R_P^{{{:.4f}}}$".format(fit_MRL_eps_outer.beta) + \
                          r"$\, F_{\rm irr}$" + r"$\, ^{{{:.4f}}}$".format(fit_MRL_eps_outer.gamma)]
@@ -1823,6 +1823,6 @@ def plot_population_fits_eps(planets,
             x = np.logspace(np.log10(1.1*low), np.log10(0.9*high), 20)
             plt.plot(x, x, '--', color = "k")
         ax.set_xlabel(variable_labels[index_variable], fontsize=int(fontsize))
-        ax.set_ylabel(r"$\epsilon \mathrm{(\%)}$", fontsize=int(fontsize))
+        ax.set_ylabel(r"$\epsilon$", fontsize=int(fontsize))
         plt.legend(fontsize=int(fontsize))
         plt.savefig(path + variable_names[index_variable] + "_heat_eff.png")
