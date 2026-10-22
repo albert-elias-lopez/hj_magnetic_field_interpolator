@@ -274,10 +274,12 @@ def linear_interpolator(table_inner,
                         table_outer,
                         planets,
                         mask_predictions,
-                        error_sym = False):
-    # Estimates without the rotation correction: the grid has no period axis
+                        error_sym = False,
+                        interpolators = None):
+    # Estimates without the rotation correction: the grid has no period axis.
+    # interpolators: the result of build_interpolators, to reuse it between calls
 
-    interpolators = build_interpolators(table_inner, table_outer)
+    if interpolators is None: interpolators = build_interpolators(table_inner, table_outer)
 
     for index_planet in tqdm(range(planets.n_planets)):
         if not mask_predictions[index_planet]: continue
@@ -355,12 +357,15 @@ def linear_interpolator_rot(table_inner,
                             planets,
                             periods,
                             mask_predictions,
-                            error_sym = False):
+                            error_sym = False,
+                            interpolators_s = None):
     # Estimates with the rotation correction: B is interpolated linearly in log(period)
-    # between the grids of the two closest periods
+    # between the grids of the two closest periods.
+    # interpolators_s: the build_interpolators of every period, to reuse them between calls
 
-    interpolators_s = [build_interpolators(table_inner, table_outer, index_period)
-                       for index_period in range(len(periods))]
+    if interpolators_s is None:
+        interpolators_s = [build_interpolators(table_inner, table_outer, index_period)
+                           for index_period in range(len(periods))]
     # The heat efficiency and radius_irr interpolators are the same for all periods
     interpolators = interpolators_s[0]
 

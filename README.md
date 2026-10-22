@@ -17,6 +17,7 @@ As an alternative to interpolation, the repository also provides simple analytic
 - magnetic field interpolators for the published model grids (`<mass>_MJ/` folders);
 - analytical scaling laws fitted to the hot Jupiter population;
 - uncertainty propagation using Monte Carlo sampling, including asymmetric uncertainties;
+- a Python interface (`hj_model.py`) to use the interpolator and the scaling laws from your own code;
 - scripts to reproduce the results of Elias-López et al. (2026).
 
 The planetary evolution calculations themselves are **not** included here. They were performed using the MESA stellar evolution code and are available in the repository **https://github.com/csic-ice-imagine/MESA_rossby_HJ**
@@ -123,6 +124,37 @@ python main.py --no_HJ --which_planets my_own --my_planet_params 1.2 0.1 1.5 0.1
 The last one estimates the magnetic field of your own planet (here $M_{\rm P} = 1.2 \pm 0.1\,M_{\rm J}$, $R_{\rm P} = 1.5 \pm 0.1\,R_{\rm J}$, $P_{\rm orb} = 1$ day, $F_{\rm irr} = (1.0 \pm 0.1)\times10^9$ erg cm$^{-2}$ s$^{-1}$) and prints the results in the terminal.
 
 The code can be launched from any folder; the outputs are always written in the repository folders `predictions/` and `plots/`.
+
+---
+
+## Using the interpolator from Python
+
+`hj_model.py` gives the same estimates as `main.py` from your own scripts or notebooks, without writing files. Run Python from the repository folder (or add it to `sys.path`):
+
+```python
+from hj_model import HJMagneticModel
+
+model = HJMagneticModel()          # reads the grid tables once (a few seconds); rotation=False for the tables without rotation
+
+# Incident flux from the stellar radius and temperature and the orbital distance (or the period and stellar mass)
+flux, flux_err = model.get_flux(radius_star=1.57, radius_star_err=0.07, temp_star=6300, temp_star_err=150,
+                                orbital_dist=0.0229, orbital_dist_err=0.0008)
+
+# Interpolated heating efficiencies and magnetic fields, with Monte Carlo errors
+result = model.estimate(mass=1.41, mass_err=0.10, radius=1.79, radius_err=0.09,
+                        flux=flux, flux_err=flux_err, period=1.0914, period_err=3e-6)
+print(result["brms_inner_surf"], result["brms_inner_surf_err"])   # B_dip,surf (G) for deep heating, (minus, plus) error
+
+# Published scaling laws (MR fit without flux, MRF fit with flux)
+b, b_err = model.scaling_law(mass=1.41, mass_err=0.10, radius=1.79, radius_err=0.09, heating="outer")
+```
+
+- **Units:** planet mass in $M_{\rm J}$, planet radius in $R_{\rm J}$, flux in erg cm$^{-2}$ s$^{-1}$, orbital period in days, stellar radius in $R_\odot$, stellar temperature in K, stellar mass in $M_\odot$, orbital distance in AU.
+- **Several planets at once:** every value can be an array.
+- **Errors:** a number or array for symmetric errors, or a tuple `(lower, upper)` for asymmetric ones. `np.nan` marks a missing error.
+- **Results of `estimate`:** `eps_inner`, `eps_outer` (heating efficiencies, as fractions), `brms_inner`, `brms_inner_surf`, `brms_outer`, `brms_outer_surf` ($B_{\rm rms,dyn}$ and $B_{\rm dip,surf}$ in G for deep and shallow heating), `brms_irr`, `brms_irr_surf` and `radius_irr` (the non-inflated, $\epsilon = 0$, model with the same mass and flux). Each has its `(minus, plus)` error under `<name>_err`. Planets outside the grid give `nan`.
+- **Random numbers:** the Monte Carlo errors use numpy's random numbers with `seed=42` by default, as `main.py`, so the same input always gives the same errors.
+- **Check:** `python test_hj_model.py` verifies that the interface reproduces the committed predictions exactly (the GitHub Action also runs it).
 
 ---
 

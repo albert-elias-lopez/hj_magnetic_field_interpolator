@@ -6,10 +6,10 @@ import numpy as np
 import plots
 import scaling_law_fits
 from scaling_law_fits import fit_object
-from table_reader import table_object
 import planet_functions
 import table_predictions_save
 import interpolator
+import grid
 
 def parse_args():
 
@@ -267,54 +267,18 @@ def main(args):
     #if rotation: b_factor = 1
     #else: b_factor = 1/3 All factors to match the scaling law with Jupiter's B_dip,surf
 
-    # Grid limits which will be used to mask the exoplanet population before interpolating.
-    min_mass, max_mass = 0.3, 12
-    min_flux, max_flux = 1e7, 1.58e10
-    min_period, max_period = 0.1, 100.0
+    # The grid of models (masses, fluxes, heating efficiencies, periods) and its limits are in grid.py
+    masses, fluxes, heat_effs, periods = grid.masses, grid.fluxes, grid.heat_effs, grid.periods
 
-    fluxes = np.array([1.00000000e+07, 1.25892541e+07, 1.58489319e+07, 1.99526231e+07,
-                        2.51188643e+07, 3.16227766e+07, 3.98107171e+07, 5.01187234e+07,
-                        6.30957344e+07, 7.94328235e+07, 1.00000000e+08, 1.25892541e+08,
-                        1.58489319e+08, 1.99526231e+08, 2.51188643e+08, 3.16227766e+08,
-                        3.98107171e+08, 5.01187234e+08, 6.30957344e+08, 7.94328235e+08,
-                        1.00000000e+09, 1.25892541e+09, 1.58489319e+09, 1.99526231e+09,
-                        2.51188643e+09, 3.16227766e+09, 3.98107171e+09, 5.01187234e+09,
-                        6.30957344e+09, 7.94328235e+09, 1.00000000e+10, 1.25892541e+10,
-                        1.58489319e+10])
-    n_fluxes    = len(fluxes)
-
-    heat_effs = np.array([0.0, 0.00001, 0.00002, 0.00005,
-                            0.0001, 0.0002, 0.0005,
-                            0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 
-                            0.1, 0.2, 0.4, 0.8, 1. , 2. , 4. ])
-    n_heat_effs = len(heat_effs)
-
-    masses = np.array([0.3, 0.4, 0.5, 0.7, 1, 1.5, 2, 3, 4, 6, 8, 12])
-    n_mass      = len(masses)
-
-    periods = np.array([  0.1       ,   0.14384499,   0.20691381,   0.29763514,
-                            0.42813324,   0.61584821,   0.88586679,   1.27427499,
-                            1.83298071,   2.6366509 ,   3.79269019,   5.45559478,
-                            7.8475997 ,  11.28837892,  16.23776739,  23.35721469,
-                            33.59818286,  48.32930239,  69.51927962, 100.        ])
-    n_periods   = len(periods)
-
-    if rotation: shape_grid = (n_mass, n_fluxes, n_heat_effs, n_periods)
-    else: shape_grid = (n_mass, n_fluxes, n_heat_effs)
-
-    print(f"----------------------------------------------------------------------")
+    print(DASHES)
     print("Reading data files: ", end="\r")
 
-    table_inner = table_object(shape_grid, "inner")
-    table_inner.read_table(rotation, masses, fluxes, heat_effs, periods)
-
-    table_outer = table_object(shape_grid, "outer")
-    table_outer.read_table(rotation, masses, fluxes, heat_effs, periods)
+    table_inner, table_outer = grid.read_tables(rotation)
 
     print("Reading data files: done")
     print(f"----------------------------------------------------------------------")
 
-    grid_limits = (min_mass, max_mass, min_flux, max_flux, min_period, max_period)
+    grid_limits = grid.limits
     initial_guesses = {"MRL": (initial_guess, bounds), "MR": (initial_guess_simple, bounds_simple)}
 
     if HJ_population:

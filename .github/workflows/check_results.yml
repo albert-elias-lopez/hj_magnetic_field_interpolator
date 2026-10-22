@@ -29,6 +29,9 @@ jobs:
           .venv/bin/python main.py --no_HJ --which_planets hd209458b
           .venv/bin/python main.py --no_HJ --which_planets seidel26
 
+      - name: Check the Python interface (hj_model.py) against the committed outputs
+        run: .venv/bin/python test_hj_model.py
+
       - name: Compare with the committed outputs
         run: |
           if [ -n "$(git status --porcelain)" ]; then

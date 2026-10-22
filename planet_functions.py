@@ -18,6 +18,27 @@ def read_err_asym(row, column):
     try: return abs(float(row[column + "err2"])), abs(float(row[column + "err1"]))
     except ValueError: return np.nan, np.nan     # Missing error
 
+SIGMA_SB = 5.670374419e-5     # Stefan-Boltzmann constant (erg cm^-2 s^-1 K^-4)
+R_SUN_AU = 0.00465047          # solar radius in AU
+
+def semi_major_axis(mass_star, period, mass_star_err, period_err):
+    # Kepler's third law: a (AU) from the stellar mass (M_sun) and the orbital period (days), and its error
+    orbital_dist = np.cbrt(7.496e-6*mass_star*period**2)
+    orbital_dist_err = (1/3)*np.cbrt(7.496e-6*mass_star/period)*\
+                        np.sqrt(period**2*mass_star_err**2/mass_star**2 + \
+                        4*period_err**2)
+    return orbital_dist, orbital_dist_err
+
+def irradiation_flux(temp_star, radius_star, orbital_dist):
+    # Incident flux F = sigma_SB T_star^4 (R_star/a)^2 (erg cm^-2 s^-1), with R_star in R_sun and a in AU
+    return SIGMA_SB*temp_star**4*(radius_star*R_SUN_AU/orbital_dist)**2
+
+def flux_error(flux, temp_star, radius_star, orbital_dist, temp_star_err, radius_star_err, orbital_dist_err):
+    # F ~ T^4 R_star^2 / a^2, so dF/F = 2 sqrt((2 dT/T)^2 + (dR/R)^2 + (da/a)^2)
+    return 2*flux* np.sqrt((2*temp_star_err/temp_star)**2 + \
+                            (radius_star_err/radius_star)**2 + \
+                            (orbital_dist_err/orbital_dist)**2)
+
 class planet_object:
     def __init__(self, N_planets, error_sym):
 
@@ -195,30 +216,24 @@ class planet_object:
                 self.orbital_dist_obs_err[index_planet] = read_err(row, "pl_orbsmax")
                 orbital_dist_err_asym[index_planet] = read_err_asym(row, "pl_orbsmax")
             except ValueError:    # Missing semi-major axis: Kepler's third law
-                self.orbital_dist_obs[index_planet] = np.cbrt(7.496e-6*self.mass_star_obs[index_planet]*self.orbital_period_obs[index_planet]**2)
-                self.orbital_dist_obs_err[index_planet] = (1/3)*np.cbrt(7.496e-6*self.mass_star_obs[index_planet]/self.orbital_period_obs[index_planet])*\
-                                        np.sqrt(self.orbital_period_obs[index_planet]**2*self.mass_star_obs_err[index_planet]**2/self.mass_star_obs[index_planet]**2 + \
-                                        4*self.orbital_period_obs_err[index_planet]**2)
+                self.orbital_dist_obs[index_planet], self.orbital_dist_obs_err[index_planet] = \
+                    semi_major_axis(self.mass_star_obs[index_planet], self.orbital_period_obs[index_planet],
+                                    self.mass_star_obs_err[index_planet], self.orbital_period_obs_err[index_planet])
                 orbital_dist_err_asym[index_planet] = self.orbital_dist_obs_err[index_planet]
 
         albedo = 0
         self.temp_eff_obs = self.temp_star_obs*np.sqrt(np.sqrt(1-albedo))*np.sqrt(self.radius_star_obs*0.00465047/self.orbital_dist_obs/2)
-        sigma_SB = 5.670374419e-5
-        self.flux_obs = sigma_SB*self.temp_star_obs**4*(self.radius_star_obs*0.00465047/self.orbital_dist_obs)**2  # 0.00465047 is the solar radius in au
-
-        self.flux_obs_err = 2*self.flux_obs* np.sqrt((2*self.temp_star_obs_err/self.temp_star_obs)**2 + \
-                                                    (self.radius_star_obs_err/self.radius_star_obs)**2 + \
-                                                    (self.orbital_dist_obs_err/self.orbital_dist_obs)**2)
+        self.flux_obs = irradiation_flux(self.temp_star_obs, self.radius_star_obs, self.orbital_dist_obs)
+        self.flux_obs_err = flux_error(self.flux_obs, self.temp_star_obs, self.radius_star_obs, self.orbital_dist_obs,
+                                       self.temp_star_obs_err, self.radius_star_obs_err, self.orbital_dist_obs_err)
 
         # F ~ T^4 R_star^2 / a^2: the lower flux error comes from the lower T and R_star errors and
         # the upper a error (and the other way around for the upper flux error)
-        flux_rel_err_lower = np.sqrt((2*temp_star_err_asym[:,0]/self.temp_star_obs)**2 + \
-                                     (radius_star_err_asym[:,0]/self.radius_star_obs)**2 + \
-                                     (orbital_dist_err_asym[:,1]/self.orbital_dist_obs)**2)
-        flux_rel_err_upper = np.sqrt((2*temp_star_err_asym[:,1]/self.temp_star_obs)**2 + \
-                                     (radius_star_err_asym[:,1]/self.radius_star_obs)**2 + \
-                                     (orbital_dist_err_asym[:,0]/self.orbital_dist_obs)**2)
-        self.flux_obs_err_asym = 2*self.flux_obs[:,None]*np.column_stack((flux_rel_err_lower, flux_rel_err_upper))
+        flux_err_lower = flux_error(self.flux_obs, self.temp_star_obs, self.radius_star_obs, self.orbital_dist_obs,
+                                    temp_star_err_asym[:,0], radius_star_err_asym[:,0], orbital_dist_err_asym[:,1])
+        flux_err_upper = flux_error(self.flux_obs, self.temp_star_obs, self.radius_star_obs, self.orbital_dist_obs,
+                                    temp_star_err_asym[:,1], radius_star_err_asym[:,1], orbital_dist_err_asym[:,0])
+        self.flux_obs_err_asym = np.column_stack((flux_err_lower, flux_err_upper))
 
         # T_eff ~ T_star R_star^(1/2) / a^(1/2) ~ F^(1/4): its relative error is a quarter of the flux one
         self.temp_eff_obs_err = self.temp_eff_obs*self.flux_obs_err/self.flux_obs/4
