@@ -2,8 +2,8 @@
 Generates the magnetic field tables read by table_reader.py from the MESA runs of the planetary
 evolution grid (one table per mass and flux, plus one per period for the tables with rotation).
 
-    python table_generator.py                  # tables with the rotation factor: <mass>_MJ/P_<period>/F_<flux>[_eps_outer].txt
-    python table_generator.py --no_rotation    # tables without rotation: <mass>_MJ/F_<flux>[_eps_outer].txt
+    python table_generator.py --path_sims <MESA runs folder>                  # tables with the rotation factor: <mass>_MJ/P_<period>/F_<flux>[_eps_outer].txt
+    python table_generator.py --path_sims <MESA runs folder> --no_rotation    # tables without rotation: <mass>_MJ/F_<flux>[_eps_outer].txt
 
 The MESA runs (path_sims) and the module radial_functions, which computes the rotating convective
 velocities and magnetic fields from the MESA profiles, are not included in this repository. They can
@@ -15,8 +15,8 @@ import argparse
 import numpy as np
 import mesa_reader
 
-# Hard-drive location of the MESA runs (depends on the computer)
-path_sims = "/home/albert/mesa_runs/population_grid/"
+# Folder with the MESA runs, set with --path_sims
+path_sims = None
 
 # Dipolar factor for the surface field of the tables without rotation
 dip_factor = 1/np.sqrt(2)
@@ -183,7 +183,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate the magnetic field tables from the MESA runs.")
     parser.add_argument("--no_rotation", dest="rotation", action="store_false",
                         help="Generate the tables without the rotation factor (default: with rotation).")
+    parser.add_argument("--path_sims", type=str, required=True,
+                        help="Folder with the MESA runs of the population grid.")
     args = parser.parse_args()
+    path_sims = os.path.join(os.path.abspath(args.path_sims), "")   # with a trailing separator, as the run names are appended
 
     # radial_functions is looked for in the parent folder of the repository
     sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))

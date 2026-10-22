@@ -21,7 +21,7 @@ As an alternative to interpolation, the repository also provides simple analytic
 
 The planetary evolution calculations themselves are **not** included here. They were performed using the MESA stellar evolution code and are available in the repository **https://github.com/csic-ice-imagine/MESA_rossby_HJ**
 
-The magnetic field tables in the `<mass>_MJ/` folders were generated from those runs with `table_generator.py` (`python table_generator.py` for the tables with rotation, `--no_rotation` for the tables without it). The script needs the MESA output and the module `radial_functions`, which are not included here but can be provided upon request.
+The magnetic field tables in the `<mass>_MJ/` folders were generated from those runs with `table_generator.py` (`python table_generator.py --path_sims <MESA runs folder>` for the tables with rotation, adding `--no_rotation` for the tables without it). The script needs the MESA output and the module `radial_functions`, which are not included here but can be provided upon request.
 
 ---
 
@@ -151,6 +151,8 @@ The code can be launched from any folder; the outputs are always written in the 
 | **Uncertainties** | |
 | `--add_systematic_error` | Add a factor-of-2 systematic error (×½ below, ×2 above) in quadrature to the interpolated estimates, a rough estimate of the uncertainty of the interior structure and dynamo model assumptions. By default, the uncertainty only comes from the propagation of the observational errors. |
 | `--seed` | Seed of the random numbers used for the Monte Carlo uncertainties and fits. The same seed gives exactly the same results. *(default: 42)* |
+| `--population_file` | NASA Exoplanet Archive table (CSV) of the gas giants with complete stellar data, used for the population predictions and the fits. A path is relative to the folder you run from. *(default: `PS_2026.02.18_08.49.05.csv`)* |
+| `--extra_population_file` | Archive table (CSV) of all gas giants, including those with incomplete stellar data, used for the `_extra` outputs. *(default: `PS_2026.02.18_07.09.03.csv`)* |
 
 ---
 

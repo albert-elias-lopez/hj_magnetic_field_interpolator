@@ -80,7 +80,19 @@ if __name__ == "__main__":
                         help="default=42. Seed of the random numbers used for the Monte Carlo errors and fits. " \
                         "The same seed gives exactly the same results.")
 
+    parser.add_argument("--population_file", type=str, default="PS_2026.02.18_08.49.05.csv",
+                        help="default=PS_2026.02.18_08.49.05.csv. NASA Exoplanet Archive table (CSV) of the gas giants " \
+                        "with complete stellar data, used for the population predictions and the fits.")
+    parser.add_argument("--extra_population_file", type=str, default="PS_2026.02.18_07.09.03.csv",
+                        help="default=PS_2026.02.18_07.09.03.csv. Archive table (CSV) of all gas giants, including those " \
+                        "with incomplete stellar data, used for the _extra outputs.")
+
     args = parser.parse_args()
+
+    # A file given on the command line is relative to the folder main.py is launched from (the
+    # defaults are in the repository folder), so resolve it before moving to the repository folder
+    population_file       = os.path.abspath(args.population_file) if os.path.exists(args.population_file) else args.population_file
+    extra_population_file = os.path.abspath(args.extra_population_file) if os.path.exists(args.extra_population_file) else args.extra_population_file
     
 # Name of the current directory
 current = os.path.dirname(os.path.realpath(__file__))
@@ -111,7 +123,7 @@ rotation = args.rotation
 # If HJ_population = True there should be a file with all the gas giant exoplanet population. Then not all planets should
 # be evaluated, only the ones that can be interpolated by the grid.
 HJ_population = args.HJ_population
-fileHJ = 'PS_2026.02.18_08.49.05.csv'
+fileHJ = population_file
 
 # In case of HJ_population = False, choose one option with the appropriate planet number.
 # If you choose your own, you should fill the values in 
@@ -725,7 +737,7 @@ if HJ_population:
     print(f"Repeat process for exoplanets with incomplete stellar data:")
     print(f"----------------------------------------------------------------------")
 
-    fileHJ = 'PS_2026.02.18_07.09.03.csv'
+    fileHJ = extra_population_file
     print("Reading gas giant exoplanet population " + fileHJ + ": ", end="\r")
     Npl = len(planet_functions.read_archive_csv(fileHJ))
     planets = planet_functions.planet_object(Npl,error_sym)

@@ -113,19 +113,19 @@ class planet_object:
                     continue
                 cols = line.split()
                 try: spectral_type.append(cols[0])
-                except: spectral_type.append(np.nan)
+                except (ValueError, IndexError): spectral_type.append(np.nan)
 
                 try: star_temps.append(float(cols[1]))
-                except: star_temps.append(np.nan) 
+                except (ValueError, IndexError): star_temps.append(np.nan) 
 
                 #try: star_lum.append(float(cols[4]))
-                #except: star_lum.append(np.nan) 
+                #except (ValueError, IndexError): star_lum.append(np.nan) 
 
                 try: star_radii.append(float(cols[6]))
-                except: star_radii.append(np.nan)
+                except (ValueError, IndexError): star_radii.append(np.nan)
 
                 try: star_masses.append(float(cols[-2]))
-                except: star_masses.append(np.nan)
+                except (ValueError, IndexError): star_masses.append(np.nan)
             
         # Convert to numpy arrays
         log_star_temps = np.log(np.array(star_temps))
