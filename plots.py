@@ -11,6 +11,15 @@ import table_predictions_save
 # math renderer is used (with mathtext.fontset = 'cm' the plots look almost the same)
 USE_TEX = shutil.which("latex") is not None
 
+
+def set_plot_style(fontsize, figsize, autolayout=True):
+    # Style of the figures made after this call (a figure created before keeps its own size)
+    plt.rcParams["figure.figsize"] = figsize
+    plt.rcParams['font.size'] = fontsize
+    plt.rcParams['lines.linewidth'] = 1
+    if autolayout: plt.rcParams["figure.autolayout"] = True
+    plt.rcParams["mathtext.fontset"] = "cm"
+
 def plot_output_grid(masses,
                     fluxes,
                     heat_effs,
@@ -39,11 +48,7 @@ def plot_output_grid(masses,
         fontsize = 26
         plt.rcParams['text.usetex'] = USE_TEX
         fig = plt.figure(figsize=(11, 8), constrained_layout=True)
-        plt.rcParams["figure.figsize"] = (11, 8)
-        plt.rcParams['font.size'] = fontsize
-        plt.rcParams['lines.linewidth'] = 1
-        plt.rcParams["figure.autolayout"] = True
-        plt.rcParams["mathtext.fontset"] = "cm"
+        set_plot_style(fontsize, (11, 8))
 
         # -------------------------------------------------------------------------------------------------------------
         # ------------------------------ Countourf for the eps_heat_inner models -----------------------------------
@@ -227,11 +232,7 @@ def plot_grid(masses,
     fontsize = 28
     plt.rcParams['text.usetex'] = USE_TEX
     fig = plt.figure(figsize=(10, 9.5))
-    plt.rcParams["figure.figsize"] = (14, 10)
-    plt.rcParams['font.size'] = fontsize
-    plt.rcParams['lines.linewidth'] = 1
-    #plt.rcParams["figure.autolayout"] = True
-    plt.rcParams["mathtext.fontset"] = "cm"
+    set_plot_style(fontsize, (14, 10), autolayout=False)
 
     ax = fig.add_subplot(111, projection='3d')
     plt.subplots_adjust(left=0.0, right=0.9,
@@ -458,11 +459,7 @@ def plot_population(planets,
     fontsize = 32
     plt.rcParams['text.usetex'] = USE_TEX
     fig = plt.figure(figsize=(11, 8), constrained_layout=True)
-    plt.rcParams["figure.figsize"] = (11, 8)
-    plt.rcParams['font.size'] = fontsize
-    plt.rcParams['lines.linewidth'] = 1
-    plt.rcParams["figure.autolayout"] = True
-    plt.rcParams["mathtext.fontset"] = "cm"
+    set_plot_style(fontsize, (11, 8))
 
     if rotation: path_general = "plots/general_predictions/"
     else: path_general = "plots/general_predictions_no_rot/"
@@ -1163,11 +1160,7 @@ def plot_population_fits(planets,
     fontsize = 32
     plt.rcParams['text.usetex'] = USE_TEX
     fig = plt.figure(figsize=(11, 8), constrained_layout=True)
-    plt.rcParams["figure.figsize"] = (11, 8)
-    plt.rcParams['font.size'] = fontsize
-    plt.rcParams['lines.linewidth'] = 1
-    plt.rcParams["figure.autolayout"] = True
-    plt.rcParams["mathtext.fontset"] = "cm"
+    set_plot_style(fontsize, (11, 8))
 
     conv_lumin_inner = np.pi*(radius_obs*6.991e+9)**2*flux_obs*heat_eff_inner_est/4.606e24
     conv_lumin_outer = np.pi*(radius_obs*6.991e+9)**2*flux_obs*heat_eff_outer_est/4.606e24
@@ -1496,11 +1489,7 @@ def plot_population_fits(planets,
     fontsize = 27
     plt.rcParams['text.usetex'] = USE_TEX
     fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(22,15), sharey=True)
-    plt.rcParams["figure.figsize"] = (22, 15)
-    plt.rcParams['font.size'] = fontsize
-    plt.rcParams['lines.linewidth'] = 1
-    plt.rcParams["figure.autolayout"] = True
-    plt.rcParams["mathtext.fontset"] = "cm"
+    set_plot_style(fontsize, (22, 15))
 
     axes[0,0].set_ylabel(r"$B_{\rm rms, \, dyn} \, \mathrm{(G)}$", fontsize=int(fontsize)*1.1)
     axes[1,0].set_ylabel(r"$B_{\rm rms, \, dyn} \, \mathrm{(G)}$", fontsize=int(fontsize)*1.1)
@@ -1605,11 +1594,7 @@ def plot_population_fits(planets,
 
     plt.rcParams['text.usetex'] = USE_TEX
     fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(22,15), sharey=True)
-    plt.rcParams["figure.figsize"] = (22, 15)
-    plt.rcParams['font.size'] = fontsize
-    plt.rcParams['lines.linewidth'] = 1
-    plt.rcParams["figure.autolayout"] = True
-    plt.rcParams["mathtext.fontset"] = "cm"
+    set_plot_style(fontsize, (22, 15))
 
     axes[0,0].set_ylabel(r"$B_{\rm dip, \, surf} \, \mathrm{(G)}$", fontsize=int(fontsize)*1.1)
     axes[1,0].set_ylabel(r"$B_{\rm dip, \, surf} \, \mathrm{(G)}$", fontsize=int(fontsize)*1.1)
@@ -1738,11 +1723,7 @@ def plot_population_fits_eps(planets,
     fontsize = 32
     plt.rcParams['text.usetex'] = USE_TEX
     fig = plt.figure(figsize=(11, 8), constrained_layout=True)
-    plt.rcParams["figure.figsize"] = (11, 8)
-    plt.rcParams['font.size'] = fontsize
-    plt.rcParams['lines.linewidth'] = 1
-    plt.rcParams["figure.autolayout"] = True
-    plt.rcParams["mathtext.fontset"] = "cm"
+    set_plot_style(fontsize, (11, 8))
 
     surf_grav = 6.67e-11 * mass_obs * 1.8981e27 / (radius_obs * 6.9911e7)**2 # N (m/kg)^2
 
@@ -1790,11 +1771,7 @@ def plot_population_fits_eps(planets,
 
     plt.rcParams['text.usetex'] = USE_TEX
     fig = plt.figure(figsize=(11, 8), constrained_layout=True)
-    plt.rcParams["figure.figsize"] = (11, 8)
-    plt.rcParams['font.size'] = fontsize
-    plt.rcParams['lines.linewidth'] = 1
-    plt.rcParams["figure.autolayout"] = True
-    plt.rcParams["mathtext.fontset"] = "cm"
+    set_plot_style(fontsize, (11, 8))
 
     for index_variable in range(0,len(variables_inner)):
         plt.clf()
