@@ -20,6 +20,10 @@ from grid import fluxes, periods, heat_effs, masses
 # Folder with the MESA runs, set with --path_sims
 path_sims = None
 
+# Errors of read_run when the run does not exist or did not reach the age of the tables (the planet
+# "died"): missing folder or files, missing profile, or no model at that age (IndexError of age_loc)
+RUN_NOT_AVAILABLE = (mesa_reader.BadPathError, mesa_reader.ProfileError, mesa_reader.ModelNumberError, IndexError)
+
 # Dipolar factor for the surface field of the tables without rotation
 dip_factor = 1/np.sqrt(2)
 
@@ -98,8 +102,11 @@ def make_tables_no_rotation():
                         data, profile, age_loc, radius, radius_factor, dyn_lum = read_run(index_mass, index_flux, heat_eff, heating_type)
                         bscaling = data.history_data.data("b_scaling")[age_loc]
                         bscaling_dip_surf = bscaling*radius_factor**3*dip_factor
-                    except:
+                    except RUN_NOT_AVAILABLE:
                         print("Planet died")
+                        radius, bscaling, bscaling_dip_surf, dyn_lum = 0, 0, 0, 0
+                    except Exception as error:   # Any other error is shown, so a bug is not taken for a dead planet
+                        print("Error, model left out: " + repr(error))
                         radius, bscaling, bscaling_dip_surf, dyn_lum = 0, 0, 0, 0
 
                     if bscaling < 0:   # Unphysical
@@ -137,16 +144,19 @@ def make_tables_rotation():
                                 conv_vel_rot  = radial_functions.get_v_conv_rot(profile, frequency)
                                 rm_profile_rot = radial_functions.get_reynolds_mag(profile, conv_vel_rot, type_reynolds="local")
                                 try: loc_dyn = np.where(rm_profile_rot - rm_threshold < 0, rm_profile_rot - rm_threshold, -np.inf).argmax()
-                                except: loc_dyn = 0
+                                except ValueError: loc_dyn = 0   # empty profile
                             else:
                                 # Top of the dynamo region where the pressure drops below p_threshold (deeper, lower estimate)
                                 try: loc_dyn = np.where(profile.pressure/1e6 - p_threshold < 0, profile.pressure/1e6 - p_threshold, -np.inf).argmax()
-                                except: loc_dyn = 0
+                                except ValueError: loc_dyn = 0   # empty profile
 
                             bscaling = radial_functions.get_b_field(profile, loc_dyn, frequency, mlt_conv=True)
                             bscaling_dip_surf = radial_functions.get_b_field_surf(profile, bscaling, loc_dyn)
-                        except:
+                        except RUN_NOT_AVAILABLE:
                             print("Planet died")
+                            radius, bscaling, bscaling_dip_surf, dyn_lum = 0, 0, 0, 0
+                        except Exception as error:   # Any other error is shown, so a bug is not taken for a dead planet
+                            print("Error, model left out: " + repr(error))
                             radius, bscaling, bscaling_dip_surf, dyn_lum = 0, 0, 0, 0
 
                         if bscaling < 0:   # Unphysical

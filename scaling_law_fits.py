@@ -1,8 +1,6 @@
-from email import header
-
 import numpy as np
 from scipy.optimize import curve_fit
-from scipy.stats import chisquare, pearsonr, spearmanr
+from scipy.stats import pearsonr, spearmanr
 from odrpack import odr_fit
 from table_predictions_save import sample_split_normal
 from constants import R_J, L_J
