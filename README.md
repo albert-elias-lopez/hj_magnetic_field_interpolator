@@ -188,6 +188,24 @@ b, b_err = model.scaling_law(mass=1.41, mass_err=0.10, radius=1.79, radius_err=0
 
 ---
 
+## Vocabulary
+
+These names are used in the code, the options and the output files.
+
+- **Heating efficiency $\epsilon$** (`eps`, `heat_eff`): fraction of the incident flux $F_{\rm irr}$ deposited in the interior, $Q_{\rm dep} = \epsilon\, \pi R_{\rm P}^2 F_{\rm irr}$, needed to reproduce the observed radius. It is a fraction inside the code (and in `hj_model.py`) and a percentage in the output files (`eps(%)`).
+- **Inner and outer heating** (`inner`/`outer`, `up`/`low` in the output columns): the heat is deposited inside the dynamo region (deep heating) or above it (shallow heating). Deep heating gives the strong-field (upper) estimate and shallow heating the weak-field (lower) estimate.
+- **Non-inflated model** (`irr`, `R_irr`): the model with only irradiation, $\epsilon = 0$, with the same mass and flux. Only planets larger than it get heating and inflated magnetic field estimates.
+- **$B_{\rm rms,dyn}$** (`rms,dyn`, `bdyn`, `brms`): rms magnetic field in the dynamo region, from the scaling law of Christensen et al. (2009).
+- **$B_{\rm dip,surf}$** (`dip,surf`, `bdipsurf`, `_surf`): its dipolar component extrapolated to the planetary surface.
+- **Rotation correction** (default; `--no_rotation` to switch it off): the convective velocities and fields include the planet's rotation, assuming tidal locking (rotation period = orbital period), so the tables have an extra period axis. The tables without rotation are scaled by `b_factor` = 1/3 to match Jupiter's $B_{\rm dip,surf}$.
+- **Scaling-law fits**: `MRL` ($B$ as a power law of $M$, $R$ and the deposited power $L_{\rm P} = \epsilon \pi R^2 F_{\rm irr}$), `MRF` ($M$, $R$ and $F_{\rm irr}$) and `MR` ($M$ and $R$ only); see [Output files](#output-files) for the equations.
+- **Fit methods** (`--fit_type`): `simple` (least squares on the values), `odr` (orthogonal distance regression with the errors) and `gaussian` (Monte Carlo: the population is drawn from its errors many times and refitted; the default).
+- **Radius cut** (`cut_R`, the default `--which_cut`): the fits only use the clearly inflated planets, $R_{\rm P} > 1.05\, R_{\epsilon=0}$.
+- **R09, Th18**: the scaling law of Reiners et al. (2009) with fixed exponents, and the empirical heating efficiency of Thorngren & Fortney (2018).
+- **Extra population** (`_extra`): all gas giants of the archive, including those with incomplete stellar data, whose missing stellar values come from main-sequence relations. It is not used in the fits.
+
+---
+
 ## Output files
 
 Values with uncertainties are written as `value$_{-lower}^{+upper}$` (or `value$\pm$error` for the observed values), ready to be used in LaTeX tables. Dashes mean that the value or its uncertainty is not available, for example when the observed radius is smaller than the radius of a purely irradiated planet, or when an observational uncertainty is missing in the archive.

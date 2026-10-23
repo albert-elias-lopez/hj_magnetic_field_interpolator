@@ -1,3 +1,11 @@
+"""
+The planets to interpolate: planet_object holds their observed values and errors (read from a
+NASA Exoplanet Archive table or from the preset samples) and the estimates of the interpolator.
+Also the helper functions for the archive tables and the incident flux.
+
+Units: planet mass in M_J, planet radius in R_J, flux in erg cm^-2 s^-1, orbital period in days,
+stellar mass in M_sun, stellar radius in R_sun, temperatures in K, orbital distance in AU.
+"""
 import csv
 import numpy as np
 import table_predictions_save
@@ -38,6 +46,12 @@ def flux_error(flux, temp_star, radius_star, orbital_dist, temp_star_err, radius
                             (orbital_dist_err/orbital_dist)**2)
 
 class planet_object:
+    """
+    Observed values and errors of N_planets planets (<quantity>_obs, <quantity>_obs_err and, for the
+    Monte Carlo errors, the (lower, upper) <quantity>_obs_err_asym) and the estimates of the
+    interpolator (<quantity>_est and its error <quantity>_est_err: symmetric with error_sym, otherwise
+    (minus, plus)). Heating efficiencies are fractions, magnetic fields in G.
+    """
     def __init__(self, N_planets, error_sym):
 
         if error_sym:
@@ -113,8 +127,13 @@ class planet_object:
         self.temp_eff_obs_err_asym = np.column_stack((self.temp_eff_obs_err, self.temp_eff_obs_err))
 
     def read_file(self, filename):
-        # Reads a NASA Exoplanet Archive CSV table with (at least) the columns pl_name, pl_orbper, pl_orbsmax,
-        # pl_radj, pl_bmassj, st_teff, st_rad and st_mass, and their err1/err2 columns
+        """
+        Reads a NASA Exoplanet Archive CSV table with (at least) the columns pl_name, pl_orbper, pl_orbsmax,
+        pl_radj, pl_bmassj, st_teff, st_rad and st_mass, and their err1/err2 columns. A missing planet radius
+        comes from the mass-radius relation of Muller (2024), a missing stellar temperature or radius from the
+        main-sequence table main_sequence_luminosities.txt, and a missing orbital distance from Kepler's third
+        law. The incident flux and its errors follow from the stellar values and the orbital distance.
+        """
         # This will be used for interpolating missing stellar data from the exoplanet database
         filename_stars = './main_sequence_luminosities.txt'
         # Arrays to store values
@@ -246,7 +265,11 @@ class planet_object:
     # Mass and radius are in Jovian units, flux in cgs and period in days.  
 
     def my_planets(self, which_planets):
-
+        """
+        Fills the planets of a preset sample (--which_planets): my_own (one invented planet; main.py replaces its values
+        with --my_planet_params), hats53b, wasp12b, hd209458b, cauley19 and seidel26 (literature comparisons; the
+        *nasa variants use the archive values) and errors (tests of the error propagation).
+        """
         if which_planets == "my_own":
             # Example with invented exoplanets to check which error affects more significantly the magnetic stds.
             self.planet_names               = ["my_planet"]

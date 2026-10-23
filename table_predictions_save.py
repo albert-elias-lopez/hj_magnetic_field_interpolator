@@ -1,3 +1,10 @@
+"""
+Output files of main.py: the predictions of each planet (table_predictions,
+predictions/predictions_<sample>.txt) and their comparison with the scaling laws (table_comparison,
+one file per planet in predictions/predictions_cut_R_<fit_type>_fit[_<sample>]/). Also the scaling
+laws with their Monte Carlo errors, the heating efficiency of Thorngren & Fortney (2018) and the
+optional factor-of-2 systematic error.
+"""
 import numpy as np
 from constants import R_J, L_J
 
@@ -61,6 +68,7 @@ def sample_obs(value, err, N):
     return sample_split_normal(value, err[0], err[1], N)
 
 def scaling_law(fit_object, mass, radius, conv_or_flux):
+    """Magnetic field (G) of a scaling-law fit_object: K M^alpha R^beta X^gamma, with X the luminosity or the flux factor."""
     brms = fit_object.K * mass ** fit_object.alpha * radius ** fit_object.beta * conv_or_flux ** fit_object.gamma
     return brms
 
@@ -82,6 +90,10 @@ def get_scaling_law_err(fit_object,
                         radius_err,
                         conv_or_flux_err,
                         Nerr = 10000):
+    """
+    Monte Carlo error of a scaling-law prediction brms, including the errors of the observed values and of
+    the fit parameters (for the Gaussian fits). The R09 law has fixed exponents, so only K is sampled.
+    """
     if fit_object.fit_type == "gaussian":
 
         K_s     = sample_split_normal(fit_object.K, fit_object.K_err[0], fit_object.K_err[1], Nerr)
@@ -137,9 +149,11 @@ def get_scaling_law_err(fit_object,
     return brms_err
 
 def get_thorn18_eff(flux, eps0 = 2.37/100, mu = 0.14, sigma =0.37):
+    """Heating efficiency (fraction) of the Thorngren & Fortney (2018) relation for the flux F_irr (erg cm^-2 s^-1)."""
     return eps0*np.exp(-(np.log10(flux/1e9)-mu)**2/(2* sigma**2))
 
 def get_thorn18_err(flux, Nerr, eps0 = 2.37/100, mu = 0.14, sigma =0.37):
+    """Monte Carlo (minus, plus) error of get_thorn18_eff, sampling the published uncertainties of its parameters."""
     eps0_s   = sample_split_normal(eps0, 0.26/100, 1.3/100, Nerr)
     mu_s  = sample_split_normal(mu, 0.069, 0.060, Nerr)
     sig_s = sample_split_normal(sigma, 0.059, 0.038, Nerr)   
@@ -159,7 +173,11 @@ def table_predictions(planets,
                       error_sym=False,
                       N_err = 10000,
                       rotation = False):
-    
+    """
+    Writes predictions/predictions_<sample>[_no_rot][_syst_err].txt: one line per planet in
+    mask_predictions with the observed values, the heating efficiencies (in %) and the magnetic fields for
+    inner heating, no heating (eps = 0) and outer heating (see the README for the columns).
+    """
     if HJ_population:
         filename = "predictions/predictions_hot_jupiter_populations"
         if extra_HJ: filename = "predictions/predictions_hot_jupiter_populations_extra"
@@ -284,7 +302,11 @@ def table_comparison(planets,
                         error_sym=False,
                         N_err = 10000,
                         rotation = False):
-    
+    """
+    Writes one file per planet in valid_mask with its interpolated magnetic fields and the predictions of
+    the scaling laws (the fits MRL, MRF and MR of this work, and R09 with the interpolated or the
+    Thorngren & Fortney 2018 heating efficiency), for inner heating, outer heating and no heating.
+    """
     heat_eff_inner_est         = planets.heat_eff_inner_est[valid_mask]
     heat_eff_inner_est_err     = planets.heat_eff_inner_est_err[valid_mask]
     brms_inner_est             = planets.brms_inner_est[valid_mask]

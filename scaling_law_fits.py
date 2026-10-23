@@ -1,3 +1,21 @@
+"""
+Scaling-law fits of the interpolated magnetic fields (or heating efficiencies) of the population.
+
+A fit is defined by three pieces, each in a table below:
+  - FIT_VARIABLES: the observables a fit can depend on (mass, radius, flux, luminosity),
+  - FIT_TARGETS:   the fitted quantity (the magnetic field B or the heating efficiency eps),
+  - FIT_FORMS:     the fit functions (MRL, MRF, MR): which variables, which parameters, the model
+                   and how the result is written in the fit files.
+general_fit puts them together with one of the fit methods ("simple", "odr" or "gaussian") and
+returns a fit_object, which also writes and reads the fit files.
+
+To add a new fit (for example eps = K M^alpha R^beta exp(-(log10 F - mu)^2 / (2 sigma^2))):
+  1. write its model in ln space, model(ln_variables, *parameters), like power_law below;
+  2. add a FitForm to FIT_FORMS with its variables, parameter names, initial guess, model and the
+     lines written in the fit files (new parameters are saved after alpha, beta, gamma and K);
+  3. if it needs a new observable, add a FitVariable to FIT_VARIABLES;
+  4. add it to FIT_GROUPS in main.py, so it is fitted, saved and read back.
+"""
 import numpy as np
 from scipy.optimize import curve_fit
 from scipy.stats import pearsonr, spearmanr
@@ -5,23 +23,6 @@ from odrpack import odr_fit
 from table_predictions_save import sample_split_normal
 from constants import R_J, L_J
 
-# =====================================================================================================
-# Scaling-law fits of the interpolated magnetic fields (or heating efficiencies) of the population.
-#
-# A fit is defined by three pieces, each in a table below:
-#   - FIT_VARIABLES: the observables a fit can depend on (mass, radius, flux, luminosity),
-#   - FIT_TARGETS:   the fitted quantity (the magnetic field B or the heating efficiency eps),
-#   - FIT_FORMS:     the fit functions (MRL, MRF, MR): which variables, which parameters, the model
-#                    and how the result is written in the fit files.
-# general_fit puts them together with one of the fit methods ("simple", "odr" or "gaussian").
-#
-# To add a new fit (for example eps = K M^alpha R^beta exp(-(log10 F - mu)^2 / (2 sigma^2))):
-#   1. write its model in ln space, model(ln_variables, *parameters), like power_law below;
-#   2. add a FitForm to FIT_FORMS with its variables, parameter names, initial guess, model and the
-#      lines written in the fit files (new parameters are saved after alpha, beta, gamma and K);
-#   3. if it needs a new observable, add a FitVariable to FIT_VARIABLES;
-#   4. add it to FIT_GROUPS in main.py, so it is fitted, saved and read back.
-# =====================================================================================================
 
 def power_law(ln_variables, K, *exponents):
     # ln of K * x1^exponent1 * x2^exponent2 * ..., from the ln of the variables
@@ -161,6 +162,11 @@ def file_columns(fit_function_type):
 
 
 class fit_object:
+    """
+    Result of a scaling-law fit: the parameters (alpha, beta, gamma, K and those of new fit forms) and
+    their errors ((minus, plus) for the Gaussian fits, symmetric otherwise), the covariance matrix and
+    the quality of the fit. print_fit_results writes it to the fit files and read_fit_data reads it back.
+    """
     def __init__(self, fit_type, fit_function_type):
         self.fit_type = fit_type
         self.fit_function_type = fit_function_type
@@ -300,9 +306,12 @@ def general_fit(planets,
                 fit_type = "simple", # can be "simple", "odr", "gaussian"
                 fit_function_type = "MRL",
                 N_gauss = 10000):
-    # Fit the scaling law fit_function_type (a key of FIT_FORMS) to the planets in valid_mask
-    # (all if empty). dyn_or_surf: "rms,dyn" or "dip,surf" for the magnetic field, or "eps" for the
-    # heating efficiency; heating_type: "inner", "outer" or "irr" (the non-inflated eps = 0 models).
+    """
+    Fits the scaling law fit_function_type (a key of FIT_FORMS) to the planets in valid_mask (all if
+    empty) with the method fit_type ("simple", "odr" or "gaussian") and returns a fit_object.
+    dyn_or_surf: "rms,dyn" or "dip,surf" for the magnetic field, or "eps" for the heating efficiency;
+    heating_type: "inner", "outer" or "irr" (the non-inflated eps = 0 models).
+    """
 
     form = FIT_FORMS[fit_function_type]
     target = FIT_TARGETS["eps" if dyn_or_surf == "eps" else "B"]

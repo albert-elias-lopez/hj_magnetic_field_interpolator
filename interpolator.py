@@ -1,3 +1,14 @@
+"""
+Interpolation of the MESA grid: heating efficiency eps, radius of the non-inflated (eps = 0) model
+and magnetic fields (B_rms,dyn and B_dip,surf) of each planet, with their errors.
+
+The inflated quantities are interpolated linearly in (M, log10 F_irr, R), the eps = 0 ones in
+(M, log10 F_irr). With rotation (linear_interpolator_rot) the magnetic fields are also interpolated
+linearly in log10 P between the grids of the two closest periods; without rotation
+(linear_interpolator) the grid has no period axis. The errors are Monte Carlo percentiles (16th and
+84th) of samples of the observed values, or a linear propagation with symmetric errors (--error_sym).
+The results are stored in the planet_object (<quantity>_est and <quantity>_est_err).
+"""
 import numpy as np
 from scipy.interpolate import LinearNDInterpolator
 from scipy.spatial import Delaunay
@@ -10,7 +21,10 @@ def get_error(interpolator,
               flux, flux_err,
               radius, radius_err,
               eps=1e-5):
-
+    """
+    Symmetric error of an interpolated quantity by linear propagation of the mass, log10 flux and radius
+    errors, with numerical derivatives (step eps).
+    """
     est_df_up    = interpolator(mass,np.log10(flux)+eps,radius)
     est_df_down  = interpolator(mass,np.log10(flux)-eps,radius)
     d_est_df = (est_df_up - est_df_down)/2/eps
@@ -39,8 +53,12 @@ def get_error_gaussian(interpolator,
                         N = 10000,
                         min_mass = 0.3, max_mass = 12,
                         min_flux = 1e7, max_flux = 1.58e10):
-    
-    # A missing (NaN) observational error gives a missing (NaN) error, as in get_scaling_law_err
+    """
+    Monte Carlo (minus, plus) error of an interpolated quantity: N samples of the mass, flux and radius
+    (split normals with their lower and upper errors) inside the grid and larger than the eps = 0 radius
+    radius_irr; the errors are the 16th and 84th percentiles around the median. Missing (NaN) errors give
+    NaN.
+    """
     if np.any(np.isnan(mass_err)) or np.any(np.isnan(flux_err)) or np.any(np.isnan(radius_err)):
         return np.nan, np.nan
 
@@ -212,6 +230,12 @@ def get_error_any(interpolator, mass, mass_err, flux, flux_err, radius, radius_e
     return get_error_gaussian(interpolator, mass, mass_err, flux, flux_err, radius, radius_err, radius_irr)
 
 def build_interpolators(table_inner, table_outer, index_period = None):
+    """
+    Linear interpolators of the tables, as a dictionary: heat_eff_<heating>, brms_<heating> and
+    brms_<heating>_surf in (M, log10 F_irr, R) for the inner and outer heating, and radius_irr, brms_irr
+    and brms_irr_surf in (M, log10 F_irr) from the eps = 0 models. Only the models that reached the age
+    of the tables (R > 0) are used. index_period selects one period of the tables with rotation.
+    """
     # The rotation tables have an extra last axis for the orbital period
     def grid(array):
         return array if index_period is None else array[..., index_period]
@@ -276,8 +300,11 @@ def linear_interpolator(table_inner,
                         mask_predictions,
                         error_sym = False,
                         interpolators = None):
-    # Estimates without the rotation correction: the grid has no period axis.
-    # interpolators: the result of build_interpolators, to reuse it between calls
+    """
+    Estimates of the planets in mask_predictions with the tables without rotation, stored in planets.
+    Planets smaller than their eps = 0 model get only radius_irr (the other estimates are NaN).
+    interpolators: the result of build_interpolators, to reuse it between calls.
+    """
 
     if interpolators is None: interpolators = build_interpolators(table_inner, table_outer)
 
@@ -316,8 +343,13 @@ def get_error_gaussian_rot(interpolator, periods,
                            N = 10000,
                            min_mass = 0.3, max_mass = 12,
                            min_flux = 1e7, max_flux = 1.58e10):
-    # interpolator has one interpolator per period of the grid. Mass, flux, radius and period are
-    # sampled together, and each sample is interpolated in log(period) between its own two grid periods
+    """
+    Monte Carlo (minus, plus) error of a magnetic field with rotation. interpolator has one interpolator
+    per period of the grid. Mass, flux, radius and period are sampled together, and each sample is
+    interpolated in log10 P between its own two grid periods. only_irr: an eps = 0 quantity, which does
+    not depend on the radius.
+    """
+    # A missing (NaN) observational error gives a missing (NaN) error, as in get_scaling_law_err
 
     # A missing (NaN) observational error gives a missing (NaN) error, as in get_scaling_law_err
     if np.any(np.isnan(mass_err)) or np.any(np.isnan(flux_err)) or \
@@ -359,9 +391,12 @@ def linear_interpolator_rot(table_inner,
                             mask_predictions,
                             error_sym = False,
                             interpolators_s = None):
-    # Estimates with the rotation correction: B is interpolated linearly in log(period)
-    # between the grids of the two closest periods.
-    # interpolators_s: the build_interpolators of every period, to reuse them between calls
+    """
+    Estimates of the planets in mask_predictions with the tables with rotation, stored in planets: the
+    magnetic fields are interpolated linearly in log10 P between the grids of the two closest periods
+    (the heating efficiencies and radius_irr do not depend on the period).
+    interpolators_s: the build_interpolators of every period, to reuse them between calls.
+    """
 
     if interpolators_s is None:
         interpolators_s = [build_interpolators(table_inner, table_outer, index_period)

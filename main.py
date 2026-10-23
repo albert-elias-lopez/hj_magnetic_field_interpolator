@@ -1,3 +1,18 @@
+"""
+Command-line program of the hot Jupiter magnetic field interpolator (Elias-López et al. 2026).
+
+For the archive population (default) or a preset sample (--no_HJ --which_planets <sample>) it
+  1. reads the magnetic field tables of the MESA grid (grid.py, table_reader.py),
+  2. interpolates the heating efficiency and the magnetic fields of each planet inside the grid,
+     with Monte Carlo errors (interpolator.py),
+  3. for the population, selects the inflated planets (radius cut) and fits the scaling laws to
+     them (scaling_law_fits.py); the preset samples read the saved fits instead,
+  4. writes the predictions and the comparison with the scaling laws (table_predictions_save.py)
+     and, optionally, the figures (plots.py),
+  5. for the population, repeats steps 1, 2 and 4 for the planets with incomplete stellar data.
+
+    python main.py --help      # all options
+"""
 import os
 import argparse
 import numpy as np
@@ -108,7 +123,7 @@ def cut_name(which_cut, radius_ratio = 1.05):
     return name_cut, header.format(radius_ratio=radius_ratio)
 
 def cut_mask(planets, which_cut, radius_ratio = 1.05):
-    # Planets used for the fits (or saved, for the extra population) after the chosen cut
+    """Planets used for the fits (or saved, for the extra population) after the chosen cut."""
     if which_cut == "no cut":     return planets.heat_eff_inner_est > 1e-5
     if which_cut == "flux cut":   return planets.flux_obs*planets.heat_eff_inner_est > 1e6
     if which_cut == "heat cut":   return planets.flux_obs*planets.heat_eff_inner_est*np.pi*planets.radius_obs**2 > 1e6
@@ -124,7 +139,10 @@ def read_population(filename, error_sym):
     return planets
 
 def interpolate_planets(planets, table_inner, table_outer, periods, grid_limits, rotation, error_sym):
-    # Interpolate the planets inside the grid; returns the mask of those planets
+    """
+    Interpolates the planets inside the grid (mass, flux and, with rotation, period within grid.limits)
+    and stores the estimates in planets. Returns the mask of the interpolated planets.
+    """
     min_mass, max_mass, min_flux, max_flux, min_period, max_period = grid_limits
     mask_predictions = (planets.mass_obs > min_mass) & (planets.mass_obs < max_mass) & \
                         (planets.flux_obs > min_flux) & (planets.flux_obs < max_flux)
@@ -167,7 +185,10 @@ def fit_filename(folder, file, name_cut, rotation):
     return "plots/" + folder + name_cut + rotation_suffix(rotation) + "/" + file
 
 def make_fits(planets, valid_mask, name_cut, name_cut_header, rotation, initial_guesses, fit_options):
-    # Fit every scaling law of FIT_GROUPS and save the results; returns the fits in order
+    """
+    Fits every scaling law of FIT_GROUPS to the planets of valid_mask (the sample of each entry), saves
+    them in plots/<folder><cut>[_no_rot]/<file>*.txt and returns the fit_objects in the FIT_GROUPS order.
+    """
     samples = {"cut": valid_mask, "rest": ~valid_mask, "all": []}
     fits = []
     for (folder, file, title, fit_function_type, guess), entries in FIT_GROUPS:
@@ -193,7 +214,7 @@ def make_fits(planets, valid_mask, name_cut, name_cut_header, rotation, initial_
     return fits
 
 def read_fits(fit_type, name_cut, rotation):
-    # Read the fits saved by a population run, in the order of FIT_GROUPS
+    """Reads the fits saved by a population run, in the order of FIT_GROUPS (used by the --no_HJ runs)."""
     fits = []
     for (folder, file, title, fit_function_type, guess), entries in FIT_GROUPS:
         filename = fit_filename(folder, file, name_cut, rotation)
@@ -205,6 +226,7 @@ def read_fits(fit_type, name_cut, rotation):
 
 
 def main(args):
+    """Runs the steps listed at the top of this file with the options of parse_args."""
     # A file given on the command line is relative to the folder main.py is launched from (the
     # defaults are in the repository folder), so resolve it before moving to the repository folder
     population_file       = os.path.abspath(args.population_file) if os.path.exists(args.population_file) else args.population_file

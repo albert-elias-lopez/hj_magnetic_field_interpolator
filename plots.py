@@ -1,3 +1,7 @@
+"""
+Figures of main.py: the grid of MESA models (--save_plot_grid, --save_plot_3D_grid) and the
+population estimates and scaling-law fits (--save_plot_population). The figures are saved in plots/.
+"""
 import os
 import shutil
 import numpy as np
@@ -29,7 +33,7 @@ def plot_output_grid(masses,
                     bscaling_heat_outer,
                     bscaling_surf_heat_inner,
                     bscaling_surf_heat_outer):
-    
+    """Contour plots of the radius and the magnetic fields of the grid models in the (F_irr, eps) plane, one folder plots/<mass>_MJ/ per mass (--save_plot_grid)."""
     names_mass = []
     for index_mass,mass in enumerate(masses):
         names_mass += ["{0:.2f}_MJ".format(mass).replace('.', '_')]
@@ -220,9 +224,10 @@ def plot_grid(masses,
               heat_effs,
               radii_heat_inner,
               radii_heat_outer):
-    
-
-    
+    """
+    Schematic 3D plot of the grid models (F_irr, M, eps) that reached the age of the tables, for inner and
+    outer heating (--save_plot_3D_grid): plots/population_grid.png and population_grid_eps_outer.png.
+    """
     eps_min = 1e-6
     eps_global_max = 1e2
     
@@ -382,7 +387,10 @@ def plot_population(planets,
                 color_irr = "k",
                 error_sym=False,
                 rotation=False):
-
+    """
+    Figures of the population estimates (heating efficiencies and magnetic fields against mass, flux and
+    other observables) in plots/general_predictions*/. valid_mask: planets that pass the cut (all if empty).
+    """
     # Assume that there has been a cut, thus the boolean cut=True. If the valid_mask is empty, then there has been no cut, thus
     cut = True
     if len(valid_mask) == 0:
@@ -1138,7 +1146,7 @@ def plot_population_fits(planets,
                         color_inner = "blue", color_inner_cut = "deepskyblue",
                         color_outer = "darkgreen", color_outer_cut = "limegreen", 
                         color_irr = "k"):
-    
+    """Figures comparing the interpolated magnetic fields of the population with the scaling-law fits and R09."""
     heat_eff_inner_est  = planets.heat_eff_inner_est
     brms_inner_est      = planets.brms_inner_est
     brms_inner_surf_est = planets.brms_inner_surf_est
@@ -1704,7 +1712,7 @@ def plot_population_fits_eps(planets,
                 color_outer = "darkgreen", color_outer_cut = "limegreen", 
                 color_irr = "k",
                 rotation = False):
-    
+    """Figures of the interpolated heating efficiencies against the observables, with the eps fits."""
     heat_eff_inner_est      = planets.heat_eff_inner_est
     heat_eff_inner_est_err  = planets.heat_eff_inner_est_err
     heat_eff_outer_est      = planets.heat_eff_outer_est
