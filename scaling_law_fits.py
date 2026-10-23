@@ -1,52 +1,175 @@
 from email import header
 
 import numpy as np
-from scipy.optimize import curve_fit 
+from scipy.optimize import curve_fit
 from scipy.stats import chisquare, pearsonr, spearmanr
 from odrpack import odr_fit
 from table_predictions_save import sample_split_normal
 
-def power_law(vars, K, alpha, beta, gamma):
-    lnmass, lnradius, lnconv_lum = vars
-    return np.log(K) + lnmass*alpha + lnradius*beta + lnconv_lum*gamma
+# =====================================================================================================
+# Scaling-law fits of the interpolated magnetic fields (or heating efficiencies) of the population.
+#
+# A fit is defined by three pieces, each in a table below:
+#   - FIT_VARIABLES: the observables a fit can depend on (mass, radius, flux, luminosity),
+#   - FIT_TARGETS:   the fitted quantity (the magnetic field B or the heating efficiency eps),
+#   - FIT_FORMS:     the fit functions (MRL, MRF, MR): which variables, which parameters, the model
+#                    and how the result is written in the fit files.
+# general_fit puts them together with one of the fit methods ("simple", "odr" or "gaussian").
+#
+# To add a new fit (for example eps = K M^alpha R^beta exp(-(log10 F - mu)^2 / (2 sigma^2))):
+#   1. write its model in ln space, model(ln_variables, *parameters), like power_law below;
+#   2. add a FitForm to FIT_FORMS with its variables, parameter names, initial guess, model and the
+#      lines written in the fit files (new parameters are saved after alpha, beta, gamma and K);
+#   3. if it needs a new observable, add a FitVariable to FIT_VARIABLES;
+#   4. add it to FIT_GROUPS in main.py, so it is fitted, saved and read back.
+# =====================================================================================================
 
-def power_law_odr(vars, params):
-    K, alpha, beta, gamma = params
-    lnmass, lnradius, lnconv_lum = vars
-    return np.log(K) + lnmass*alpha + lnradius*beta + lnconv_lum*gamma
-
-def power_law_two(vars, K, alpha, beta):
-    lnmass, lnradius = vars
-    return np.log(K) + lnmass*alpha + lnradius*beta
-
-def power_law_two_odr(vars, params):
-    K, alpha, beta = params
-    lnmass, lnradius = vars
-    return np.log(K) + lnmass*alpha + lnradius*beta
+def power_law(ln_variables, K, *exponents):
+    # ln of K * x1^exponent1 * x2^exponent2 * ..., from the ln of the variables
+    result = np.log(K)
+    for ln_variable, exponent in zip(ln_variables, exponents):
+        result = result + ln_variable*exponent
+    return result
 
 def get_chi2(lnb, lnb_err, lnb_fit):
     residuals = lnb - lnb_fit
     chi2 = np.nansum((residuals / lnb_err)**2)
     return chi2
 
+
+class FitData:
+    # Values and errors of the planets used in a fit (masses in M_J, radii in R_J, fluxes in
+    # erg cm^-2 s^-1, B in G, eps as a fraction). The *_err are symmetric errors and the
+    # *_err_asym (lower, upper) errors, used to sample the observed values in the Gaussian fits.
+
+    def __init__(self, planets, valid_mask, dyn_or_surf, heating_type, error_sym):
+        if len(valid_mask) == 0: valid_mask = np.ones(planets.n_planets, dtype=bool)
+
+        # The heating efficiency of the chosen heating type and the magnetic field (rms,dyn or dip,surf).
+        # The eps fits use the planets of the B_rms,dyn sample of their heating type.
+        heat_eff_name = "heat_eff_outer" if heating_type == "outer" else "heat_eff_inner"
+        brms_name = "brms_" + heating_type + ("_surf" if dyn_or_surf == "dip,surf" else "")
+        heat_eff, heat_eff_err = getattr(planets, heat_eff_name + "_est"), getattr(planets, heat_eff_name + "_est_err")
+        brms, brms_err = getattr(planets, brms_name + "_est"), getattr(planets, brms_name + "_est_err")
+
+        # Remove the predictions with Brms = 0, to not include them for the Brms_outer fits
+        keep = np.where(valid_mask)[0]
+        keep = keep[brms[keep] > 0]
+
+        self.mass,   self.mass_err,   self.mass_err_asym   = planets.mass_obs[keep],   planets.mass_obs_err[keep],   planets.mass_obs_err_asym[keep]
+        self.radius, self.radius_err, self.radius_err_asym = planets.radius_obs[keep], planets.radius_obs_err[keep], planets.radius_obs_err_asym[keep]
+        self.flux,   self.flux_err,   self.flux_err_asym   = planets.flux_obs[keep],   planets.flux_obs_err[keep],   planets.flux_obs_err_asym[keep]
+        self.heat_eff, self.heat_eff_err = heat_eff[keep], heat_eff_err[keep]
+        self.brms,     self.brms_err     = brms[keep],     brms_err[keep]
+        if not error_sym:   # symmetric errors: mean of the lower and upper errors
+            self.heat_eff_err = np.mean(self.heat_eff_err, axis=1)
+            self.brms_err = np.mean(self.brms_err, axis=1)
+
+        # Deposited heating power L_P = eps pi R^2 F_irr, in units of L_J = 4.606e24 erg/s
+        self.conv_lumin = np.pi*(self.radius*6.991e+9)**2*self.flux*self.heat_eff/4.606e24
+        self.conv_lumin_err = self.conv_lumin*np.sqrt((self.flux_err/self.flux)**2+\
+                                                      (2*self.radius_err/self.radius)**2+\
+                                                      (self.heat_eff_err/self.heat_eff)**2)
+
+
+def log_positive(values):
+    # ln of the values, with np.nan where they are not positive (draws that cannot be used)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return np.where(values > 0, np.log(values), np.nan)
+
+
+class FitVariable:
+    # An observable x a fit depends on, used in ln(x/scale). value, error and draw take a FitData;
+    # draw gives one Monte Carlo realization of x for the Gaussian fits.
+    def __init__(self, value, error, draw, scale = 1):
+        self.value, self.error, self.draw, self.scale = value, error, draw, scale
+
+    def ln(self, data):
+        return np.log(self.value(data)/self.scale), self.error(data)/self.value(data)
+
+    def ln_draw(self, data):
+        return log_positive(self.draw(data)/self.scale)
+
+def split_normal_draw(name):
+    # Sample a value with its (lower, upper) errors
+    return lambda data: sample_split_normal(getattr(data, name), getattr(data, name + "_err_asym")[:,0],
+                                            getattr(data, name + "_err_asym")[:,1], len(getattr(data, name)))
+
+FIT_VARIABLES = {
+    "mass":       FitVariable(lambda data: data.mass, lambda data: data.mass_err, split_normal_draw("mass")),
+    "radius":     FitVariable(lambda data: data.radius, lambda data: data.radius_err, split_normal_draw("radius")),
+    # F_irr / (1e9 erg cm^-2 s^-1)
+    "flux":       FitVariable(lambda data: data.flux, lambda data: data.flux_err, split_normal_draw("flux"), scale = 1e9),
+    # L_P / L_J (eps is part of it, so it is drawn with a symmetric Gaussian)
+    "luminosity": FitVariable(lambda data: data.conv_lumin, lambda data: data.conv_lumin_err,
+                              lambda data: np.random.normal(data.conv_lumin, data.conv_lumin_err)),
+}
+
+
+class FitTarget:
+    # The fitted quantity y, used in ln(y): ln(data) gives ln y and its error, ln_draw one Monte Carlo
+    # realization of ln y (np.nan where it cannot be used).
+    def __init__(self, ln, ln_draw, name):
+        self.ln, self.ln_draw, self.name = ln, ln_draw, name
+
+def ln_brms(data):
+    # The model systematic uncertainty, a factor of 2 (x2 above, x1/2 below), is added in quadrature in ln B
+    return np.log(data.brms), np.sqrt((data.brms_err / data.brms)**2 + np.log(2)**2)
+
+FIT_TARGETS = {
+    # B is sampled in ln B (log-normal), so the factor-of-2 uncertainty is symmetric in ln B
+    "B":   FitTarget(ln_brms, lambda data: np.random.normal(*ln_brms(data)), "Brms"),
+    # eps is sampled with a Gaussian in eps; the draws with eps <= 0 are not used
+    "eps": FitTarget(lambda data: (np.log(data.heat_eff), data.heat_eff_err/data.heat_eff),
+                     lambda data: log_positive(np.random.normal(data.heat_eff, data.heat_eff_err)), "eps"),
+}
+
+
+class FitForm:
+    # A fit function: the variables it uses (in this order), its parameters (in the order of the model),
+    # the model in ln space, and the lines written in the fit files. The lines are format strings with
+    # the parameters, {quantity} and {unit} (Brms and G, or eps), {Kf} (format of K) and, in the
+    # Gaussian error lines, {s} ("-" or "+").
+    def __init__(self, variables, parameters, model, equation, errors_gaussian, errors_symmetric):
+        self.variables, self.parameters, self.model = variables, parameters, model
+        self.equation, self.errors_gaussian, self.errors_symmetric = equation, errors_gaussian, errors_symmetric
+
+FIT_FORMS = {
+    # B = K M^alpha R^beta (L_P/L_J)^gamma, with L_P = eps pi R^2 F_irr
+    "MRL": FitForm(["mass", "radius", "luminosity"], ["K", "alpha", "beta", "gamma"], power_law,
+                   "      {quantity} = {K:{Kf}}{unit} * M^{alpha:.4f} * R^{beta:.4f} * (eps * pi * R^2 * F_irr)^{gamma:.4f}",
+                   "             {s}{K:{Kf}}      {s}{alpha:.4f}    {s}{beta:.4f}                           {s}{gamma:.4f}",
+                   "              {K:{Kf}}       {alpha:.4f}     {beta:.4f}                            {gamma:.4f}"),
+    # B = K M^alpha R^beta (F_irr/1e9)^gamma
+    "MRF": FitForm(["mass", "radius", "flux"], ["K", "alpha", "beta", "gamma"], power_law,
+                   "      {quantity} = {K:{Kf}}{unit} * M^{alpha:.4f} * R^{beta:.4f} * (F_irr/1e9)^{gamma:.4f}",
+                   "             {s}{K:{Kf}}      {s}{alpha:.4f}    {s}{beta:.4f}               {s}{gamma:.4f}",
+                   "             {K:{Kf}}      {alpha:.4f}     {beta:.4f}                 {gamma:.4f}"),
+    # B = K M^alpha R^beta
+    "MR":  FitForm(["mass", "radius"], ["K", "alpha", "beta"], power_law,
+                   "      {quantity} = {K:{Kf}}{unit} * M^{alpha:.4f} * R^{beta:.4f}",
+                   "             {s}{K:{Kf}}      {s}{alpha:.4f}    {s}{beta:.4f}",
+                   "              {K:{Kf}}       {alpha:.4f}     {beta:.4f}"),
+}
+
+# Columns of the saved fit files: alpha, beta, gamma and K (as in the published files), followed by
+# the other parameters of the fit form, if any
+def file_columns(fit_function_type):
+    columns = ["alpha", "beta", "gamma", "K"]
+    if fit_function_type in FIT_FORMS:
+        columns += [name for name in FIT_FORMS[fit_function_type].parameters if name not in columns]
+    return columns
+
+
 class fit_object:
     def __init__(self, fit_type, fit_function_type):
         self.fit_type = fit_type
         self.fit_function_type = fit_function_type
-        self.alpha = 0
-        self.beta = 0
-        self.gamma = 0
-        self.K = 0
-        if fit_type == "gaussian":
-            self.alpha_err = np.zeros(2)
-            self.beta_err = np.zeros(2)
-            self.gamma_err = np.zeros(2)
-            self.K_err = np.zeros(2)
-        else:
-            self.alpha_err = 0
-            self.beta_err = 0
-            self.gamma_err = 0
-            self.K_err = 0
+        # Parameters (0 when a fit form does not use them, e.g. gamma in MR) and their errors:
+        # (minus, plus) for the Gaussian fits, symmetric otherwise
+        for name in file_columns(fit_function_type):
+            setattr(self, name, 0)
+            setattr(self, name + "_err", np.zeros(2) if fit_type == "gaussian" else 0)
         self.cov_matrix = np.zeros((4,4))
         self.chi_2 = 0
         self.chisquared = np.zeros(2)
@@ -58,71 +181,115 @@ class fit_object:
     def print_fit_results(self, file, filename, header):
         file.writelines(header + '\n')
         # The heating-efficiency fits (header "eps_...") are dimensionless; the other fits are Brms in G
-        # K_format: the eps normalisation is ~1e-4, so it is written in scientific notation
-        if header.startswith("eps"): quantity, unit, K_format = "eps ", "  ", ".4e"
-        else: quantity, unit, K_format = "Brms", " G", ".4f"
-        if self.fit_function_type == "MRL":
-            file.writelines(f"      {quantity} = {self.K:{K_format}}{unit} * M^{self.alpha:.4f} * R^{self.beta:.4f} * (eps * pi * R^2 * F_irr)^{self.gamma:.4f}" + '\n')
-            if self.fit_type == "gaussian":
-                file.writelines(f"             -{self.K_err[0]:{K_format}}      -{self.alpha_err[0]:.4f}    -{self.beta_err[0]:.4f}                           -{self.gamma_err[0]:.4f}" + '\n')
-                file.writelines(f"             +{self.K_err[1]:{K_format}}      +{self.alpha_err[1]:.4f}    +{self.beta_err[1]:.4f}                           +{self.gamma_err[1]:.4f}" + '\n')
-            else:
-                file.writelines(f"              {self.K_err:{K_format}}       {self.alpha_err:.4f}     {self.beta_err:.4f}                            {self.gamma_err:.4f}" + '\n')
-            #file.writelines(f"      chi_2 = {self.chi_2:.4f};   chi_squared = {self.chisquared[0]:.4f}, {self.chisquared[1]:.4f} " + '\n')
-            file.writelines(f"      pearson = {self.pearson[0]:.4f}, {self.pearson[1]:.4e} " + '\n')
-            #file.writelines(f"      spearman = {self.spearman[0]:.4f}, {self.spearman[1]:.4e} " + '\n')
-        elif self.fit_function_type == "MRF":
-            file.writelines(f"      {quantity} = {self.K:{K_format}}{unit} * M^{self.alpha:.4f} * R^{self.beta:.4f} * (F_irr/1e9)^{self.gamma:.4f}" + '\n')
-            if self.fit_type == "gaussian":
-                file.writelines(f"             -{self.K_err[0]:{K_format}}      -{self.alpha_err[0]:.4f}    -{self.beta_err[0]:.4f}               -{self.gamma_err[0]:.4f}" + '\n')
-                file.writelines(f"             +{self.K_err[1]:{K_format}}      +{self.alpha_err[1]:.4f}    +{self.beta_err[1]:.4f}               +{self.gamma_err[1]:.4f}" + '\n')
-            else:
-                file.writelines(f"             {self.K_err:{K_format}}      {self.alpha_err:.4f}     {self.beta_err:.4f}                 {self.gamma_err:.4f}" + '\n')
-            #file.writelines(f"      chi_2 = {self.chi_2:.4f};   chi_squared = {self.chisquared[0]:.4f}, {self.chisquared[1]:.4f} " + '\n')
-            file.writelines(f"      pearson = {self.pearson[0]:.4f}, {self.pearson[1]:.4e} " + '\n')
-            #file.writelines(f"      spearman = {self.spearman[0]:.4f}, {self.spearman[1]:.4e} " + '\n')
-        elif self.fit_function_type == "MR":
-            file.writelines(f"      {quantity} = {self.K:{K_format}}{unit} * M^{self.alpha:.4f} * R^{self.beta:.4f}" + '\n')
-            if self.fit_type == "gaussian":
-                file.writelines(f"             -{self.K_err[0]:{K_format}}      -{self.alpha_err[0]:.4f}    -{self.beta_err[0]:.4f}" + '\n')
-                file.writelines(f"             +{self.K_err[1]:{K_format}}      +{self.alpha_err[1]:.4f}    +{self.beta_err[1]:.4f}" + '\n')
-            else:
-                file.writelines(f"              {self.K_err:{K_format}}       {self.alpha_err:.4f}     {self.beta_err:.4f}" + '\n')
-            #file.writelines(f"      chi_2 = {self.chi_2:.4f};   chi_squared = {self.chisquared[0]:.4f}, {self.chisquared[1]:.4f} " + '\n')
-            file.writelines(f"      pearson = {self.pearson[0]:.4f}, {self.pearson[1]:.4e} " + '\n')
-            #file.writelines(f"      spearman = {self.spearman[0]:.4f}, {self.spearman[1]:.4e} " + '\n')
-         
-        filename += "_" + header
-        params  = np.array([self.alpha, self.beta, self.gamma, self.K])
+        # Kf: the eps normalisation is ~1e-4, so it is written in scientific notation
+        if header.startswith("eps"): text = dict(quantity="eps ", unit="  ", Kf=".4e")
+        else: text = dict(quantity="Brms", unit=" G", Kf=".4f")
+        form = FIT_FORMS[self.fit_function_type]
+        columns = file_columns(self.fit_function_type)
+        file.writelines(form.equation.format(**text, **{name: getattr(self, name) for name in columns}) + '\n')
         if self.fit_type == "gaussian":
-            errors_minus    = np.array([self.alpha_err[0], self.beta_err[0], self.gamma_err[0], self.K_err[0]])
-            errors_plus     = np.array([self.alpha_err[1], self.beta_err[1], self.gamma_err[1], self.K_err[1]])
+            for side, sign in ((0, "-"), (1, "+")):
+                errors = {name: getattr(self, name + "_err")[side] for name in columns}
+                file.writelines(form.errors_gaussian.format(**text, s=sign, **errors) + '\n')
+        else:
+            errors = {name: getattr(self, name + "_err") for name in columns}
+            file.writelines(form.errors_symmetric.format(**text, **errors) + '\n')
+        #file.writelines(f"      chi_2 = {self.chi_2:.4f};   chi_squared = {self.chisquared[0]:.4f}, {self.chisquared[1]:.4f} " + '\n')
+        file.writelines(f"      pearson = {self.pearson[0]:.4f}, {self.pearson[1]:.4e} " + '\n')
+        #file.writelines(f"      spearman = {self.spearman[0]:.4f}, {self.spearman[1]:.4e} " + '\n')
+
+        filename += "_" + header
+        params  = np.array([getattr(self, name) for name in columns])
+        if self.fit_type == "gaussian":
+            errors_minus    = np.array([getattr(self, name + "_err")[0] for name in columns])
+            errors_plus     = np.array([getattr(self, name + "_err")[1] for name in columns])
             np.savetxt(filename + ".txt", np.vstack((params, errors_minus, errors_plus)))
         else:
-            errors          = np.array([self.alpha_err, self.beta_err, self.gamma_err, self.K_err])
+            errors          = np.array([getattr(self, name + "_err") for name in columns])
             np.savetxt(filename+ ".txt", np.vstack((params, errors)))
-        
+
         filename += "_cov_matrix"
         np.savetxt(filename + ".txt", self.cov_matrix)
-    
-       
-    def read_fit_data(self, filename, header): 
+
+
+    def read_fit_data(self, filename, header):
         filename += "_" + header
         loaded = np.loadtxt(filename + ".txt")
+        columns = file_columns(self.fit_function_type)
         if self.fit_type == "gaussian":
             params, errors_minus, errors_plus = loaded
-            self.alpha, self.beta, self.gamma, self.K = params[0], params[1], params[2], params[3]
-            self.alpha_err[0], self.beta_err[0], self.gamma_err[0], self.K_err[0] = errors_minus[0], errors_minus[1], errors_minus[2], errors_minus[3]
-            self.alpha_err[1], self.beta_err[1], self.gamma_err[1], self.K_err[1] = errors_plus[0], errors_plus[1], errors_plus[2], errors_plus[3]
+            for index, name in enumerate(columns):
+                setattr(self, name, params[index])
+                getattr(self, name + "_err")[0], getattr(self, name + "_err")[1] = errors_minus[index], errors_plus[index]
         else:
             params, errors = loaded
-            self.alpha, self.beta, self.gamma, self.K = params[0], params[1], params[2], params[3]
-            self.alpha_err, self.beta_err, self.gamma_err, self.K_err = errors[0], errors[1], errors[2], errors[3]
-        
+            for index, name in enumerate(columns):
+                setattr(self, name, params[index])
+                setattr(self, name + "_err", errors[index])
+
         filename += "_cov_matrix"
         self.cov_matrix = np.loadtxt(filename + ".txt")
 
-    
+
+# ----------------------------------------------- Fit methods -----------------------------------------------
+# Each takes the fit form, the data, the target and the initial guess and bounds, and returns the
+# parameters, their errors and their covariance matrix.
+
+def fit_simple(form, data, target, p0, bounds, N_gauss):
+    # Least squares on the observed values, without their errors
+    ln_variables = [FIT_VARIABLES[name].ln(data)[0] for name in form.variables]
+    params, cov = curve_fit(form.model, tuple(ln_variables), target.ln(data)[0], p0=p0, bounds=bounds)
+    return params, np.sqrt(np.diag(cov)), cov
+
+def fit_odr(form, data, target, p0, bounds, N_gauss):
+    # Orthogonal distance regression, weighted by the errors of the variables and of the target
+    ln_variables, ln_variables_err = zip(*[FIT_VARIABLES[name].ln(data) for name in form.variables])
+    ln_target, ln_target_err = target.ln(data)
+    valid = ~np.isnan(ln_target) & ~np.isnan(ln_target_err)
+    for ln_variable, ln_variable_err in zip(ln_variables, ln_variables_err):
+        valid &= ~np.isnan(ln_variable) & ~np.isnan(ln_variable_err)
+
+    out = odr_fit(lambda ln_x, params: form.model(ln_x, *params),
+                  [ln_variable[valid] for ln_variable in ln_variables],
+                  ln_target[valid],
+                  p0,
+                  bounds=bounds,
+                  weight_x=[ln_variable_err[valid] for ln_variable_err in ln_variables_err],
+                  weight_y=ln_target_err[valid])
+    return out.beta, out.sd_beta, np.zeros((4,4))
+
+def fit_gaussian(form, data, target, p0, bounds, N_gauss):
+    # Monte Carlo: fit N_gauss realizations of the population, each drawn from the errors of the
+    # variables and of the target. The parameters are the mean of the fits and the errors the 16th and
+    # 84th percentiles. The draws are made in the order of the variables and then the target, so the
+    # same seed gives the same fits.
+    param_samples = []
+    for _ in range(N_gauss):
+        ln_draws = [FIT_VARIABLES[name].ln_draw(data) for name in form.variables]
+        ln_target_draw = target.ln_draw(data)
+        valid = np.isfinite(ln_target_draw)
+        for ln_draw in ln_draws: valid &= np.isfinite(ln_draw)
+
+        params, cov = curve_fit(form.model,
+                                tuple(ln_draw[valid] for ln_draw in ln_draws),
+                                ln_target_draw[valid],
+                                p0=p0,
+                                bounds=bounds)
+        param_samples.append(params)
+
+    param_samples = np.array(param_samples)
+    params = param_samples.mean(axis=0)
+    p16, p50, p84 = np.percentile(param_samples, q = [16, 50, 84], axis=0)
+    errors = np.array((p50 - p16, p84 - p50)).transpose()
+    cov_matrix = np.cov(param_samples, rowvar=False)
+    if len(params) < 4:   # saved as a 4x4 matrix (K, alpha, beta, gamma), as the published files
+        cov_matrix_small, cov_matrix = cov_matrix, np.zeros((4,4))
+        cov_matrix[:len(params),:len(params)] = cov_matrix_small
+    return params, errors, cov_matrix
+
+FIT_METHODS = {"simple": fit_simple, "odr": fit_odr, "gaussian": fit_gaussian}
+
+
 def general_fit(planets,
                 valid_mask = [],
                 dyn_or_surf = "rms,dyn",
@@ -134,436 +301,37 @@ def general_fit(planets,
                 fit_type = "simple", # can be "simple", "odr", "gaussian"
                 fit_function_type = "MRL",
                 N_gauss = 10000):
-    
-    if len(valid_mask) == 0: 
-        ones = np.ones(planets.n_planets)
-        valid_mask = [i < 2 for i in ones]
-    
+    # Fit the scaling law fit_function_type (a key of FIT_FORMS) to the planets in valid_mask
+    # (all if empty). dyn_or_surf: "rms,dyn" or "dip,surf" for the magnetic field, or "eps" for the
+    # heating efficiency; heating_type: "inner", "outer" or "irr" (the non-inflated eps = 0 models).
+
+    form = FIT_FORMS[fit_function_type]
+    target = FIT_TARGETS["eps" if dyn_or_surf == "eps" else "B"]
+    data = FitData(planets, valid_mask, dyn_or_surf, heating_type, error_sym)
+
+    params, errors, cov_matrix = FIT_METHODS[fit_type](form, data, target, p0, bounds, N_gauss)
+
+    # Quality of the fit, on the observed values
+    ln_target, ln_target_err = target.ln(data)
+    ln_fit = form.model(tuple(FIT_VARIABLES[name].ln(data)[0] for name in form.variables), *params)
+    chi_2 = get_chi2(ln_target, ln_target_err, ln_fit)
+    pearson_statistic, pearson_pvalue = pearsonr(ln_target, ln_fit)
+    spearman_statistic, spearman_pvalue = spearmanr(ln_target, ln_fit)
+
     fit_to_return = fit_object(fit_type, fit_function_type)
+    for index, name in enumerate(form.parameters):
+        setattr(fit_to_return, name, params[index])
+        setattr(fit_to_return, name + "_err", errors[index])
+    fit_to_return.chi_2 = chi_2
+    fit_to_return.cov_matrix = cov_matrix
+    fit_to_return.pearson = np.array([pearson_statistic, pearson_pvalue])
+    fit_to_return.spearman = np.array([spearman_statistic, spearman_pvalue])
 
-    # Select the variables to fit based on the heating type and the type of B(rms,dyn or dip,surf)
-    # The code below only generally perfoms the fit with the chosen \epsilon and B 
-    if heating_type == "inner":
-        heat_eff_est        = planets.heat_eff_inner_est[valid_mask]
-        heat_eff_est_err    = planets.heat_eff_inner_est_err[valid_mask]
-        if dyn_or_surf == "rms,dyn" or dyn_or_surf == "eps":
-            brms_est            = planets.brms_inner_est[valid_mask]
-            brms_est_err        = planets.brms_inner_est_err[valid_mask]
-        elif dyn_or_surf == "dip,surf":
-            brms_est            = planets.brms_inner_surf_est[valid_mask]
-            brms_est_err        = planets.brms_inner_surf_est_err[valid_mask]
-    elif heating_type == "outer":
-        heat_eff_est        = planets.heat_eff_outer_est[valid_mask]
-        heat_eff_est_err    = planets.heat_eff_outer_est_err[valid_mask]
-        if dyn_or_surf == "rms,dyn" or dyn_or_surf == "eps":
-            brms_est            = planets.brms_outer_est[valid_mask]
-            brms_est_err        = planets.brms_outer_est_err[valid_mask]
-        elif dyn_or_surf == "dip,surf":
-            brms_est            = planets.brms_outer_surf_est[valid_mask]
-            brms_est_err        = planets.brms_outer_surf_est_err[valid_mask]
-    if heating_type == "irr":
-        heat_eff_est        = planets.heat_eff_inner_est[valid_mask]
-        heat_eff_est_err    = planets.heat_eff_inner_est_err[valid_mask]
-        if dyn_or_surf == "rms,dyn":
-            brms_est            = planets.brms_irr_est[valid_mask]
-            brms_est_err        = planets.brms_irr_est_err[valid_mask]
-        elif dyn_or_surf == "dip,surf":
-            brms_est            = planets.brms_irr_surf_est[valid_mask]
-            brms_est_err        = planets.brms_irr_surf_est_err[valid_mask]
-    
-    mass_obs        = planets.mass_obs[valid_mask]
-    mass_obs_err    = planets.mass_obs_err[valid_mask]
-    flux_obs        = planets.flux_obs[valid_mask]
-    flux_obs_err    = planets.flux_obs_err[valid_mask]
-    radius_obs      = planets.radius_obs[valid_mask]
-    radius_obs_err  = planets.radius_obs_err[valid_mask]
-    # (lower, upper) errors, used to sample the observed values in the gaussian fits
-    mass_obs_err_asym   = planets.mass_obs_err_asym[valid_mask]
-    flux_obs_err_asym   = planets.flux_obs_err_asym[valid_mask]
-    radius_obs_err_asym = planets.radius_obs_err_asym[valid_mask]
-    
-    # Remove the predictions with Brms = 0, to not include them for the Brms_outer fits
-    valid_mask = brms_est > 0
-    heat_eff_est, heat_eff_est_err  = heat_eff_est[valid_mask], heat_eff_est_err[valid_mask]
-    brms_est, brms_est_err          = brms_est[valid_mask], brms_est_err[valid_mask]
-    mass_obs, mass_obs_err          = mass_obs[valid_mask], mass_obs_err[valid_mask]
-    flux_obs, flux_obs_err          = flux_obs[valid_mask], flux_obs_err[valid_mask]
-    radius_obs, radius_obs_err      = radius_obs[valid_mask], radius_obs_err[valid_mask]
-    mass_obs_err_asym   = mass_obs_err_asym[valid_mask]
-    flux_obs_err_asym   = flux_obs_err_asym[valid_mask]
-    radius_obs_err_asym = radius_obs_err_asym[valid_mask]
-
-    if not error_sym:
-        heat_eff_est_err = np.mean(heat_eff_est_err, axis=1)
-        brms_est_err = np.mean(brms_est_err, axis=1)
-
-
-    conv_lumin = np.pi*(radius_obs*6.991e+9)**2*flux_obs*heat_eff_est/4.606e24
-    conv_lumin_err = conv_lumin*np.sqrt((flux_obs_err/flux_obs)**2+\
-                                        (2*radius_obs_err/radius_obs)**2+\
-                                        (heat_eff_est_err/heat_eff_est)**2)
-
-    # Define ln variables and their errors
-    lnmass = np.log(mass_obs)
-    lnmass_err = mass_obs_err / mass_obs
-
-    lnradius = np.log(radius_obs)
-    lnradius_err = radius_obs_err / radius_obs
-
-    lnflux = np.log(flux_obs/1e9)
-    lnflux_err = flux_obs_err / flux_obs
-
-    lnconv_lum = np.log(conv_lumin)
-    lnconv_lum_err = conv_lumin_err / conv_lumin
-
-    lnbrms = np.log(brms_est)
-    # Add the model systematic uncertainty, a factor of 2 (x2 above, x1/2 below), in quadrature in ln B
-    lnbrms_err = np.sqrt((brms_est_err / brms_est)**2 + np.log(2)**2)
-
-    lnheat = np.log(heat_eff_est)
-    lnheat_err = heat_eff_est_err / heat_eff_est
-
-
-    if fit_function_type == "MRL":
-        if fit_type == "simple":
-            params, cov = curve_fit(power_law, 
-                                    (lnmass, lnradius, lnconv_lum),
-                                    lnbrms,
-                                    p0=p0,
-                                    bounds=bounds)
-            errors = np.sqrt(np.diag(cov))
-            cov_matrix = cov
-
-        elif fit_type == "odr":
-            valid_mask = (~np.isnan(lnmass)) & (~np.isnan(lnradius)) & (~np.isnan(lnconv_lum)) & (~np.isnan(lnbrms)) & \
-                            (~np.isnan(lnmass_err)) & (~np.isnan(lnradius_err)) & (~np.isnan(lnconv_lum_err)) & (~np.isnan(lnbrms_err))
-
-            out = odr_fit(power_law_odr, 
-                            [lnmass[valid_mask], lnradius[valid_mask], lnconv_lum[valid_mask]],
-                            lnbrms[valid_mask],
-                            p0,
-                            bounds=bounds,
-                            weight_x= [lnmass_err[valid_mask],lnradius_err[valid_mask],lnconv_lum_err[valid_mask]],
-                            weight_y= lnbrms_err[valid_mask])
-
-            params = out.beta
-            errors = out.sd_beta 
-            cov_matrix = np.zeros((4,4))
-
-        elif fit_type == "gaussian":
-            param_samples = []
-            #cov_samples = []
-            for _ in range(N_gauss):
-                mass_s = sample_split_normal(mass_obs, mass_obs_err_asym[:,0], mass_obs_err_asym[:,1], len(mass_obs))
-                radius_s = sample_split_normal(radius_obs, radius_obs_err_asym[:,0], radius_obs_err_asym[:,1], len(radius_obs))
-                conv_lum_s = np.random.normal(conv_lumin, conv_lumin_err)
-                lnbrms_s = np.random.normal(lnbrms, lnbrms_err)
-
-                valid_mask = (mass_s > 0) & (radius_s > 0) & (conv_lum_s > 0) & ~np.isnan(lnbrms_s)
-
-                lnmass_s = np.log(mass_s[valid_mask])
-                lnradius_s = np.log(radius_s[valid_mask])
-                lnconv_lum_s = np.log(conv_lum_s[valid_mask])
-                lnbrms_s = lnbrms_s[valid_mask]
-
-                params, cov = curve_fit(power_law,
-                                        (lnmass_s,lnradius_s,lnconv_lum_s),
-                                        lnbrms_s,
-                                        p0=p0,
-                                        bounds=bounds)
-                param_samples.append(params)
-
-            param_samples = np.array(param_samples)
-
-            params = param_samples.mean(axis=0)
-            p16, p50, p84 = np.percentile(param_samples, q = [16, 50, 84], axis=0)
-            errors = p50 - p16, p84 - p50
-            errors = np.array(errors).transpose()
-            cov_matrix = np.cov(param_samples, rowvar=False)
-
-        K, alpha, beta, gamma = params
-
-        lnbrms_fit = power_law((lnmass, lnradius, lnconv_lum), K, alpha, beta, gamma)
-        chi_2 = get_chi2(lnbrms, lnbrms_err, lnbrms_fit)
-        pearson_statistic, pearson_pvalue = pearsonr(lnbrms, lnbrms_fit)
-        spearman_statistic, spearman_pvalue = spearmanr(lnbrms, lnbrms_fit)
-        #chisquared_statistic, chisquared_pvalue = chisquare(lnbrms, lnbrms_fit)
-
-        if print_all:
-            print(f"")
-            print(f"      Brms = {K:.4f} * M^{alpha:.4f} * R^{beta:.4f} * (eps * pi * R^2 * F_irr)^{gamma:.4f}")
-            print(f"             {errors[0]:.4f}     {errors[1]:.4f}     {errors[2]:.4f}                 {errors[3]:.4f}")
-            print(f"      chi^2 = {chi_2:.4f}")
-            print(f"----------------------------------------------------------------------")
-        else: print("done.  ", end=" ")
-
-        fit_to_return.K = K
-        fit_to_return.alpha = alpha
-        fit_to_return.beta = beta
-        fit_to_return.gamma = gamma
-        fit_to_return.K_err = errors[0]
-        fit_to_return.alpha_err = errors[1]
-        fit_to_return.beta_err = errors[2]
-        fit_to_return.gamma_err = errors[3]
-        fit_to_return.chi_2 = chi_2
-        fit_to_return.cov_matrix = cov_matrix
-        fit_to_return.pearson = np.array([pearson_statistic, pearson_pvalue])
-        fit_to_return.spearman = np.array([spearman_statistic, spearman_pvalue])
-        #fit_to_return.chisquared = np.array([chisquared_statistic, chisquared_pvalue])
-    
-    if fit_function_type == "MRF" and dyn_or_surf != "eps":
-        if fit_type == "simple":
-            params, cov = curve_fit(power_law, 
-                                    (lnmass, lnradius, lnflux),#temp_eff_obs/1000
-                                    lnbrms,
-                                    p0=p0,
-                                    bounds=bounds)
-            errors = np.sqrt(np.diag(cov))
-            cov_matrix = cov
-        
-        elif fit_type == "odr":
-            valid_mask = (~np.isnan(lnmass)) & (~np.isnan(lnradius)) & (~np.isnan(lnflux)) & (~np.isnan(lnbrms)) & \
-                            (~np.isnan(lnmass_err)) & (~np.isnan(lnradius_err)) & (~np.isnan(lnflux_err)) & (~np.isnan(lnbrms_err))
-
-            out = odr_fit(power_law_odr, 
-                        [lnmass[valid_mask], lnradius[valid_mask], lnflux[valid_mask]],
-                        lnbrms[valid_mask],
-                            p0,
-                            bounds=bounds,
-                            weight_x= [lnmass_err[valid_mask],lnradius_err[valid_mask],lnflux_err[valid_mask]],
-                            weight_y= lnbrms_err[valid_mask])
-
-            params = out.beta
-            errors = out.sd_beta 
-            cov_matrix = np.zeros((4,4))
-
-        elif fit_type == "gaussian":
-            param_samples = []
-            for _ in range(N_gauss):
-                mass_s = sample_split_normal(mass_obs, mass_obs_err_asym[:,0], mass_obs_err_asym[:,1], len(mass_obs))
-                radius_s = sample_split_normal(radius_obs, radius_obs_err_asym[:,0], radius_obs_err_asym[:,1], len(radius_obs))
-                flux_s = sample_split_normal(flux_obs, flux_obs_err_asym[:,0], flux_obs_err_asym[:,1], len(flux_obs))
-                lnbrms_s = np.random.normal(lnbrms, lnbrms_err)
-
-                valid_mask = (mass_s > 0) & (radius_s > 0) & (flux_s > 0) & ~np.isnan(lnbrms_s)
-
-                lnmass_s = np.log(mass_s[valid_mask])
-                lnradius_s = np.log(radius_s[valid_mask])
-                lnflux_s = np.log(flux_s[valid_mask]/1e9)
-                lnbrms_s = lnbrms_s[valid_mask]
-
-                params, cov = curve_fit(power_law,
-                                        (lnmass_s,lnradius_s,lnflux_s),
-                                        lnbrms_s,
-                                        p0=p0,
-                                        bounds=bounds)
-                param_samples.append(params)
-
-            param_samples = np.array(param_samples)
-            params = param_samples.mean(axis=0)
-            #errors = param_samples.std(axis=0)
-            p16, p50, p84 = np.percentile(param_samples, q = [16, 50, 84], axis=0)
-            errors = p50 - p16, p84 - p50
-            errors = np.array(errors).transpose()
-            cov_matrix = np.cov(param_samples, rowvar=False)
-
-        K, alpha, beta, gamma = params
-
-        lnbrms_fit = power_law((np.log(mass_obs), np.log(radius_obs), np.log(flux_obs/1e9)), K, alpha, beta, gamma)
-        chi_2 = get_chi2(lnbrms, lnbrms_err, lnbrms_fit)
-        pearson_statistic, pearson_pvalue = pearsonr(lnbrms, lnbrms_fit)
-        spearman_statistic, spearman_pvalue = spearmanr(lnbrms, lnbrms_fit)
-        #chisquared_statistic, chisquared_pvalue = chisquare(lnbrms, lnbrms_fit)
-
-        if print_all:
-            print(f"")
-            print(f"      Brms = {K:.4f} * M^{alpha:.4f} * R^{beta:.4f} * (F_irr)^{gamma:.4f}")
-            print(f"             {errors[0]:.4f}     {errors[1]:.4f}     {errors[2]:.4f}                 {errors[3]:.4f}")
-            print(f"      chi^2 = {chi_2:.4f}")
-            print(f"----------------------------------------------------------------------")
-        else: print("done.  ", end=" ")
-
-        fit_to_return.K = K
-        fit_to_return.alpha = alpha
-        fit_to_return.beta = beta
-        fit_to_return.gamma = gamma
-        fit_to_return.K_err = errors[0]
-        fit_to_return.alpha_err = errors[1]
-        fit_to_return.beta_err = errors[2]
-        fit_to_return.gamma_err = errors[3]
-        fit_to_return.chi_2 = chi_2
-        fit_to_return.cov_matrix = cov_matrix
-        fit_to_return.pearson = np.array([pearson_statistic, pearson_pvalue])
-        fit_to_return.spearman = np.array([spearman_statistic, spearman_pvalue])
-        #fit_to_return.chisquared = np.array([chisquared_statistic, chisquared_pvalue])
-    
-    if fit_function_type == "MR":
-        if fit_type == "simple":
-            params, cov = curve_fit(power_law_two, 
-                                    (lnmass, lnradius),
-                                    np.log(brms_est),
-                                    p0=p0,
-                                    bounds=bounds)
-            errors = np.sqrt(np.diag(cov))
-            cov_matrix = cov
-
-        elif fit_type == "odr":
-            valid_mask = (~np.isnan(lnmass)) & (~np.isnan(lnradius)) & (~np.isnan(lnbrms)) & \
-                            (~np.isnan(lnmass_err)) & (~np.isnan(lnradius_err)) & (~np.isnan(lnbrms_err))
-
-            out = odr_fit(power_law_two_odr, 
-                            [lnmass[valid_mask], lnradius[valid_mask]],
-                            lnbrms[valid_mask],
-                            p0,
-                            bounds=bounds,
-                            weight_x= [lnmass_err[valid_mask],lnradius_err[valid_mask]],
-                            weight_y= lnbrms_err[valid_mask])
-
-            params = out.beta
-            errors = out.sd_beta
-            cov_matrix = np.zeros((4,4))
-
-        elif fit_type == "gaussian":
-            param_samples = []
-            for _ in range(N_gauss):
-                mass_s = sample_split_normal(mass_obs, mass_obs_err_asym[:,0], mass_obs_err_asym[:,1], len(mass_obs))
-                radius_s = sample_split_normal(radius_obs, radius_obs_err_asym[:,0], radius_obs_err_asym[:,1], len(radius_obs))
-                lnbrms_s = np.random.normal(lnbrms, lnbrms_err)
-
-                valid_mask = (mass_s > 0) & (radius_s > 0) & ~np.isnan(lnbrms_s)
-
-                lnmass_s = np.log(mass_s[valid_mask])
-                lnradius_s = np.log(radius_s[valid_mask])
-                lnbrms_s = lnbrms_s[valid_mask]
-
-                params, cov = curve_fit(power_law_two,
-                                        (lnmass_s,lnradius_s),
-                                        lnbrms_s,
-                                        p0=p0,
-                                        bounds=bounds)
-                param_samples.append(params)
-
-            param_samples = np.array(param_samples)
-            params = param_samples.mean(axis=0)
-            #errors = param_samples.std(axis=0)
-            p16, p50, p84 = np.percentile(param_samples, q = [16, 50, 84], axis=0)
-            errors = p50 - p16, p84 - p50
-            errors = np.array(errors).transpose()
-            cov_matrix_small = np.cov(param_samples, rowvar=False)
-            cov_matrix = np.zeros((4,4))
-            cov_matrix[:3,:3] = cov_matrix_small
-
-        K, alpha, beta = params
-
-        lnbrms_fit = power_law_two((np.log(mass_obs), np.log(radius_obs)), K, alpha, beta)
-        chi_2 = get_chi2(lnbrms, lnbrms_err, lnbrms_fit)
-        pearson_statistic, pearson_pvalue = pearsonr(lnbrms, lnbrms_fit)
-        spearman_statistic, spearman_pvalue = spearmanr(lnbrms, lnbrms_fit)
-        #chisquared_statistic, chisquared_pvalue = chisquare(lnbrms, lnbrms_fit)
-        
-        if print_all:
-            print(f"")
-            print(f"      Brms = {K:.4f} * M^{alpha:.4f} * R^{beta:.4f}")
-            print(f"             {errors[0]:.4f}     {errors[1]:.4f}     {errors[2]:.4f} ")
-            print(f"      chi^2 = {chi_2:.4f}")
-            print(f"----------------------------------------------------------------------")
-        else: print("done.  ", end=" ")
-
-        fit_to_return.K = K
-        fit_to_return.alpha = alpha
-        fit_to_return.beta = beta
-        fit_to_return.K_err = errors[0]
-        fit_to_return.alpha_err = errors[1]
-        fit_to_return.beta_err = errors[2]
-        fit_to_return.chi_2 = chi_2
-        fit_to_return.cov_matrix = cov_matrix
-        fit_to_return.pearson = np.array([pearson_statistic, pearson_pvalue])
-        fit_to_return.spearman = np.array([spearman_statistic, spearman_pvalue])
-        #fit_to_return.chisquared = np.array([chisquared_statistic, chisquared_pvalue])
-
-    if fit_function_type == "MRF" and dyn_or_surf == "eps":
-        if fit_type == "simple":
-            params, cov = curve_fit(power_law, 
-                                    (lnmass, lnradius, lnflux),#temp_eff_obs/1000
-                                    lnheat,
-                                    p0=p0,
-                                    bounds=bounds)
-            errors = np.sqrt(np.diag(cov))
-            cov_matrix = cov
-
-        elif fit_type == "odr":
-            valid_mask = (~np.isnan(lnmass)) & (~np.isnan(lnradius)) & (~np.isnan(lnflux)) & (~np.isnan(lnheat)) & \
-                            (~np.isnan(lnmass_err)) & (~np.isnan(lnradius_err)) & (~np.isnan(lnflux_err)) & (~np.isnan(lnheat_err))
-
-            out = odr_fit(power_law_odr, 
-                            [lnmass[valid_mask], lnradius[valid_mask], lnflux[valid_mask]],
-                            lnheat[valid_mask],
-                            p0,
-                            bounds=bounds,
-                            weight_x= [lnmass_err[valid_mask],lnradius_err[valid_mask],lnflux_err[valid_mask]],
-                            weight_y= lnheat_err[valid_mask])
-
-            params = out.beta
-            errors = out.sd_beta
-            cov_matrix = np.zeros((4,4))
-
-        elif fit_type == "gaussian":
-            param_samples = []
-            for _ in range(N_gauss):
-                mass_s = sample_split_normal(mass_obs, mass_obs_err_asym[:,0], mass_obs_err_asym[:,1], len(mass_obs))
-                radius_s = sample_split_normal(radius_obs, radius_obs_err_asym[:,0], radius_obs_err_asym[:,1], len(radius_obs))
-                flux_s = sample_split_normal(flux_obs, flux_obs_err_asym[:,0], flux_obs_err_asym[:,1], len(flux_obs))
-                heat_eff_s = np.random.normal(heat_eff_est, heat_eff_est_err)
-
-                valid_mask = (mass_s > 0) & (radius_s > 0) & (flux_s > 0) & (heat_eff_s > 0)
-
-                lnmass_s = np.log(mass_s[valid_mask])
-                lnradius_s = np.log(radius_s[valid_mask])
-                lnflux_s = np.log(flux_s[valid_mask]/1e9)
-                lnheat_eff_s = np.log(heat_eff_s[valid_mask])
-
-                params, cov = curve_fit(power_law,
-                                        (lnmass_s,lnradius_s,lnflux_s),
-                                        lnheat_eff_s,
-                                        p0=p0,
-                                        bounds=bounds)
-                param_samples.append(params)
-
-            param_samples = np.array(param_samples)
-            params = param_samples.mean(axis=0)
-            #errors = param_samples.std(axis=0)
-            p16, p50, p84 = np.percentile(param_samples, q = [16, 50, 84], axis=0)
-            errors = p50 - p16, p84 - p50
-            errors = np.array(errors).transpose()
-            cov_matrix = np.cov(param_samples, rowvar=False)
-
-        K, alpha, beta, gamma = params
-
-        lneps_fit = power_law((np.log(mass_obs), np.log(radius_obs), np.log(flux_obs/1e9)), K, alpha, beta, gamma)
-        chi_2 = get_chi2(lnheat, lnheat_err, lneps_fit)
-        pearson_statistic, pearson_pvalue = pearsonr(lnheat, lneps_fit)
-        spearman_statistic, spearman_pvalue = spearmanr(lnheat, lneps_fit)
-        #chisquared_statistic, chisquared_pvalue = chisquare(lnheat, lneps_fit)
-
-        if print_all:
-            print(f"")
-            print(f"    eps_eff = {K:.4e} * M^{alpha:.4f} * R^{beta:.4f} * F_irr^{gamma:.4f}")
-            print(f"             {errors[0]:.4e}     {errors[1]:.4f}     {errors[2]:.4f}          {errors[3]:.4f}")
-            print(f"      chi^2 = {chi_2:.4f}")
-            print(f"----------------------------------------------------------------------")
-        else: print("done.  ", end=" ")
-
-        fit_to_return.K = K
-        fit_to_return.alpha = alpha
-        fit_to_return.beta = beta
-        fit_to_return.gamma = gamma
-        fit_to_return.K_err = errors[0]
-        fit_to_return.alpha_err = errors[1]
-        fit_to_return.beta_err = errors[2]
-        fit_to_return.gamma_err = errors[3]
-        fit_to_return.chi_2 = chi_2
-        fit_to_return.cov_matrix = cov_matrix
-        fit_to_return.pearson = np.array([pearson_statistic, pearson_pvalue])
-        fit_to_return.spearman = np.array([spearman_statistic, spearman_pvalue])
+    if print_all:
+        print(f"")
+        print(f"      {target.name}: " + ", ".join(f"{name} = {value:.4g}" for name, value in zip(form.parameters, params)))
+        print(f"      chi^2 = {chi_2:.4f}")
+        print(f"----------------------------------------------------------------------")
+    else: print("done.  ", end=" ")
 
     return fit_to_return
