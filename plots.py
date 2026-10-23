@@ -226,8 +226,8 @@ def plot_grid(masses,
     eps_min = 1e-6
     eps_global_max = 1e2
     
-    heat_effs[heat_effs == 0] = eps_min
-    heat_effs = 100*heat_effs
+    # eps = 0 is drawn at eps_min (log axis), on a copy so the grid array is not changed
+    heat_effs = 100*np.where(heat_effs == 0, eps_min, heat_effs)
 
     fontsize = 28
     plt.rcParams['text.usetex'] = USE_TEX

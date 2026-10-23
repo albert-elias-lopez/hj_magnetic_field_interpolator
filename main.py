@@ -33,7 +33,7 @@ def parse_args():
     parser.add_argument("--save_plot_grid", action="store_true",
                         help="Save the grid plots used for the interpolators (very lengthy, only used for initial testing)")
     parser.add_argument("--save_plot_3D_grid", action="store_true",
-                        help="Save a schematic 3D grid plot (Firr, M, R)")
+                        help="Save a schematic 3D plot of the grid (F_irr, M, eps), from the tables without rotation")
     parser.add_argument("--save_plot_population", action="store_true",
                         help="Save the plots with interpolator and fits results for the HJ population")
     parser.add_argument("--print_planet_output", action="store_true",
@@ -441,11 +441,14 @@ def main(args):
 
     if save_plots_3D_grid:
         print(f"Saving 3D plots as the total grid:", end=" ")
+        # The plot has no period axis, so it shows the tables without rotation (same models)
+        if rotation: table_inner_3D, table_outer_3D = grid.read_tables(False)
+        else: table_inner_3D, table_outer_3D = table_inner, table_outer
         plots.plot_grid(masses,
                         fluxes,
                         heat_effs,
-                        table_inner.radius_heat,#[:,:,0:20],
-                        table_outer.radius_heat)#[:,:,0:20])
+                        table_inner_3D.radius_heat,
+                        table_outer_3D.radius_heat)
         print(f"done")
         print(f"----------------------------------------------------------------------")
 
