@@ -24,3 +24,5 @@ FitMR:            1.7742e+00$\pm$5.5e-01                     4.2598e-01$\pm$4.4e
 Interpolator:     ----------------------------------         ----------------------------------
 FitMR:            8.8113e+00$\pm$3.7e+00                     6.2306e+00$\pm$2.6e+00
 Radius of only irradiated planet: 1.229$_{-0.000}^{+0.000}$
+
+Note: pulsar host: the archive gives no stellar temperature or radius, so they (and the flux) come from the main-sequence relation, which does not apply to a pulsar.
