@@ -46,7 +46,7 @@ def parse_args():
     
     # General options
     parser.add_argument("--save_plot_grid", action="store_true",
-                        help="Save the grid plots used for the interpolators (very lengthy, only used for initial testing)")
+                        help="Save the grid plots used for the interpolators, from the tables without rotation (very lengthy, only used for initial testing)")
     parser.add_argument("--save_plot_3D_grid", action="store_true",
                         help="Save a schematic 3D plot of the grid (F_irr, M, eps), from the tables without rotation")
     parser.add_argument("--save_plot_population", action="store_true",
@@ -447,30 +447,32 @@ def main(args):
 
     # print(np.max(planets.radius_obs), np.min(planets.radius_obs), np.max(planets.mass_obs), np.min(planets.mass_obs), np.max(planets.flux_obs), np.min(planets.flux_obs))
     # Repeat the everything exoplanets with some missing parameters:
+    # The grid plots have no period axis, so they show the tables without rotation (same models)
+    if save_plots_grid or save_plots_3D_grid:
+        if rotation: table_inner_grid, table_outer_grid = grid.read_tables(False)
+        else: table_inner_grid, table_outer_grid = table_inner, table_outer
+
     if save_plots_grid:
         print(f"Saving plots for grid models:", end=" ")
         plots.plot_output_grid(masses,
                                 fluxes,
                                 heat_effs,
-                                table_inner.radius_heat,
-                                table_outer.radius_heat,
-                                table_inner.bscaling_heat,
-                                table_outer.bscaling_heat,
-                                table_inner.bscaling_surf_heat,
-                                table_outer.bscaling_surf_heat)
+                                table_inner_grid.radius_heat,
+                                table_outer_grid.radius_heat,
+                                table_inner_grid.bscaling_heat,
+                                table_outer_grid.bscaling_heat,
+                                table_inner_grid.bscaling_surf_heat,
+                                table_outer_grid.bscaling_surf_heat)
         print(f"done")
         print(f"----------------------------------------------------------------------")
 
     if save_plots_3D_grid:
         print(f"Saving 3D plots as the total grid:", end=" ")
-        # The plot has no period axis, so it shows the tables without rotation (same models)
-        if rotation: table_inner_3D, table_outer_3D = grid.read_tables(False)
-        else: table_inner_3D, table_outer_3D = table_inner, table_outer
         plots.plot_grid(masses,
                         fluxes,
                         heat_effs,
-                        table_inner_3D.radius_heat,
-                        table_outer_3D.radius_heat)
+                        table_inner_grid.radius_heat,
+                        table_outer_grid.radius_heat)
         print(f"done")
         print(f"----------------------------------------------------------------------")
 

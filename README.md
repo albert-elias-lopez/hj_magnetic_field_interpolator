@@ -163,7 +163,7 @@ b, b_err = model.scaling_law(mass=1.41, mass_err=0.10, radius=1.79, radius_err=0
 | Option | Description |
 |----------|-------------|
 | **General** | |
-| `--save_plot_grid` | Save the interpolation grid figures (mainly for testing). *(default: False)* |
+| `--save_plot_grid` | Save the interpolation grid figures to `plots/<mass>_MJ/`, from the tables without rotation (mainly for testing). *(default: False)* |
 | `--save_plot_3D_grid` | Save a schematic 3D plot of the grid ($F_{\rm irr}$, $M$, $\epsilon$) to `plots/population_grid*.png`, from the tables without rotation. *(default: False)* |
 | `--save_plot_population` | Save the magnetic field plots for the hot Jupiter population. *(default: False)* |
 | `--print_planet_output` | Print the interpolator results for every planet. *(default: False; always on with `--no_HJ`)* |

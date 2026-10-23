@@ -38,7 +38,13 @@ def plot_output_grid(masses,
     for index_mass,mass in enumerate(masses):
         names_mass += ["{0:.2f}_MJ".format(mass).replace('.', '_')]
     
-    flux_grid, heat_eff_grid = np.meshgrid(fluxes, heat_effs, indexing='ij')
+    # Copies, so the dead models (R = 0) can be set to NaN without changing the tables
+    radii_heat_inner, radii_heat_outer = radii_heat_inner.copy(), radii_heat_outer.copy()
+    bscaling_heat_inner, bscaling_heat_outer = bscaling_heat_inner.copy(), bscaling_heat_outer.copy()
+    bscaling_surf_heat_inner, bscaling_surf_heat_outer = bscaling_surf_heat_inner.copy(), bscaling_surf_heat_outer.copy()
+
+    # Heating efficiencies in %, as in the axis labels
+    flux_grid, heat_eff_grid = np.meshgrid(fluxes, 100*heat_effs, indexing='ij')
     fluxes_flat_general = flux_grid.flatten()
     heat_effs_flat_general = heat_eff_grid.flatten()
     bscaling_heat_inner_flat = bscaling_heat_inner.flatten()
@@ -69,7 +75,7 @@ def plot_output_grid(masses,
         cs = ax.contourf(flux_grid, heat_eff_grid, radii_heat_inner[index_mass], levels = np.linspace(.75,3.5,23))
         ax.set_xscale('log')
         ax.set_yscale('log')
-        ax.set_ylim(1e-5,4)
+        ax.set_ylim(1e-3,400)
         ax.set_xlabel(r"$F\mathrm{_{\rm irr} \, (erg \, cm^{-2} \, s^{-1})}$", fontsize=int(fontsize*1.3))
         ax.set_ylabel(r"$\mathrm{\epsilon (\%)}$", fontsize=int(fontsize*1.3))
         cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
@@ -81,7 +87,7 @@ def plot_output_grid(masses,
         cs = ax.contourf(flux_grid, heat_eff_grid, bscaling_heat_inner[index_mass])
         ax.set_xscale('log')
         ax.set_yscale('log')
-        ax.set_ylim(1e-5,4)
+        ax.set_ylim(1e-3,400)
         ax.set_xlabel(r"$F\mathrm{_{\rm irr} \, (erg \, cm^{-2} \, s^{-1})}$", fontsize=int(fontsize*1.3))
         ax.set_ylabel(r"$\mathrm{\epsilon (\%)}$", fontsize=int(fontsize*1.3))
         cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
@@ -93,7 +99,7 @@ def plot_output_grid(masses,
         cs = ax.contourf(flux_grid, heat_eff_grid, bscaling_surf_heat_inner[index_mass])
         ax.set_xscale('log')
         ax.set_yscale('log')
-        ax.set_ylim(1e-5,4)
+        ax.set_ylim(1e-3,400)
         ax.set_xlabel(r"$F\mathrm{_{\rm irr} \, (erg \, cm^{-2} \, s^{-1})}$", fontsize=int(fontsize*1.3))
         ax.set_ylabel(r"$\mathrm{\epsilon (\%)}$", fontsize=int(fontsize*1.3))
         cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
@@ -114,7 +120,7 @@ def plot_output_grid(masses,
         cs = ax.contourf(flux_grid, heat_eff_grid, radii_heat_outer[index_mass], levels = np.linspace(.75,3.5,23))
         ax.set_xscale('log')
         ax.set_yscale('log')
-        ax.set_ylim(1e-5,4)
+        ax.set_ylim(1e-3,400)
         ax.set_xlabel(r"$F\mathrm{_{\rm irr} \, (erg \, cm^{-2} \, s^{-1})}$", fontsize=int(fontsize*1.3))
         ax.set_ylabel(r"$\mathrm{\epsilon (\%)}$", fontsize=int(fontsize*1.3))
         cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
@@ -126,7 +132,7 @@ def plot_output_grid(masses,
         cs = ax.contourf(flux_grid, heat_eff_grid, bscaling_heat_outer[index_mass])
         ax.set_xscale('log')
         ax.set_yscale('log')
-        ax.set_ylim(1e-5,4)
+        ax.set_ylim(1e-3,400)
         ax.set_xlabel(r"$F\mathrm{_{\rm irr} \, (erg \, cm^{-2} \, s^{-1})}$", fontsize=int(fontsize*1.3))
         ax.set_ylabel(r"$\mathrm{\epsilon (\%)}$", fontsize=int(fontsize*1.3))
         cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
@@ -138,7 +144,7 @@ def plot_output_grid(masses,
         cs = ax.contourf(flux_grid, heat_eff_grid, bscaling_surf_heat_outer[index_mass])
         ax.set_xscale('log')
         ax.set_yscale('log')
-        ax.set_ylim(1e-5,4)
+        ax.set_ylim(1e-3,400)
         ax.set_xlabel(r"$F\mathrm{_{\rm irr} \, (erg \, cm^{-2} \, s^{-1})}$", fontsize=int(fontsize*1.3))
         ax.set_ylabel(r"$\mathrm{\epsilon (\%)}$", fontsize=int(fontsize*1.3))
         cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
