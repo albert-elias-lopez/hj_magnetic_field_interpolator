@@ -154,7 +154,7 @@ b, b_err = model.scaling_law(mass=1.41, mass_err=0.10, radius=1.79, radius_err=0
 - **Errors:** a number or array for symmetric errors, or a tuple `(lower, upper)` for asymmetric ones. `np.nan` marks a missing error.
 - **Results of `estimate`:** `eps_inner`, `eps_outer` (heating efficiencies, as fractions), `brms_inner`, `brms_inner_surf`, `brms_outer`, `brms_outer_surf` ($B_{\rm rms,dyn}$ and $B_{\rm dip,surf}$ in G for deep and shallow heating), `brms_irr`, `brms_irr_surf` and `radius_irr` (the non-inflated, $\epsilon = 0$, model with the same mass and flux). Each has its `(minus, plus)` error under `<name>_err`. Planets outside the grid give `nan`.
 - **Random numbers:** the Monte Carlo errors use numpy's random numbers with `seed=42` by default, as `main.py`, so the same input always gives the same errors.
-- **Check:** `python test_hj_model.py` verifies that the interface reproduces the committed predictions exactly (the GitHub Action also runs it).
+- **Check:** `python hj_model.py` (or `hj_model.check()`) verifies that the interface reproduces the committed predictions of `main.py` exactly. Run it after changing the code; the GitHub Action also runs it.
 
 ---
 

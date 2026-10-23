@@ -16,6 +16,8 @@ days, stellar radius in R_sun, stellar temperature in K, stellar mass in M_sun, 
 Every value can be a number or an array (one entry per planet). An error is either symmetric (a number,
 or an array like the values) or a tuple (lower, upper) of those. A missing error can be given as
 np.nan; the corresponding error bars are then np.nan, as in the predictions of main.py.
+
+python hj_model.py runs check(), which verifies that the interface still reproduces main.py exactly.
 """
 import os
 import numpy as np
@@ -199,3 +201,65 @@ class HJMagneticModel:
                                                                         radius_err[index], flux_factor_err[index])
                              for index in range(n)])
         return output(brms, scalar), output(brms_err, scalar)
+
+
+def check(samples=("hd209458b", "wasp12b", "seidel26", "cauley19")):
+    """
+    Checks that the interface reproduces main.py exactly: get_flux must give the fluxes of the archive
+    table, and estimate the committed predictions/predictions_<sample>.txt. Prints every difference and
+    returns their number (0 if all is fine). Run it after changing the code: python hj_model.py
+    """
+    model = HJMagneticModel()
+    failures = 0
+
+    # get_flux against the archive table read by main.py (planets with a, T_star and R_star given)
+    filename = os.path.join(grid.REPOSITORY, "PS_2026.02.18_08.49.05.csv")
+    rows = planet_functions.read_archive_csv(filename)
+    planets = planet_functions.planet_object(len(rows), False)
+    current = os.getcwd()
+    os.chdir(grid.REPOSITORY)   # read_file finds the main-sequence table in the repository folder
+    try: planets.read_file(filename)
+    finally: os.chdir(current)
+    given = np.array([row["pl_orbsmax"] != "" and row["st_teff"] != "" and row["st_rad"] != "" for row in rows])
+    def errors(column):
+        error = np.array([planet_functions.read_err_asym(row, column) for row in rows])[given]
+        return error[:,0], error[:,1]
+    flux, flux_err = model.get_flux(planets.radius_star_obs[given], errors("st_rad"),
+                                    planets.temp_star_obs[given], errors("st_teff"),
+                                    orbital_dist=planets.orbital_dist_obs[given], orbital_dist_err=errors("pl_orbsmax"))
+    if not (np.array_equal(flux, planets.flux_obs[given]) and
+            np.array_equal(np.column_stack(flux_err), planets.flux_obs_err_asym[given], equal_nan=True)):
+        failures += 1
+        print("get_flux: the fluxes differ from main.py")
+
+    # estimate against the committed predictions, compared as written by main.py
+    columns = {"eps_inner": 5, "eps_outer": 6, "brms_inner": 8, "brms_irr": 9, "brms_outer": 10,
+               "brms_inner_surf": 11, "brms_irr_surf": 12, "brms_outer_surf": 13}
+    for sample in samples:
+        planets = planet_functions.planet_object(1, False)
+        planets.my_planets(sample)
+        result = model.estimate(planets.mass_obs, tuple(planets.mass_obs_err_asym.T),
+                                planets.radius_obs, tuple(planets.radius_obs_err_asym.T),
+                                planets.flux_obs, tuple(planets.flux_obs_err_asym.T),
+                                planets.orbital_period_obs, planets.orbital_period_obs_err)
+        with open(os.path.join(grid.REPOSITORY, "predictions", "predictions_" + sample + ".txt")) as f:
+            lines = [line.split() for line in f if not line.startswith("#")]
+        for index, cells in enumerate(lines):
+            for key, column in columns.items():
+                if "$_{" not in cells[column]: continue     # planet outside the grid
+                value, (minus, plus) = result[key][index], result[key + "_err"][index]
+                if key.startswith("eps"):   # written in %
+                    mine = f"{100*value:.4f}$_{{-{100*minus:.4f}}}^{{+{100*plus:.4f}}}$"
+                else:
+                    mine = f"{value:.4e}$_{{-{minus:.1e}}}^{{+{plus:.1e}}}$"
+                if mine != cells[column]:
+                    failures += 1
+                    print(f"estimate, {sample}, planet {index}, {key}: {mine} instead of {cells[column]}")
+
+    print("check: OK" if failures == 0 else f"check: {failures} differences")
+    return failures
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(1 if check() else 0)
