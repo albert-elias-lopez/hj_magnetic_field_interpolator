@@ -2,6 +2,7 @@ import sys
 import os
 import numpy as np
 from scipy.interpolate import LinearNDInterpolator
+from constants import R_J, L_J
 
 def get_print_string(variable, variable_err, variable_type,error_sym=False):
     if error_sym:
@@ -270,7 +271,7 @@ def table_predictions(planets,
                 
     print("Saving file " + filename + ".txt: done")
 
-def table_comparision(planets,
+def table_comparison(planets,
                         valid_mask,
                         name_cut,
                         HJ_population,
@@ -328,8 +329,8 @@ def table_comparision(planets,
     else: error_sym_fits = True
     
         # Get the convective luminosities assuming F = pi R^2 F_irr eps, and also their errors
-    conv_lumin_inner = np.pi*(radius_obs*6.991e+9)**2*flux_obs*heat_eff_inner_est/4.606e24
-    conv_lumin_outer = np.pi*(radius_obs*6.991e+9)**2*flux_obs*heat_eff_outer_est/4.606e24
+    conv_lumin_inner = np.pi*(radius_obs*R_J)**2*flux_obs*heat_eff_inner_est/L_J
+    conv_lumin_outer = np.pi*(radius_obs*R_J)**2*flux_obs*heat_eff_outer_est/L_J
 
     if error_sym: heat_eff_inner_est_err_mean = heat_eff_inner_est_err
     else: heat_eff_inner_est_err_mean = np.mean(heat_eff_inner_est_err, axis=1)   # Mean of the lower and upper error of each planet
@@ -505,7 +506,7 @@ def table_comparision(planets,
         thorn_eff_18_err = get_thorn18_err(flux_obs[index_planet], N_err)
         heat_eff_thorn_print = get_print_string(100*thorn_eff_18, 100*thorn_eff_18_err, "heat",error_sym=False)
 
-        conv_lumin_thorn18 = np.pi*(radius_obs[index_planet]*6.991e+9)**2*flux_obs[index_planet]*thorn_eff_18/4.606e24
+        conv_lumin_thorn18 = np.pi*(radius_obs[index_planet]*R_J)**2*flux_obs[index_planet]*thorn_eff_18/L_J
         conv_lumin_thorn18_err = conv_lumin_thorn18*np.sqrt((np.mean(thorn_eff_18_err)/thorn_eff_18)**2+\
                                                                           (2*radius_obs_err[index_planet]/radius_obs[index_planet])**2+\
                                                                           (flux_obs_err[index_planet]/flux_obs[index_planet])**2)

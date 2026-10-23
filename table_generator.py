@@ -14,35 +14,14 @@ import os
 import argparse
 import numpy as np
 import mesa_reader
+from constants import R_SUN, L_SUN, R_SUN_RJ
+from grid import fluxes, periods, heat_effs, masses
 
 # Folder with the MESA runs, set with --path_sims
 path_sims = None
 
 # Dipolar factor for the surface field of the tables without rotation
 dip_factor = 1/np.sqrt(2)
-
-fluxes = np.array([1.00000000e+07, 1.25892541e+07, 1.58489319e+07, 1.99526231e+07,
-                    2.51188643e+07, 3.16227766e+07, 3.98107171e+07, 5.01187234e+07,
-                    6.30957344e+07, 7.94328235e+07, 1.00000000e+08, 1.25892541e+08,
-                    1.58489319e+08, 1.99526231e+08, 2.51188643e+08, 3.16227766e+08,
-                    3.98107171e+08, 5.01187234e+08, 6.30957344e+08, 7.94328235e+08,
-                    1.00000000e+09, 1.25892541e+09, 1.58489319e+09, 1.99526231e+09,
-                    2.51188643e+09, 3.16227766e+09, 3.98107171e+09, 5.01187234e+09,
-                    6.30957344e+09, 7.94328235e+09, 1.00000000e+10, 1.25892541e+10,
-                    1.58489319e+10])
-
-periods = np.array([  0.1       ,   0.14384499,   0.20691381,   0.29763514,
-                    0.42813324,   0.61584821,   0.88586679,   1.27427499,
-                    1.83298071,   2.6366509 ,   3.79269019,   5.45559478,
-                    7.8475997 ,  11.28837892,  16.23776739,  23.35721469,
-                    33.59818286,  48.32930239,  69.51927962, 100.        ])
-
-heat_effs = np.array([0.0, 0.00001, 0.00002, 0.00005,
-                        0.0001, 0.0002, 0.0005,
-                        0.001, 0.002, 0.005, 0.01, 0.02, 0.05,
-                        0.1, 0.2, 0.4, 0.8, 1. , 2. , 4. ])
-
-masses = np.array([0.3,0.4,0.7,0.5,1,1.5,2,3,4,6,8,12])
 
 alphas_MLT = 2
 # Top of the dynamo region in the tables with rotation. P = 1e6 bar lies deeper than Rm = 50, so its dipolar
@@ -82,10 +61,10 @@ def read_run(index_mass, index_flux, heat_eff, heating_type):
     age = data.history_data.data("star_age")/1e9
     age_loc = np.where(np.logical_and(age>=ages_table[0], age<=ages_table[0]*1.1))
     age_loc = age_loc[0][0]
-    radius = 10**(data.history_data.data("log_R"))[age_loc]*9.731
-    dyn_radius = data.history_data.data("dyn_radius")[age_loc]/6.957e+10
+    radius = 10**(data.history_data.data("log_R"))[age_loc]*R_SUN_RJ
+    dyn_radius = data.history_data.data("dyn_radius")[age_loc]/R_SUN
     radius_factor = dyn_radius/10**data.history_data.data("log_R")[age_loc]
-    dyn_lum = data.history_data.data("dyn_luminosity")[age_loc]*3.846e33
+    dyn_lum = data.history_data.data("dyn_luminosity")[age_loc]*L_SUN
     return data, profile, age_loc, radius, radius_factor, dyn_lum
 
 

@@ -1,4 +1,3 @@
-import sys
 import os
 import argparse
 import numpy as np
@@ -144,7 +143,7 @@ def interpolate_planets(planets, table_inner, table_outer, periods, grid_limits,
     return mask_predictions
 
 # The scaling-law fits, in the order they are made (the order matters: the Gaussian fits draw from
-# the same random number generator) and passed to table_comparision and plot_population_fits.
+# the same random number generator) and passed to table_comparison and plot_population_fits.
 # Each group is saved in plots/<folder><cut>/<file>.txt and has the entries
 # (header, dyn_or_surf, heating_type, sample): sample "cut" is the fitted sample, "rest" the
 # planets removed by the cut, and "all" every planet.
@@ -211,12 +210,8 @@ def main(args):
     population_file       = os.path.abspath(args.population_file) if os.path.exists(args.population_file) else args.population_file
     extra_population_file = os.path.abspath(args.extra_population_file) if os.path.exists(args.extra_population_file) else args.extra_population_file
 
-    # Name of the current directory
+    # Folder of the repository
     current = os.path.dirname(os.path.realpath(__file__))
-    # Get the parent directory name
-    parent = os.path.dirname(current)
-    # Add the parent directory to the sys.path
-    sys.path.append(parent)
     # Work from the repository folder, so the relative paths to the tables, the CSV files and the
     # output folders (plots/, predictions/) are valid wherever main.py is launched from
     os.chdir(current)
@@ -408,12 +403,12 @@ def main(args):
         os.makedirs("./predictions/predictions" + name_cut + "_" + which_planets + rotation_suffix(rotation), exist_ok=True)
 
     # fits holds the 18 magnetic field fits (MRL, MRF, MR and MR for the planets removed by the cut and
-    # for eps = 0) followed by the 2 eps fits, in the order table_comparision and the plots expect
+    # for eps = 0) followed by the 2 eps fits, in the order table_comparison and the plots expect
     fits_B, fits_eps = fits[:-2], fits[-2:]
 
     print("Saving individual files for each planet:", end=" ")
 
-    table_predictions_save.table_comparision(planets,
+    table_predictions_save.table_comparison(planets,
                                             valid_mask,
                                             name_cut,
                                             HJ_population,
@@ -520,7 +515,7 @@ def main(args):
 
         print("Saving individual files for each planet:", end=" ")
 
-        table_predictions_save.table_comparision(planets,
+        table_predictions_save.table_comparison(planets,
                                                 valid_mask,
                                                 name_cut,
                                                 HJ_population,

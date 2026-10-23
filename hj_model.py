@@ -188,7 +188,7 @@ class HJMagneticModel:
         _, mass_err = split_error(mass_err, n)
         _, radius_err = split_error(radius_err, n)
         if flux is None:
-            # The MR fits are evaluated as in table_predictions_save.table_comparision (flux factor 1)
+            # The MR fits are evaluated as in table_predictions_save.table_comparison (flux factor 1)
             flux_factor, flux_factor_err = np.ones(n), np.ones(n)
         else:
             flux_factor = np.broadcast_to(np.asarray(flux, dtype=float), (n,))/1e9

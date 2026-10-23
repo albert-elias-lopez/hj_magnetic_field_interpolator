@@ -1,6 +1,7 @@
 import csv
 import numpy as np
 import table_predictions_save
+from constants import SIGMA_SB, R_SUN_AU, M_J_EARTH, KEPLER
 
 def read_archive_csv(filename):
     # Rows of a NASA Exoplanet Archive CSV table as dictionaries {column name: value}.
@@ -18,13 +19,10 @@ def read_err_asym(row, column):
     try: return abs(float(row[column + "err2"])), abs(float(row[column + "err1"]))
     except ValueError: return np.nan, np.nan     # Missing error
 
-SIGMA_SB = 5.670374419e-5     # Stefan-Boltzmann constant (erg cm^-2 s^-1 K^-4)
-R_SUN_AU = 0.00465047          # solar radius in AU
-
 def semi_major_axis(mass_star, period, mass_star_err, period_err):
     # Kepler's third law: a (AU) from the stellar mass (M_sun) and the orbital period (days), and its error
-    orbital_dist = np.cbrt(7.496e-6*mass_star*period**2)
-    orbital_dist_err = (1/3)*np.cbrt(7.496e-6*mass_star/period)*\
+    orbital_dist = np.cbrt(KEPLER*mass_star*period**2)
+    orbital_dist_err = (1/3)*np.cbrt(KEPLER*mass_star/period)*\
                         np.sqrt(period**2*mass_star_err**2/mass_star**2 + \
                         4*period_err**2)
     return orbital_dist, orbital_dist_err
@@ -101,8 +99,8 @@ class planet_object:
         self.brms_irr_surf_est          = np.zeros(N_planets)
         self.brms_irr_surf_est_err      = np.zeros(error_array_shape)
     
-    def get_flux(self, albedo= 0, sigma_SB = 5.670374419e-5):
-        self.flux_obs = sigma_SB*self.temp_star_obs**4*(self.radius_star_obs*0.00465047/self.orbital_dist_obs)**2  # 0.00465047 is the solar radius in au
+    def get_flux(self, albedo= 0, sigma_SB = SIGMA_SB):
+        self.flux_obs = sigma_SB*self.temp_star_obs**4*(self.radius_star_obs*R_SUN_AU/self.orbital_dist_obs)**2
         self.flux_obs_err = 2*self.flux_obs* np.sqrt((2*self.temp_star_obs_err/self.temp_star_obs)**2 + \
                                                     (self.radius_star_obs_err/self.radius_star_obs)**2 + \
                                                     (self.orbital_dist_obs_err/self.orbital_dist_obs)**2)
@@ -181,7 +179,7 @@ class planet_object:
             except ValueError:    # Missing radius: mass-radius relation
                 const, const_err = 18.6/11.2, 6.7/11.2
                 alpha, alpha_err = -0.06, 0.07
-                mass_planet, mass_planet_err = self.mass_obs[index_planet]*317.8, self.mass_obs_err[index_planet]*317.8
+                mass_planet, mass_planet_err = self.mass_obs[index_planet]*M_J_EARTH, self.mass_obs_err[index_planet]*M_J_EARTH
                 self.radius_obs[index_planet] = const*(mass_planet)**alpha # Formula from Muller 2024
                 self.radius_obs_err[index_planet] =self.radius_obs[index_planet]*np.sqrt((const_err/const)**2+\
                                                      (np.log(mass_planet)*alpha_err)**2+\
@@ -222,7 +220,7 @@ class planet_object:
                 orbital_dist_err_asym[index_planet] = self.orbital_dist_obs_err[index_planet]
 
         albedo = 0
-        self.temp_eff_obs = self.temp_star_obs*np.sqrt(np.sqrt(1-albedo))*np.sqrt(self.radius_star_obs*0.00465047/self.orbital_dist_obs/2)
+        self.temp_eff_obs = self.temp_star_obs*np.sqrt(np.sqrt(1-albedo))*np.sqrt(self.radius_star_obs*R_SUN_AU/self.orbital_dist_obs/2)
         self.flux_obs = irradiation_flux(self.temp_star_obs, self.radius_star_obs, self.orbital_dist_obs)
         self.flux_obs_err = flux_error(self.flux_obs, self.temp_star_obs, self.radius_star_obs, self.orbital_dist_obs,
                                        self.temp_star_obs_err, self.radius_star_obs_err, self.orbital_dist_obs_err)

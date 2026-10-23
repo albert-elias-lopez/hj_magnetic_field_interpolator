@@ -6,6 +6,7 @@ import matplotlib
 matplotlib.use("Agg")  # the plots are only saved to files, so no display is needed
 import matplotlib.pyplot as plt
 import table_predictions_save
+from constants import G, M_J, R_J, L_J
 
 # Use LaTeX for the plot labels only if it is installed. Otherwise matplotlib's own
 # math renderer is used (with mathtext.fontset = 'cm' the plots look almost the same)
@@ -835,11 +836,11 @@ def plot_population(planets,
     plt.savefig(path_general + "/heat_eff_vs_mass_err" + filename_ending)
 
 
-    surf_grav = 6.67e-11*1.8981e27/6.9911e7**2  *mass_obs/radius_obs**2 # N (m/kg)^2
-    surf_grav_err = 6.67e-11*1.8981e27/6.9911e7**2 /radius_obs**2 * np.sqrt(mass_obs_err**2+(2*mass_obs*radius_obs_err/radius_obs)**2)
+    surf_grav = G*M_J/R_J**2/100 *mass_obs/radius_obs**2 # m s^-2
+    surf_grav_err = G*M_J/R_J**2/100 /radius_obs**2 * np.sqrt(mass_obs_err**2+(2*mass_obs*radius_obs_err/radius_obs)**2)
 
 
-    conv_lumin_inner_reiners = np.pi*(radius_obs*6.991e+9)**2*flux_obs*heat_eff_inner_est/4.606e24
+    conv_lumin_inner_reiners = np.pi*(radius_obs*R_J)**2*flux_obs*heat_eff_inner_est/L_J
     conv_lumin_inner_reiners_err = conv_lumin_inner_reiners*np.sqrt((heat_eff_inner_est_err/heat_eff_inner_est)**2+\
                                                                           (2*radius_obs_err/radius_obs)**2+\
                                                                           (flux_obs_err/flux_obs)**2)
@@ -848,7 +849,7 @@ def plot_population(planets,
                                                               (7*radius_obs_err/radius_obs/6)**2+\
                                                               (conv_lumin_inner_reiners_err/conv_lumin_inner_reiners/3)**2)
     
-    conv_lumin_outer_reiners = np.pi*(radius_obs*6.991e+9)**2*flux_obs*heat_eff_outer_est/4.606e24
+    conv_lumin_outer_reiners = np.pi*(radius_obs*R_J)**2*flux_obs*heat_eff_outer_est/L_J
     conv_lumin_outer_reiners_err = conv_lumin_outer_reiners*np.sqrt((heat_eff_outer_est_err/heat_eff_outer_est)**2+\
                                                                           (2*radius_obs_err/radius_obs)**2+\
                                                                           (flux_obs_err/flux_obs)**2)
@@ -865,7 +866,7 @@ def plot_population(planets,
         thorn18_eff_err_nonsym = table_predictions_save.get_thorn18_err(flux_obs[index_planet], 10000)
         thorn18_eff_err[index_planet] = np.mean(thorn18_eff_err_nonsym)
     
-    conv_lumin_thorn18 = np.pi*(radius_obs*6.991e+9)**2*flux_obs*thorn18_eff/4.606e24
+    conv_lumin_thorn18 = np.pi*(radius_obs*R_J)**2*flux_obs*thorn18_eff/L_J
     conv_lumin_thorn18_err = conv_lumin_thorn18*np.sqrt((thorn18_eff_err/thorn18_eff)**2+\
                                                                           (2*radius_obs_err/radius_obs)**2+\
                                                                           (flux_obs_err/flux_obs)**2)
@@ -1162,8 +1163,8 @@ def plot_population_fits(planets,
     fig = plt.figure(figsize=(11, 8), constrained_layout=True)
     set_plot_style(fontsize, (11, 8))
 
-    conv_lumin_inner = np.pi*(radius_obs*6.991e+9)**2*flux_obs*heat_eff_inner_est/4.606e24
-    conv_lumin_outer = np.pi*(radius_obs*6.991e+9)**2*flux_obs*heat_eff_outer_est/4.606e24
+    conv_lumin_inner = np.pi*(radius_obs*R_J)**2*flux_obs*heat_eff_inner_est/L_J
+    conv_lumin_outer = np.pi*(radius_obs*R_J)**2*flux_obs*heat_eff_outer_est/L_J
 
     fitMRL_brms_inner_inner = fit_MRL_inner.K   *mass_obs**fit_MRL_inner.alpha\
                                         *radius_obs**fit_MRL_inner.beta\
@@ -1725,7 +1726,7 @@ def plot_population_fits_eps(planets,
     fig = plt.figure(figsize=(11, 8), constrained_layout=True)
     set_plot_style(fontsize, (11, 8))
 
-    surf_grav = 6.67e-11 * mass_obs * 1.8981e27 / (radius_obs * 6.9911e7)**2 # N (m/kg)^2
+    surf_grav = G * mass_obs * M_J / (radius_obs * R_J)**2 / 100 # m s^-2
 
     variables_inner = [flux_obs,
                         temp_eff_obs,

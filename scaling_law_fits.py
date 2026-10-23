@@ -5,6 +5,7 @@ from scipy.optimize import curve_fit
 from scipy.stats import chisquare, pearsonr, spearmanr
 from odrpack import odr_fit
 from table_predictions_save import sample_split_normal
+from constants import R_J, L_J
 
 # =====================================================================================================
 # Scaling-law fits of the interpolated magnetic fields (or heating efficiencies) of the population.
@@ -65,8 +66,8 @@ class FitData:
             self.heat_eff_err = np.mean(self.heat_eff_err, axis=1)
             self.brms_err = np.mean(self.brms_err, axis=1)
 
-        # Deposited heating power L_P = eps pi R^2 F_irr, in units of L_J = 4.606e24 erg/s
-        self.conv_lumin = np.pi*(self.radius*6.991e+9)**2*self.flux*self.heat_eff/4.606e24
+        # Deposited heating power L_P = eps pi R^2 F_irr, in units of L_J
+        self.conv_lumin = np.pi*(self.radius*R_J)**2*self.flux*self.heat_eff/L_J
         self.conv_lumin_err = self.conv_lumin*np.sqrt((self.flux_err/self.flux)**2+\
                                                       (2*self.radius_err/self.radius)**2+\
                                                       (self.heat_eff_err/self.heat_eff)**2)
