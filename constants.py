@@ -8,7 +8,7 @@ G        = 6.674e-8         # gravitational constant (cm^3 g^-1 s^-2)
 M_J = 1.8981e30             # Jupiter mass (g)
 R_J = 6.991e9               # Jupiter mean radius (cm)
 L_J = 4.606e24              # Jupiter intrinsic luminosity (erg s^-1): 7.5 W m^-2 (Li et al. 2018) over 4 pi R_J^2;
-                            # unit of the deposited heating power L_P = eps pi R^2 F_irr
+                            # unit of power used in the scaling laws
 M_J_EARTH = 317.8           # Jupiter mass in Earth masses
 
 # R_SUN, L_SUN and R_SUN_RJ convert the MESA outputs in table_generator.py, so they are the values of
