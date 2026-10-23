@@ -75,7 +75,7 @@ def print_reading(mass, flux, heat_eff, heating_type):
 
 def write_table(filename, matrix_flux):
     # One row per heating efficiency, only for the models that reached the age of the tables (R > 0)
-    header = "  eps_ext(%)         R(RJ)           Bdyn(G)        Bdipsurf(G)     Ldyn(erg s-1)"
+    header = "  eps_ext            R(RJ)           Bdyn(G)        Bdipsurf(G)     Ldyn(erg s-1)"
     with open(filename, 'w') as f:
         f.writelines("# " + header + '\n')
         for row in matrix_flux:
