@@ -20,12 +20,20 @@ np.nan; the corresponding error bars are then np.nan, as in the predictions of m
 python hj_model.py runs check(), which verifies that the interface still reproduces main.py exactly.
 """
 import os
+import warnings
 import numpy as np
 import grid
 import interpolator
 import planet_functions
 import table_predictions_save
 from scaling_law_fits import fit_object
+
+class GridWarning(UserWarning):
+    """Planets that get no estimates (outside the grid, not inflated or missing values)."""
+
+# Shown every time, not only on the first call with the same planet (silence it with
+# warnings.simplefilter("ignore", hj_model.GridWarning))
+warnings.simplefilter("always", GridWarning)
 
 # Estimates returned by HJMagneticModel.estimate and the planet_object arrays they come from
 ESTIMATES = {
@@ -39,6 +47,16 @@ ESTIMATES = {
     "brms_irr_surf":   "brms_irr_surf",     # B_dip,surf (G) of that non-inflated model
     "radius_irr":      "radius_irr",        # radius (R_J) of that non-inflated model
 }
+
+def warn_not_interpolated(planets, rotation, scalar):
+    # One GridWarning listing the planets without estimates and why
+    lines = []
+    for index_planet, planet_reasons in enumerate(interpolator.reasons_not_interpolated(planets, grid.limits, rotation)):
+        for reason, value in planet_reasons:
+            planet = "" if scalar else "planet " + str(index_planet) + ": "
+            lines.append("  " + planet + (value + ": " if value else "") + reason)
+    if lines:
+        warnings.warn("no estimates (nan) for\n" + "\n".join(lines), GridWarning, stacklevel=3)
 
 def split_error(error, n):
     # Symmetric error and (lower, upper) errors, both for n planets
@@ -113,7 +131,8 @@ class HJMagneticModel:
         Interpolated heating efficiencies and magnetic fields of the planets, with Monte Carlo errors
         (16th and 84th percentiles). Returns a dictionary with the keys of ESTIMATES, each with its
         value and, under <key>_err, its (minus, plus) error. Planets outside the grid or smaller than
-        the non-inflated model get np.nan. The period is needed for the tables with rotation.
+        the non-inflated model get np.nan, with a GridWarning that says why. The period is needed for
+        the tables with rotation.
 
         seed: seed of numpy's random numbers for the Monte Carlo errors (None to leave them as they
         are). With the default 42, the first planets give exactly the values of main.py.
@@ -149,6 +168,8 @@ class HJMagneticModel:
         else:
             interpolator.linear_interpolator(None, None, planets, inside,
                                              interpolators=self.interpolators)
+
+        warn_not_interpolated(planets, self.rotation, scalar)
 
         result = {}
         for key, name in ESTIMATES.items():

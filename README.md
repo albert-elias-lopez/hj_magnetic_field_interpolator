@@ -45,7 +45,7 @@ For the hot Jupiter population, the inputs are read from the NASA Exoplanet Arch
 
 ## Installation
 
-You need Python 3.11 or 3.12 (check with `python3 --version`). These are the versions that work with the packages used in the paper. Any Python >= 3.10 also works with the `--latest` option below. LaTeX is optional: if it is installed, it is used for the plot labels; otherwise matplotlib's own math rendering is used.
+You need Python 3.11 or 3.12 (check with `python3 --version`). These are the versions that work with the packages used. Any Python >= 3.10 also works with the `--latest` option below. LaTeX is optional: if it is installed, it is used for the plot labels; otherwise matplotlib's own math rendering is used.
 
 **1. Download the code and create the environment** (only once):
 
@@ -152,7 +152,8 @@ b, b_err = model.scaling_law(mass=1.41, mass_err=0.10, radius=1.79, radius_err=0
 - **Units:** planet mass in $M_{\rm J}$, planet radius in $R_{\rm J}$, flux in erg cm$^{-2}$ s$^{-1}$, orbital period in days, stellar radius in $R_\odot$, stellar temperature in K, stellar mass in $M_\odot$, orbital distance in AU.
 - **Several planets at once:** every value can be an array.
 - **Errors:** a number or array for symmetric errors, or a tuple `(lower, upper)` for asymmetric ones. `np.nan` marks a missing error.
-- **Results of `estimate`:** `eps_inner`, `eps_outer` (heating efficiencies, as fractions), `brms_inner`, `brms_inner_surf`, `brms_outer`, `brms_outer_surf` ($B_{\rm rms,dyn}$ and $B_{\rm dip,surf}$ in G for deep and shallow heating), `brms_irr`, `brms_irr_surf` and `radius_irr` (the non-inflated, $\epsilon = 0$, model with the same mass and flux). Each has its `(minus, plus)` error under `<name>_err`. Planets outside the grid give `nan`.
+- **Results of `estimate`:** `eps_inner`, `eps_outer` (heating efficiencies, as fractions), `brms_inner`, `brms_inner_surf`, `brms_outer`, `brms_outer_surf` ($B_{\rm rms,dyn}$ and $B_{\rm dip,surf}$ in G for deep and shallow heating), `brms_irr`, `brms_irr_surf` and `radius_irr` (the non-inflated, $\epsilon = 0$, model with the same mass and flux). Each has its `(minus, plus)` error under `<name>_err`.
+- **Planets without estimates:** planets outside the grid in mass, flux or period, smaller than their non-inflated model (only `radius_irr` is given), larger than the most inflated model, or with a missing value give `nan`, and `estimate` shows a `GridWarning` that lists each of them and the reason. Silence it with `warnings.simplefilter("ignore", hj_model.GridWarning)`. `main.py` prints how many planets have no estimates for each reason.
 - **Random numbers:** the Monte Carlo errors use numpy's random numbers with `seed=42` by default, as `main.py`, so the same input always gives the same errors.
 - **Check:** `python hj_model.py` (or `hj_model.check()`) verifies that the interface reproduces the committed predictions of `main.py` exactly. Run it after changing the code; the GitHub Action also runs it.
 

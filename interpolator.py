@@ -449,3 +449,46 @@ def linear_interpolator_rot(table_inner,
             getattr(planets, name + "_est")[index_planet]     = interpolators[name](mass, np.log10(flux), radius)
             getattr(planets, name + "_est_err")[index_planet] = get_error_any(interpolators[name],
                                                                     mass, mass_err, flux, flux_err, radius, radius_err, radius_irr, error_sym)
+
+def reasons_not_interpolated(planets, grid_limits, rotation):
+    """
+    Why each planet has no heating efficiency or magnetic field estimates, to be called after
+    linear_interpolator or linear_interpolator_rot. Returns, for each planet, a list of
+    (reason, value) pairs, empty for the planets with estimates. The reason does not depend on
+    the planet (it can be counted over the population); the value shows the planet's numbers.
+    """
+    min_mass, max_mass, min_flux, max_flux, min_period, max_period = grid_limits
+    observed = [("mass", "M", planets.mass_obs, "M_J", min_mass, max_mass),
+                ("incident flux", "F_irr", planets.flux_obs, "erg cm^-2 s^-1", min_flux, max_flux)]
+    if rotation:
+        observed.append(("orbital period", "P_orb", planets.orbital_period_obs, "days", min_period, max_period))
+
+    reasons = []
+    for index_planet in range(planets.n_planets):
+        planet_reasons = []
+        radius = planets.radius_obs[index_planet]
+        if np.isnan(radius): planet_reasons.append(("missing radius", ""))
+        for name, symbol, values, unit, minimum, maximum in observed:
+            value = values[index_planet]
+            if np.isnan(value):
+                planet_reasons.append(("missing " + name, ""))
+            elif not minimum < value < maximum:
+                planet_reasons.append((f"{name} outside the grid ({minimum:.3g} < {symbol} < {maximum:.3g} {unit})",
+                                       f"{symbol} = {value:.3g} {unit}"))
+
+        # The planets inside the grid limits were interpolated: check that they got estimates
+        if not planet_reasons:
+            radius_irr = planets.radius_irr_est[index_planet]
+            heat_effs = [planets.heat_eff_inner_est[index_planet], planets.heat_eff_outer_est[index_planet]]
+            if np.isnan(radius_irr):
+                planet_reasons.append(("no non-inflated (eps = 0) model at this mass and flux "
+                                       "(the small, strongly irradiated models do not survive)", ""))
+            elif radius < radius_irr:
+                planet_reasons.append(("radius smaller than the non-inflated (eps = 0) model with the same "
+                                       "mass and flux: not inflated, only radius_irr is estimated",
+                                       f"R = {radius:.3g} R_J < radius_irr = {radius_irr:.3g} R_J"))
+            elif np.any(np.isnan(heat_effs)):
+                planet_reasons.append(("radius larger than the most inflated model of the grid "
+                                       "with the same mass and flux", f"R = {radius:.3g} R_J"))
+        reasons.append(planet_reasons)
+    return reasons

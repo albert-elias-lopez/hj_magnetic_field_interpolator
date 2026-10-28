@@ -177,7 +177,6 @@ def plot_output_grid(masses,
         cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
         cbar.set_label(r"$\mathrm{\epsilon (\%)}$",fontsize=int(fontsize*1.3),labelpad=5)
         plt.savefig("plots/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_eps_outer.png")
-        plt.savefig("plot.png")
 
         plt.clf()
         ax = plt.axes()

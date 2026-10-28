@@ -157,8 +157,21 @@ def interpolate_planets(planets, table_inner, table_outer, periods, grid_limits,
         interpolator.linear_interpolator(table_inner, table_outer, planets,
                                          mask_predictions, error_sym=error_sym)
     print("done")
+    print_not_interpolated(planets, grid_limits, rotation)
     print(DASHES)
     return mask_predictions
+
+def print_not_interpolated(planets, grid_limits, rotation):
+    # Number of planets without estimates for each reason (a planet can have several)
+    reasons = interpolator.reasons_not_interpolated(planets, grid_limits, rotation)
+    n_without = sum(1 for planet_reasons in reasons if planet_reasons)
+    if n_without == 0: return
+    print(f"{n_without} of {planets.n_planets} planets have no heating efficiency or magnetic field estimates:")
+    counts = {}
+    for planet_reasons in reasons:
+        for reason, _ in planet_reasons: counts[reason] = counts.get(reason, 0) + 1
+    for reason, count in counts.items():
+        print(f"{count:>6}  {reason}")
 
 # The scaling-law fits, in the order they are made (the order matters: the Gaussian fits draw from
 # the same random number generator) and passed to table_comparison and plot_population_fits.

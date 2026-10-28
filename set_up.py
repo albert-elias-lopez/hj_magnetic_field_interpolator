@@ -77,7 +77,7 @@ if python.exists():
 else:
     print(f"Creating the environment in {env}")
     try:
-        venv.create(env, with_pip=True)
+        venv.create(env, with_pip=True, prompt="hj_magnetic_env")
     except subprocess.CalledProcessError:
         shutil.rmtree(env, ignore_errors=True)
         sys.exit(f"Could not create the environment (see the error above). On Debian/Ubuntu this\n"
