@@ -26,6 +26,19 @@ The magnetic field tables in the `<mass>_MJ/` folders were generated from those 
 
 ---
 
+## How to use this repository
+
+There are three ways to use it, from the quickest to the most complete:
+
+1. **Look up the saved estimates (no installation needed).** The estimates of the paper are already in the folder `predictions/` (see [Output files](#output-files)):
+   - `predictions/predictions_hot_jupiter_populations.txt`: one line per planet of the hot Jupiter population, with the planet name in the last column. For example `grep "HD 189733 b" predictions/predictions_hot_jupiter_populations.txt`. `predictions_hot_jupiter_populations_extra.txt` has all gas giants of the archive, also those with incomplete stellar data.
+   - `predictions/predictions_cut_R_gaussian_fit/<planet>.txt` (spaces replaced by `_`, e.g. `HD_189733_b.txt`): the interpolated fields next to all the scaling laws, for the inflated planets used in the fits ($R_{\rm P} > 1.05\,R_{\epsilon=0}$). `predictions/predictions_cut_R_extra/` has the same files for more planets ($R_{\rm P} > 0.75\,R_{\epsilon=0}$).
+   - `predictions/predictions_<sample>.txt` and `predictions/predictions_cut_R_gaussian_fit_<sample>/`: the samples of the literature comparison (`seidel26`, `cauley19`, `wasp12b`, `hd209458b`, `hats53b`).
+2. **Estimate your own planet from Python (recommended).** After the [Installation](#installation), edit the values at the top of `example.py` and run `python example.py`. It prints the heating efficiencies and magnetic fields with their errors and, optionally, the scaling-law predictions. To use the estimates in your own scripts, see [Using the interpolator from Python](#using-the-interpolator-from-python). A single planet can also be estimated from the command line with `python main.py --no_HJ --which_planets my_own --my_planet_params ...` (see [Running the code](#running-the-code)).
+3. **Rerun the whole analysis.** `python main.py --save_plot_population` recomputes the population estimates, the scaling-law fits and the figures (about 10 minutes); see [Running the code](#running-the-code) for the full list of commands of the paper. With the default seed, the outputs are identical to the committed ones.
+
+---
+
 ## Required inputs
 
 For each planet the interpolator requires
