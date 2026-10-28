@@ -473,7 +473,7 @@ def reasons_not_interpolated(planets, grid_limits, rotation):
             if np.isnan(value):
                 planet_reasons.append(("missing " + name, ""))
             elif not minimum < value < maximum:
-                planet_reasons.append((f"{name} outside the grid ({minimum:.3g} < {symbol} < {maximum:.3g} {unit})",
+                planet_reasons.append((f"{name} outside the grid, {minimum:.3g} < {symbol} < {maximum:.3g} {unit}",
                                        f"{symbol} = {value:.3g} {unit}"))
 
         # The planets inside the grid limits were interpolated: check that they got estimates
@@ -481,14 +481,11 @@ def reasons_not_interpolated(planets, grid_limits, rotation):
             radius_irr = planets.radius_irr_est[index_planet]
             heat_effs = [planets.heat_eff_inner_est[index_planet], planets.heat_eff_outer_est[index_planet]]
             if np.isnan(radius_irr):
-                planet_reasons.append(("no non-inflated (eps = 0) model at this mass and flux "
-                                       "(the small, strongly irradiated models do not survive)", ""))
+                planet_reasons.append(("no non-inflated (eps = 0) model survives at this mass and flux", ""))
             elif radius < radius_irr:
-                planet_reasons.append(("radius smaller than the non-inflated (eps = 0) model with the same "
-                                       "mass and flux: not inflated, only radius_irr is estimated",
+                planet_reasons.append(("not inflated, the radius is below the non-inflated (eps = 0) model",
                                        f"R = {radius:.3g} R_J < radius_irr = {radius_irr:.3g} R_J"))
             elif np.any(np.isnan(heat_effs)):
-                planet_reasons.append(("radius larger than the most inflated model of the grid "
-                                       "with the same mass and flux", f"R = {radius:.3g} R_J"))
+                planet_reasons.append(("radius above the most inflated model of the grid", f"R = {radius:.3g} R_J"))
         reasons.append(planet_reasons)
     return reasons

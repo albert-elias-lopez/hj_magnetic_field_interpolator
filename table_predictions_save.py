@@ -286,6 +286,66 @@ def table_predictions(planets,
                 
     print("Saving file " + filename + ".txt: done")
 
+def deposited_power(radius, radius_err, flux, flux_err, heat_eff, heat_eff_err):
+    """
+    Power deposited in the interior, L_P = eps pi R^2 F_irr, in units of L_J, and its error (linear
+    propagation with symmetric errors; heat_eff_err is the mean of the lower and upper errors).
+    """
+    power = np.pi*(radius*R_J)**2*flux*heat_eff/L_J
+    power_err = power*np.sqrt((heat_eff_err/heat_eff)**2+\
+                              (2*radius_err/radius)**2+\
+                              (flux_err/flux)**2)
+    return power, power_err
+
+def reiners09_surf(brms, brms_err, mass, mass_err):
+    # B_dip,surf of the Reiners et al. (2009) law from its B_rms,dyn: B (1 - 0.17/M)^3 / sqrt(2)
+    brms_surf = brms*(1-0.17/mass)**3/np.sqrt(2)
+    brms_surf_err = brms_surf*np.sqrt((brms_err/brms)**2+\
+                                      (3*0.17*mass_err/mass**2/(1-0.17/mass))**2)
+    return brms_surf, brms_surf_err
+
+# Fits used by scaling_law_predictions: <law>_<heating>[_surf] (_surf: B_dip,surf, otherwise B_rms,dyn)
+SCALING_LAW_FITS = ["MRL_inner", "MRL_inner_surf", "MRL_outer", "MRL_outer_surf",
+                    "MRF_inner", "MRF_inner_surf", "MRF_outer", "MRF_outer_surf",
+                    "MR_inner",  "MR_inner_surf",  "MR_outer",  "MR_outer_surf",
+                    "MR_irr",    "MR_irr_surf"]
+
+def scaling_law_predictions(fits, mass, mass_err, mass_err_asym, radius, radius_err, radius_err_asym,
+                            flux, flux_err, power_inner, power_inner_err, power_outer, power_outer_err,
+                            N_err = 10000):
+    """
+    Scaling-law predictions for one planet, each as (value, error): the magnetic fields (G) of the fits
+    in SCALING_LAW_FITS and of R09 (Reiners et al. 2009) with the interpolated inner heating
+    efficiency ("R09_inner") or the one of Thorngren & Fortney 2018 ("R09+Th18_inner"), plus that
+    heating efficiency ("eps_th18", fraction). fits: dictionary with the fit_objects of
+    SCALING_LAW_FITS and "R09". power_*: deposited power L_P / L_J for inner and outer heating.
+    The values are computed in a fixed order, since the Monte Carlo errors share numpy's random numbers.
+    """
+    def predict(fit, x, x_err):
+        value = scaling_law(fit, mass, radius, x)
+        return value, get_scaling_law_err(fit, value, mass, radius, x, mass_err_asym, radius_err_asym, x_err)
+
+    # Variable of each law (deposited power, flux factor, or 1 for the MR laws) and its error
+    variables = {"MRL_inner": (power_inner, power_inner_err), "MRL_outer": (power_outer, power_outer_err),
+                 "MRF_inner": ((flux/1e9), (flux_err/1e9)),   "MRF_outer": ((flux/1e9), (flux_err/1e9))}
+
+    predictions = {}
+    # Reiners et al. 2009 (the outer-heating prediction is not used, so it is not computed)
+    predictions["R09_inner"] = predict(fits["R09"], power_inner, power_inner_err)
+    predictions["R09_inner_surf"] = reiners09_surf(*predictions["R09_inner"], mass, mass_err)
+
+    for name in SCALING_LAW_FITS:
+        predictions[name] = predict(fits[name], *variables.get(name.replace("_surf", ""), (1, 1)))
+
+    # R09 with the heating efficiency of Thorngren & Fortney 2018
+    eps_th18 = get_thorn18_eff(flux)
+    eps_th18_err = get_thorn18_err(flux, N_err)
+    predictions["eps_th18"] = (eps_th18, eps_th18_err)
+    power_th18, power_th18_err = deposited_power(radius, radius_err, flux, flux_err, eps_th18, np.mean(eps_th18_err))
+    predictions["R09+Th18_inner"] = predict(fits["R09"], power_th18, power_th18_err)
+    predictions["R09+Th18_inner_surf"] = reiners09_surf(*predictions["R09+Th18_inner"], mass, mass_err)
+    return predictions
+
 def table_comparison(planets,
                         valid_mask,
                         name_cut,
@@ -347,22 +407,16 @@ def table_comparison(planets,
         error_sym_fits = False
     else: error_sym_fits = True
     
-        # Get the convective luminosities assuming F = pi R^2 F_irr eps, and also their errors
-    conv_lumin_inner = np.pi*(radius_obs*R_J)**2*flux_obs*heat_eff_inner_est/L_J
-    conv_lumin_outer = np.pi*(radius_obs*R_J)**2*flux_obs*heat_eff_outer_est/L_J
-
+    # Deposited power L_P = eps pi R^2 F_irr (in L_J) and its error, for inner and outer heating
     if error_sym: heat_eff_inner_est_err_mean = heat_eff_inner_est_err
     else: heat_eff_inner_est_err_mean = np.mean(heat_eff_inner_est_err, axis=1)   # Mean of the lower and upper error of each planet
-    conv_lumin_inner_err = conv_lumin_inner*np.sqrt((heat_eff_inner_est_err_mean/heat_eff_inner_est)**2+\
-                                                                        (2*radius_obs_err/radius_obs)**2+\
-                                                                        (flux_obs_err/flux_obs)**2)
-    
+    conv_lumin_inner, conv_lumin_inner_err = deposited_power(radius_obs, radius_obs_err, flux_obs, flux_obs_err,
+                                                             heat_eff_inner_est, heat_eff_inner_est_err_mean)
     if error_sym: heat_eff_outer_est_err_mean = heat_eff_outer_est_err
-    else: heat_eff_outer_est_err_mean = np.mean(heat_eff_outer_est_err, axis=1)   # Mean of the lower and upper error of each planet
-    conv_lumin_outer_err = conv_lumin_outer*np.sqrt((heat_eff_outer_est_err_mean/heat_eff_outer_est)**2+\
-                                                                        (2*radius_obs_err/radius_obs)**2+\
-                                                                        (flux_obs_err/flux_obs)**2)
-    
+    else: heat_eff_outer_est_err_mean = np.mean(heat_eff_outer_est_err, axis=1)
+    conv_lumin_outer, conv_lumin_outer_err = deposited_power(radius_obs, radius_obs_err, flux_obs, flux_obs_err,
+                                                             heat_eff_outer_est, heat_eff_outer_est_err_mean)
+
     for index_planet, name in enumerate(planet_names):
         if add_systematic_error:
             heat_eff_inner_est_err[index_planet]     = add_syst_error(heat_eff_inner_est[index_planet],
@@ -382,99 +436,23 @@ def table_comparison(planets,
             brms_irr_surf_est_err[index_planet]      = add_syst_error(brms_irr_surf_est[index_planet],
                                                                         brms_irr_surf_est_err[index_planet])
     
+    fits = {"R09": fit_reiners09,
+            "MRL_inner": fit_MRL_inner, "MRL_inner_surf": fit_MRL_inner_surf, "MRL_outer": fit_MRL_outer, "MRL_outer_surf": fit_MRL_outer_surf,
+            "MRF_inner": fit_MRF_inner, "MRF_inner_surf": fit_MRF_inner_surf, "MRF_outer": fit_MRF_outer, "MRF_outer_surf": fit_MRF_outer_surf,
+            "MR_inner":  fit_MR_inner,  "MR_inner_surf":  fit_MR_inner_surf,  "MR_outer":  fit_MR_outer,  "MR_outer_surf":  fit_MR_outer_surf,
+            "MR_irr":    fit_MR_irr_all, "MR_irr_surf":   fit_MR_irr_all_surf}
+
     for index_planet, name in enumerate(planet_names):
-        
-        # Apply the simplest scaling law, from Reiners et al. 2009
-        # The outer-heating prediction is not written in the output files, so it is not computed
-        # brms_outer_reiners = scaling_law(fit_reiners09, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_outer[index_planet])
-        # brms_outer_reiners_err = get_scaling_law_err(fit_reiners09, brms_outer_reiners,
-        #                                             mass_obs[index_planet], radius_obs[index_planet], conv_lumin_outer[index_planet],
-        #                                             mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], conv_lumin_outer_err[index_planet])
 
-        brms_inner_reiners = scaling_law(fit_reiners09, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_inner[index_planet])
-        brms_inner_reiners_err = get_scaling_law_err(fit_reiners09, brms_inner_reiners,
-                                                    mass_obs[index_planet], radius_obs[index_planet], conv_lumin_inner[index_planet],
-                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], conv_lumin_inner_err[index_planet])  
-
-        brms_inner_surf_reiners = brms_inner_reiners*(1-0.17/mass_obs[index_planet])**3/np.sqrt(2)
-        brms_inner_surf_reiners_err = brms_inner_surf_reiners*np.sqrt((brms_inner_reiners_err/brms_inner_reiners)**2+\
-                                                                                (3*0.17*mass_obs_err[index_planet]/mass_obs[index_planet]**2/(1-0.17/mass_obs[index_planet]))**2)
-        
-
-        # Use my other scaling laws
-        brms_inner_fitMRL = scaling_law(fit_MRL_inner, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_inner[index_planet])
-        brms_inner_fitMRL_err = get_scaling_law_err(fit_MRL_inner, brms_inner_fitMRL,
-                                                    mass_obs[index_planet], radius_obs[index_planet], conv_lumin_inner[index_planet],
-                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], conv_lumin_inner_err[index_planet])
-
-        brms_inner_surf_fitMRL = scaling_law(fit_MRL_inner_surf, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_inner[index_planet])
-        brms_inner_surf_fitMRL_err = get_scaling_law_err(fit_MRL_inner_surf, brms_inner_surf_fitMRL,
-                                                    mass_obs[index_planet], radius_obs[index_planet], conv_lumin_inner[index_planet],
-                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], conv_lumin_inner_err[index_planet])
-
-        brms_outer_fitMRL = scaling_law(fit_MRL_outer, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_outer[index_planet])
-        brms_outer_fitMRL_err = get_scaling_law_err(fit_MRL_outer, brms_outer_fitMRL,
-                                                    mass_obs[index_planet], radius_obs[index_planet], conv_lumin_outer[index_planet],
-                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], conv_lumin_outer_err[index_planet])
-
-        brms_outer_surf_fitMRL = scaling_law(fit_MRL_outer_surf, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_outer[index_planet])
-        brms_outer_surf_fitMRL_err = get_scaling_law_err(fit_MRL_outer_surf, brms_outer_surf_fitMRL,
-                                                    mass_obs[index_planet], radius_obs[index_planet], conv_lumin_outer[index_planet],
-                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], conv_lumin_outer_err[index_planet])
-        
-        
-        
-        brms_inner_fitMRF = scaling_law(fit_MRF_inner, mass_obs[index_planet], radius_obs[index_planet], (flux_obs[index_planet]/1e9))
-        brms_inner_fitMRF_err = get_scaling_law_err(fit_MRF_inner, brms_inner_fitMRF,
-                                                    mass_obs[index_planet], radius_obs[index_planet], (flux_obs[index_planet]/1e9),
-                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], (flux_obs_err[index_planet]/1e9))
-        
-        brms_inner_surf_fitMRF = scaling_law(fit_MRF_inner_surf, mass_obs[index_planet], radius_obs[index_planet], (flux_obs[index_planet]/1e9))
-        brms_inner_surf_fitMRF_err = get_scaling_law_err(fit_MRF_inner_surf, brms_inner_surf_fitMRF,
-                                                    mass_obs[index_planet], radius_obs[index_planet], (flux_obs[index_planet]/1e9),
-                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], (flux_obs_err[index_planet]/1e9))
-
-        brms_outer_fitMRF = scaling_law(fit_MRF_outer, mass_obs[index_planet], radius_obs[index_planet], (flux_obs[index_planet]/1e9))
-        brms_outer_fitMRF_err = get_scaling_law_err(fit_MRF_outer, brms_outer_fitMRF,
-                                                    mass_obs[index_planet], radius_obs[index_planet], (flux_obs[index_planet]/1e9),
-                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], (flux_obs_err[index_planet]/1e9))
-
-        brms_outer_surf_fitMRF = scaling_law(fit_MRF_outer_surf, mass_obs[index_planet], radius_obs[index_planet], (flux_obs[index_planet]/1e9))
-        brms_outer_surf_fitMRF_err = get_scaling_law_err(fit_MRF_outer_surf, brms_outer_surf_fitMRF,
-                                                    mass_obs[index_planet], radius_obs[index_planet], (flux_obs[index_planet]/1e9),
-                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], (flux_obs_err[index_planet]/1e9))
-
-        
-
-        brms_inner_fitMR = scaling_law(fit_MR_inner,mass_obs[index_planet],radius_obs[index_planet],1)
-        brms_inner_fitMR_err = get_scaling_law_err(fit_MR_inner, brms_inner_fitMR,
-                                                    mass_obs[index_planet],radius_obs[index_planet],1,
-                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet],1)
-
-        brms_inner_surf_fitMR = scaling_law(fit_MR_inner_surf,mass_obs[index_planet],radius_obs[index_planet],1)
-        brms_inner_surf_fitMR_err = get_scaling_law_err(fit_MR_inner_surf, brms_inner_surf_fitMR,
-                                                    mass_obs[index_planet],radius_obs[index_planet],1,
-                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet],1)
-
-        brms_outer_fitMR = scaling_law(fit_MR_outer,mass_obs[index_planet],radius_obs[index_planet],1)
-        brms_outer_fitMR_err = get_scaling_law_err(fit_MR_outer, brms_outer_fitMR,
-                                                    mass_obs[index_planet],radius_obs[index_planet],1,
-                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet],1)
-
-        brms_outer_surf_fitMR = scaling_law(fit_MR_outer_surf,mass_obs[index_planet],radius_obs[index_planet],1)
-        brms_outer_surf_fitMR_err = get_scaling_law_err(fit_MR_outer_surf, brms_outer_surf_fitMR,
-                                                    mass_obs[index_planet],radius_obs[index_planet],1,
-                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet],1)
-
-        brms_irr_fitMR = scaling_law(fit_MR_irr_all,mass_obs[index_planet],radius_obs[index_planet],1)
-        brms_irr_fitMR_err = get_scaling_law_err(fit_MR_irr_all, brms_irr_fitMR,
-                                                    mass_obs[index_planet],radius_obs[index_planet],1,
-                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet],1)
-
-        brms_irr_surf_fitMR = scaling_law(fit_MR_irr_all_surf,mass_obs[index_planet],radius_obs[index_planet], 1)
-        brms_irr_surf_fitMR_err = get_scaling_law_err(fit_MR_irr_all_surf, brms_irr_surf_fitMR,
-                                                    mass_obs[index_planet],radius_obs[index_planet], 1,
-                                                    mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], 1)
+        predictions = scaling_law_predictions(fits, mass_obs[index_planet], mass_obs_err[index_planet], mass_obs_err_asym[index_planet],
+                                              radius_obs[index_planet], radius_obs_err[index_planet], radius_obs_err_asym[index_planet],
+                                              flux_obs[index_planet], flux_obs_err[index_planet],
+                                              conv_lumin_inner[index_planet], conv_lumin_inner_err[index_planet],
+                                              conv_lumin_outer[index_planet], conv_lumin_outer_err[index_planet], N_err)
+        fits_print = {key: get_print_string(value, error, "brms", error_sym=error_sym_fits)
+                      for key, (value, error) in predictions.items() if key != "eps_th18"}
+        thorn_eff_18, thorn_eff_18_err = predictions["eps_th18"]
+        heat_eff_thorn_print = get_print_string(100*thorn_eff_18, 100*thorn_eff_18_err, "heat",error_sym=False)
 
         mass_obs_print = get_print_string(mass_obs[index_planet],mass_obs_err[index_planet],"mass",error_sym=True)
         radius_obs_print = get_print_string(radius_obs[index_planet],radius_obs_err[index_planet],"radius",error_sym=True)
@@ -514,83 +492,6 @@ def table_comparison(planets,
                                                         "radius",error_sym=error_sym)
         
 
-        brms_inner_reiners_print = get_print_string(brms_inner_reiners,
-                                                        brms_inner_reiners_err, 
-                                                        "brms",error_sym=error_sym_fits)
-        brms_inner_surf_reiners_print = get_print_string(brms_inner_surf_reiners,
-                                                        brms_inner_surf_reiners_err, 
-                                                        "brms",error_sym=error_sym_fits)
-        
-        thorn_eff_18 = get_thorn18_eff(flux_obs[index_planet])
-        thorn_eff_18_err = get_thorn18_err(flux_obs[index_planet], N_err)
-        heat_eff_thorn_print = get_print_string(100*thorn_eff_18, 100*thorn_eff_18_err, "heat",error_sym=False)
-
-        conv_lumin_thorn18 = np.pi*(radius_obs[index_planet]*R_J)**2*flux_obs[index_planet]*thorn_eff_18/L_J
-        conv_lumin_thorn18_err = conv_lumin_thorn18*np.sqrt((np.mean(thorn_eff_18_err)/thorn_eff_18)**2+\
-                                                                          (2*radius_obs_err[index_planet]/radius_obs[index_planet])**2+\
-                                                                          (flux_obs_err[index_planet]/flux_obs[index_planet])**2)
-        
-        brms_inner_thorn_18 = scaling_law(fit_reiners09, mass_obs[index_planet], radius_obs[index_planet], conv_lumin_thorn18)
-        brms_inner_thorn_18_err = get_scaling_law_err(fit_reiners09, brms_inner_thorn_18,
-                                                      mass_obs[index_planet], radius_obs[index_planet], conv_lumin_thorn18,
-                                                      mass_obs_err_asym[index_planet], radius_obs_err_asym[index_planet], conv_lumin_thorn18_err)
-        brms_inner_thorn_18_print = get_print_string(brms_inner_thorn_18, brms_inner_thorn_18_err, "brms", error_sym=error_sym_fits)    
-
-
-        brms_inner_surf_thorn_18 = brms_inner_thorn_18*(1-0.17/mass_obs[index_planet])**3/np.sqrt(2)
-        brms_inner_surf_thorn_18_err = brms_inner_surf_thorn_18*np.sqrt((brms_inner_thorn_18_err/brms_inner_thorn_18)**2+\
-                                                                              (3*0.17*mass_obs_err[index_planet]/mass_obs[index_planet]**2/(1-0.17/mass_obs[index_planet]))**2)
-        brms_inner_surf_thorn_18_print = get_print_string(brms_inner_surf_thorn_18, brms_inner_surf_thorn_18_err, "brms",error_sym=error_sym_fits)  
-
-
-
-        brms_inner_fitMRL_print = get_print_string(brms_inner_fitMRL,
-                                                      brms_inner_fitMRL_err,
-                                                      "brms",error_sym=error_sym_fits)
-        brms_inner_surf_fitMRL_print = get_print_string(brms_inner_surf_fitMRL,
-                                                           brms_inner_surf_fitMRL_err,
-                                                           "brms",error_sym=error_sym_fits)
-        brms_outer_fitMRL_print = get_print_string(brms_outer_fitMRL,
-                                                   brms_outer_fitMRL_err,
-                                                   "brms",error_sym=error_sym_fits)
-        brms_outer_surf_fitMRL_print = get_print_string(brms_outer_surf_fitMRL,
-                                                        brms_outer_surf_fitMRL_err,
-                                                        "brms",error_sym=error_sym_fits)
-
-        brms_inner_fitMRF_print = get_print_string(brms_inner_fitMRF,
-                                                      brms_inner_fitMRF_err,
-                                                      "brms",error_sym=error_sym_fits)
-        brms_inner_surf_fitMRF_print = get_print_string(brms_inner_surf_fitMRF,
-                                                           brms_inner_surf_fitMRF_err,
-                                                           "brms",error_sym=error_sym_fits)
-        brms_outer_fitMRF_print = get_print_string(brms_outer_fitMRF,
-                                                   brms_outer_fitMRF_err,
-                                                   "brms",error_sym=error_sym_fits)
-        brms_outer_surf_fitMRF_print = get_print_string(brms_outer_surf_fitMRF,
-                                                        brms_outer_surf_fitMRF_err,
-                                                        "brms",error_sym=error_sym_fits)
-        
-        brms_inner_fitMR_print = get_print_string(brms_inner_fitMR,
-                                                     brms_inner_fitMR_err,
-                                                     "brms",error_sym=error_sym_fits)
-        brms_inner_surf_fitMR_print = get_print_string(brms_inner_surf_fitMR,
-                                                          brms_inner_surf_fitMR_err,
-                                                          "brms",error_sym=error_sym_fits)
-        brms_outer_fitMR_print = get_print_string(brms_outer_fitMR,
-                                                  brms_outer_fitMR_err,
-                                                  "brms",error_sym=error_sym_fits)
-        brms_outer_surf_fitMR_print = get_print_string(brms_outer_surf_fitMR,
-                                                       brms_outer_surf_fitMR_err,
-                                                       "brms",error_sym=error_sym_fits)
-        
-
-        brms_irr_fitMR_print = get_print_string(brms_irr_fitMR,
-                                                  brms_irr_fitMR_err,
-                                                  "brms",error_sym=error_sym_fits)
-        brms_irr_surf_fitMR_print = get_print_string(brms_irr_surf_fitMR,
-                                                       brms_irr_surf_fitMR_err,
-                                                       "brms",error_sym=error_sym_fits)
-        
         if HJ_population:
             filename = "./predictions/predictions" + name_cut
         else: 
@@ -636,25 +537,25 @@ def table_comparison(planets,
 
             f.writelines("                   B_rms,inner(G)                              B_dip,surf,inner(G)"+ '\n')
             f.writelines("Interpolator:     " + brms_inner_est_print      + space_interpolator  + brms_inner_surf_est_print + '\n')
-            f.writelines("FitMRL:           " + brms_inner_fitMRL_print   + space_fits          + brms_inner_surf_fitMRL_print + '\n')
-            f.writelines("FitMRF:           " + brms_inner_fitMRF_print   + space_fits          + brms_inner_surf_fitMRF_print + '\n')
-            f.writelines("FitMR:            " + brms_inner_fitMR_print    + space_fits          + brms_inner_surf_fitMR_print + '\n')
-            f.writelines("R09:              " + brms_inner_reiners_print  + space_fits          + brms_inner_surf_reiners_print + '\n')
-            f.writelines("R09+Th18:         " + brms_inner_thorn_18_print + space_fits          + brms_inner_surf_thorn_18_print + '\n')
+            f.writelines("FitMRL:           " + fits_print["MRL_inner"]   + space_fits          + fits_print["MRL_inner_surf"] + '\n')
+            f.writelines("FitMRF:           " + fits_print["MRF_inner"]   + space_fits          + fits_print["MRF_inner_surf"] + '\n')
+            f.writelines("FitMR:            " + fits_print["MR_inner"]    + space_fits          + fits_print["MR_inner_surf"] + '\n')
+            f.writelines("R09:              " + fits_print["R09_inner"]  + space_fits          + fits_print["R09_inner_surf"] + '\n')
+            f.writelines("R09+Th18:         " + fits_print["R09+Th18_inner"] + space_fits          + fits_print["R09+Th18_inner_surf"] + '\n')
 
             f.writelines('\n')
 
             f.writelines("                   B_rms,outer(G)                              B_dip,surf,outer(G)"+ '\n')
             f.writelines("Interpolator:     " + brms_outer_est_print      + space_interpolator  + brms_outer_surf_est_print + '\n')
-            f.writelines("FitMRL:           " + brms_outer_fitMRL_print   + space_fits          + brms_outer_surf_fitMRL_print + '\n')
-            f.writelines("FitMRF:           " + brms_outer_fitMRF_print   + space_fits          + brms_outer_surf_fitMRF_print + '\n')
-            f.writelines("FitMR:            " + brms_outer_fitMR_print    + space_fits          + brms_outer_surf_fitMR_print + '\n')
+            f.writelines("FitMRL:           " + fits_print["MRL_outer"]   + space_fits          + fits_print["MRL_outer_surf"] + '\n')
+            f.writelines("FitMRF:           " + fits_print["MRF_outer"]   + space_fits          + fits_print["MRF_outer_surf"] + '\n')
+            f.writelines("FitMR:            " + fits_print["MR_outer"]    + space_fits          + fits_print["MR_outer_surf"] + '\n')
 
             f.writelines('\n')
 
             f.writelines("                   B_rms,irr(G)                                B_dip,surf,irr(G)"+ '\n')
             f.writelines("Interpolator:     " + brms_irr_est_print        + space_interpolator                   + brms_irr_surf_est_print + '\n')
-            f.writelines("FitMR:            " + brms_irr_fitMR_print      + space_fits               + brms_irr_surf_fitMR_print + '\n')
+            f.writelines("FitMR:            " + fits_print["MR_irr"]      + space_fits               + fits_print["MR_irr_surf"] + '\n')
             f.writelines("Radius of only irradiated planet: " + radius_irr_est_print +    '\n')
             
         

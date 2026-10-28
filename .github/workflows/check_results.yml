@@ -32,6 +32,9 @@ jobs:
       - name: Check the Python interface (hj_model.py) against the committed outputs
         run: .venv/bin/python hj_model.py
 
+      - name: Run the example of the README (example.py)
+        run: .venv/bin/python example.py
+
       - name: Compare with the committed outputs
         run: |
           if [ -n "$(git status --porcelain)" ]; then

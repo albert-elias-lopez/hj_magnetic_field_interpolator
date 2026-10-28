@@ -411,18 +411,7 @@ def main(args):
     os.makedirs("./plots", exist_ok=True)
     os.makedirs("./plots/fits" + name_cut + rotation_suffix(rotation), exist_ok=True)
 
-    fit_reiners09           = fit_object(fit_type, "reiners09")
-    fit_reiners09.K         = 23
-    if fit_type == "gaussian": 
-        fit_reiners09.K_err = np.array([15,13])
-    else:
-        fit_reiners09.K_err = np.mean([15,13])
-    fit_reiners09.alpha     = 1/6
-    fit_reiners09.alpha_err = 0
-    fit_reiners09.beta      = -7/6
-    fit_reiners09.beta_err  = 0
-    fit_reiners09.gamma     = 1/3
-    fit_reiners09.gamma_err = 0
+    fit_reiners09 = scaling_law_fits.reiners09_fit(fit_type)
 
     if HJ_population:
         print("Fitting the different HJ magnetic field estimates:")

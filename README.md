@@ -17,7 +17,7 @@ As an alternative to interpolation, the repository also provides simple analytic
 - magnetic field interpolators for the published model grids (`<mass>_MJ/` folders);
 - analytical scaling laws fitted to the hot Jupiter population;
 - uncertainty propagation using Monte Carlo sampling, including asymmetric uncertainties;
-- a Python interface (`hj_model.py`) to use the interpolator and the scaling laws from your own code;
+- a Python interface (`hj_model.py`) to use the interpolator and the scaling laws from your own code, with a short example for your own planet (`example.py`);
 - scripts to reproduce the results of Elias-López et al. (2026).
 
 The planetary evolution calculations themselves are **not** included here. They were performed using the MESA stellar evolution code and are available in the repository **https://github.com/csic-ice-imagine/MESA_rossby_HJ**
@@ -71,6 +71,8 @@ Options and common problems:
 source .venv/bin/activate        (Windows: .venv\Scripts\activate)
 python main.py --help
 ```
+
+**3. Try it on a planet:** `python example.py` prints the estimates for WASP-12 b. Replace the values at the top of `example.py` with your own planet (see [Using the interpolator from Python](#using-the-interpolator-from-python)).
 
 When you are done, `deactivate` leaves the environment. Without activating it, you can also run the code directly with `.venv/bin/python main.py` (Windows: `.venv\Scripts\python main.py`).
 
@@ -129,7 +131,7 @@ The code can be launched from any folder; the outputs are always written in the 
 
 ## Using the interpolator from Python
 
-`hj_model.py` gives the same estimates as `main.py` from your own scripts or notebooks, without writing files. Run Python from the repository folder (or add it to `sys.path`):
+`hj_model.py` gives the same estimates as `main.py` from your own scripts or notebooks, without writing files. Run Python from the repository folder (or add it to `sys.path`). The quickest start is `example.py`: edit the values of your planet at the top and run `python example.py`. In short:
 
 ```python
 from hj_model import HJMagneticModel
@@ -142,7 +144,9 @@ flux, flux_err = model.get_flux(radius_star=1.57, radius_star_err=0.07, temp_sta
 
 # Interpolated heating efficiencies and magnetic fields, with Monte Carlo errors
 result = model.estimate(mass=1.41, mass_err=0.10, radius=1.79, radius_err=0.09,
-                        flux=flux, flux_err=flux_err, period=1.0914, period_err=3e-6)
+                        flux=flux, flux_err=flux_err, period=1.0914, period_err=3e-6, names="WASP-12 b")
+result.print_all()                                                 # all estimates, as main.py prints them
+result.print_all_scaling_law()                                     # the estimates next to all the scaling laws
 print(result["brms_inner_surf"], result["brms_inner_surf_err"])   # B_dip,surf (G) for deep heating, (minus, plus) error
 
 # Published scaling laws (MR fit without flux, MRF fit with flux)
@@ -152,8 +156,8 @@ b, b_err = model.scaling_law(mass=1.41, mass_err=0.10, radius=1.79, radius_err=0
 - **Units:** planet mass in $M_{\rm J}$, planet radius in $R_{\rm J}$, flux in erg cm$^{-2}$ s$^{-1}$, orbital period in days, stellar radius in $R_\odot$, stellar temperature in K, stellar mass in $M_\odot$, orbital distance in AU.
 - **Several planets at once:** every value can be an array.
 - **Errors:** a number or array for symmetric errors, or a tuple `(lower, upper)` for asymmetric ones. `np.nan` marks a missing error.
-- **Results of `estimate`:** `eps_inner`, `eps_outer` (heating efficiencies, as fractions), `brms_inner`, `brms_inner_surf`, `brms_outer`, `brms_outer_surf` ($B_{\rm rms,dyn}$ and $B_{\rm dip,surf}$ in G for deep and shallow heating), `brms_irr`, `brms_irr_surf` and `radius_irr` (the non-inflated, $\epsilon = 0$, model with the same mass and flux). Each has its `(minus, plus)` error under `<name>_err`.
-- **Planets without estimates:** planets outside the grid in mass, flux or period, smaller than their non-inflated model (only `radius_irr` is given), larger than the most inflated model, or with a missing value give `nan`, and `estimate` shows a `GridWarning` that lists each of them and the reason. Silence it with `warnings.simplefilter("ignore", hj_model.GridWarning)`. `main.py` prints how many planets have no estimates for each reason.
+- **Results of `estimate`:** `eps_inner`, `eps_outer` (heating efficiencies, as fractions), `brms_inner`, `brms_inner_surf`, `brms_outer`, `brms_outer_surf` ($B_{\rm rms,dyn}$ and $B_{\rm dip,surf}$ in G for deep and shallow heating), `brms_irr`, `brms_irr_surf` and `radius_irr` (the non-inflated, $\epsilon = 0$, model with the same mass and flux). Each has its `(minus, plus)` error under `<name>_err`. `result.print_all()` prints all of them for each planet (heating efficiencies in %, fields in G), with the planet names given by `names` (default `planet 0`, `planet 1`, ...). `result.print_all_scaling_law()` prints them next to the scaling-law predictions, as in the per-planet files of `main.py` (see [Output files](#output-files)): the fits of this work (`FitMRL`, `FitMRF`, `FitMR`), `R09` and `R09+Th18`, and the heating efficiency of Thorngren & Fortney (2018). Their central values are those of `main.py`; their Monte Carlo errors can differ in the second digit, because `main.py` draws them after its other random numbers. The scaling laws without $\epsilon$ (`FitMRF`, `FitMR`, `R09+Th18`) are also given for planets without interpolated estimates; outside the grid they are extrapolations.
+- **Planets without estimates:** planets outside the grid in mass, flux or period, smaller than their non-inflated model (only `radius_irr` is given), larger than the most inflated model, or with a missing value give `nan`. `estimate` shows a `GridWarning` that lists each of them with the reason in one sentence, and `print_all` prints the same reason instead of the estimates. Silence it with `warnings.simplefilter("ignore", hj_model.GridWarning)`. `main.py` prints how many planets have no estimates for each reason.
 - **Random numbers:** the Monte Carlo errors use numpy's random numbers with `seed=42` by default, as `main.py`, so the same input always gives the same errors.
 - **Check:** `python hj_model.py` (or `hj_model.check()`) verifies that the interface reproduces the committed predictions of `main.py` exactly. Run it after changing the code; the GitHub Action also runs it.
 

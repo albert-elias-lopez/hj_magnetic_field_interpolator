@@ -343,3 +343,23 @@ def general_fit(planets,
     else: print("done.  ", end=" ")
 
     return fit_to_return
+
+
+def reiners09_fit(fit_type):
+    """
+    Scaling law of Reiners et al. (2009), B_rms,dyn = K M^(1/6) R^(-7/6) (L_P/L_J)^(1/3) with
+    K = 23 (-15, +13) G, as a fit_object (fixed exponents; only K has an uncertainty).
+    """
+    fit = fit_object(fit_type, "reiners09")
+    fit.K         = 23
+    if fit_type == "gaussian":
+        fit.K_err = np.array([15,13])
+    else:
+        fit.K_err = np.mean([15,13])
+    fit.alpha     = 1/6
+    fit.alpha_err = 0
+    fit.beta      = -7/6
+    fit.beta_err  = 0
+    fit.gamma     = 1/3
+    fit.gamma_err = 0
+    return fit
