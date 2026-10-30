@@ -118,7 +118,7 @@ def make_tables_no_rotation():
 
 
 def make_tables_rotation():
-    # B_dyn is recomputed from the MESA profile with the rotating convective velocity (Fuentes 2022)
+    # B_dyn is recomputed from the MESA profile with the rotating convective velocity (Fuentes et al. 2023)
     # for each orbital period, assuming tidal locking (rotation period = orbital period)
     import radial_functions  # Not public, see the docstring at the top
 
@@ -136,14 +136,19 @@ def make_tables_rotation():
                         print_reading(mass, flux, heat_eff, heating_type)
                         try:
                             data, profile, age_loc, radius, radius_factor, dyn_lum = read_run(index_mass, index_flux, heat_eff, heating_type)
-                            if alphas_MLT == None: setattr(profile, "alpha_mlt", 2)
-                            else: setattr(profile, "alpha_mlt", alphas_MLT)
+                            # Conductivity in S m^-1 (MESA saves it in Gaussian units, s^-1) and alpha_MLT, for Rm and B
+                            radial_functions.set_sigma_and_alpha_mlt(profile, 2 if alphas_MLT is None else alphas_MLT)
 
                             if heating_type == "inner":
-                                # Top of the dynamo region where the rotating Rm drops below rm_threshold (upper estimate)
+                                # Top of the dynamo region where the rotating Rm drops below rm_threshold (upper estimate):
+                                # the first point below it going outwards from the deep Rm maximum, so that a thin
+                                # convective layer near the surface of strongly irradiated models, separated from the
+                                # deep convection zone by a radiative layer, is not taken as the top of the dynamo
                                 conv_vel_rot  = radial_functions.get_v_conv_rot(profile, frequency)
                                 rm_profile_rot = radial_functions.get_reynolds_mag(profile, conv_vel_rot, type_reynolds="local")
-                                try: loc_dyn = np.where(rm_profile_rot - rm_threshold < 0, rm_profile_rot - rm_threshold, -np.inf).argmax()
+                                try:
+                                    below = np.flatnonzero(rm_profile_rot[:np.nanargmax(rm_profile_rot)+1] < rm_threshold)
+                                    loc_dyn = below[-1] if below.size else 0
                                 except ValueError: loc_dyn = 0   # empty profile
                             else:
                                 # Top of the dynamo region where the pressure drops below p_threshold (deeper, lower estimate)

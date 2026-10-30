@@ -5,8 +5,10 @@ and magnetic fields (B_rms,dyn and B_dip,surf) of each planet, with their errors
 The inflated quantities are interpolated linearly in (M, log10 F_irr, R), the eps = 0 ones in
 (M, log10 F_irr). With rotation (linear_interpolator_rot) the magnetic fields are also interpolated
 linearly in log10 P between the grids of the two closest periods; without rotation
-(linear_interpolator) the grid has no period axis. The errors are Monte Carlo percentiles (16th and
-84th) of samples of the observed values, or a linear propagation with symmetric errors (--error_sym).
+(linear_interpolator) the grid has no period axis. The values and errors are the median and the 16th
+and 84th percentiles of Monte Carlo samples of the observed values, where the samples smaller than
+their non-inflated (eps = 0) radius count as eps = 0; with --error_sym, the value is interpolated at
+the observed values and the error is a linear propagation of symmetric errors.
 The results are stored in the planet_object (<quantity>_est and <quantity>_est_err).
 """
 import numpy as np
@@ -45,39 +47,47 @@ def get_error(interpolator,
     
     return np.sqrt(est_err)
 
+def median_and_errors(samples):
+    # Median and (minus, plus) errors from the 16th and 84th percentiles of the samples that are not NaN
+    samples = samples[~np.isnan(samples)]
+    if samples.size == 0: return np.nan, np.nan, np.nan   # No sample inside the grid: no estimate instead of a crash
+    p16, p50, p84 = np.percentile(samples, [16, 50, 84])
+    return p50, p50 - p16, p84 - p50
+
+def zero_eps0(mass, log_flux):
+    # Heating efficiency of the non-inflated (eps = 0) models
+    return np.zeros(np.shape(mass))
+
 def get_error_gaussian(interpolator,
                         mass, mass_err,
                         flux, flux_err,
                         radius, radius_err,
-                        radius_irr,
+                        interpolator_radius_irr,
+                        interpolator_eps0,
                         N = 10000,
                         min_mass = 0.3, max_mass = 12,
                         min_flux = 1e7, max_flux = 1.58e10):
     """
-    Monte Carlo (minus, plus) error of an interpolated quantity: N samples of the mass, flux and radius
-    (split normals with their lower and upper errors) inside the grid and larger than the eps = 0 radius
-    radius_irr; the errors are the 16th and 84th percentiles around the median. Missing (NaN) errors give
-    NaN.
+    Monte Carlo median and (minus, plus) errors of an interpolated quantity: N samples of the mass, flux
+    and radius (split normals with their lower and upper errors) inside the grid. The samples smaller than
+    their eps = 0 radius (interpolator_radius_irr) take the eps = 0 value (interpolator_eps0, in M and
+    log10 F_irr); the samples above the most inflated model are left out. Missing (NaN) errors give NaN.
     """
     if np.any(np.isnan(mass_err)) or np.any(np.isnan(flux_err)) or np.any(np.isnan(radius_err)):
-        return np.nan, np.nan
+        return np.nan, np.nan, np.nan
 
     masses_s = table_predictions_save.sample_obs(mass, mass_err, N)
     fluxes_s = table_predictions_save.sample_obs(flux, flux_err, N)
     radii_s = table_predictions_save.sample_obs(radius, radius_err, N)
 
-    mask = (masses_s > min_mass) & (masses_s < max_mass) & (fluxes_s > min_flux) & (fluxes_s < max_flux) & (radii_s > radius_irr)
-    samples = interpolator(masses_s[mask],np.log10(fluxes_s[mask]),radii_s[mask])
+    mask = (masses_s > min_mass) & (masses_s < max_mass) & (fluxes_s > min_flux) & (fluxes_s < max_flux)
+    masses_s, log_fluxes_s, radii_s = masses_s[mask], np.log10(fluxes_s[mask]), radii_s[mask]
+    samples = interpolator(masses_s, log_fluxes_s, radii_s)
 
-    mask_nans = ~np.isnan(samples)
-    samples = samples[mask_nans]
-    if samples.size == 0: return np.nan, np.nan   # No sample inside the grid: no error bar instead of a crash
-    p16, p50, p84 = np.percentile(samples, [16, 50, 84])
+    below = radii_s < interpolator_radius_irr(masses_s, log_fluxes_s)
+    if np.any(below): samples[below] = interpolator_eps0(masses_s[below], log_fluxes_s[below])
 
-    #acceptance = np.sum(mask)/N
-    #print("Acceptance: " + str(acceptance))
-    
-    return p50 - p16, p84 - p50 # sample estimate, estimate error minus, estimate error plus
+    return median_and_errors(samples)
 
 def log_prior(theta,
             mass, mass_err,
@@ -198,9 +208,10 @@ def get_error_irr_gaussian(interpolator,
                         min_mass = 0.3, max_mass = 12,
                         min_flux = 1e7, max_flux = 1.58e10):
     
+    # Monte Carlo median and (minus, plus) errors of an eps = 0 quantity, which does not depend on the radius.
     # A missing (NaN) observational error gives a missing (NaN) error, as in get_scaling_law_err
     if np.any(np.isnan(mass_err)) or np.any(np.isnan(flux_err)):
-        return np.nan, np.nan
+        return np.nan, np.nan, np.nan
 
     masses_s = table_predictions_save.sample_obs(mass, mass_err, N)
     fluxes_s = table_predictions_save.sample_obs(flux, flux_err, N)
@@ -208,26 +219,33 @@ def get_error_irr_gaussian(interpolator,
     mask = (masses_s > min_mass) & (masses_s < max_mass) & (fluxes_s > min_flux) & (fluxes_s < max_flux)
     samples = interpolator(masses_s[mask],np.log10(fluxes_s[mask]))
 
-    mask_nans = ~np.isnan(samples)
-    samples = samples[mask_nans]
-    if samples.size == 0: return np.nan, np.nan   # No sample inside the grid: no error bar instead of a crash
-    p16, p50, p84 = np.percentile(samples, [16, 50, 84])
+    return median_and_errors(samples)
 
-    return p50 - p16, p84 - p50 # estimate error minus, estimate error plus
- 
 # Estimates stored in planets as <name>_est and <name>_est_err, in the order they are computed
 # (the order matters: the Monte Carlo errors draw from the same random number generator)
 IRR_QUANTITIES  = ["brms_irr", "brms_irr_surf"]
 HEAT_QUANTITIES = ["heat_eff_inner", "brms_inner", "brms_inner_surf",
                    "heat_eff_outer", "brms_outer", "brms_outer_surf"]
 
-def get_error_irr_any(interpolator, mass, mass_err, flux, flux_err, error_sym):
-    if error_sym: return get_error_irr(interpolator, mass, mass_err, flux, flux_err)
-    return get_error_irr_gaussian(interpolator, mass, mass_err, flux, flux_err)
+def monte_carlo_or_nominal(nominal, median, error_minus, error_plus):
+    # The Monte Carlo median and errors; without them (missing observational errors), the value
+    # interpolated at the observed values and NaN errors
+    if np.isnan(median): return nominal, (np.nan, np.nan)
+    return median, (error_minus, error_plus)
 
-def get_error_any(interpolator, mass, mass_err, flux, flux_err, radius, radius_err, radius_irr, error_sym):
-    if error_sym: return get_error(interpolator, mass, mass_err, flux, flux_err, radius, radius_err)
-    return get_error_gaussian(interpolator, mass, mass_err, flux, flux_err, radius, radius_err, radius_irr)
+def get_estimate_irr_any(interpolator, mass, mass_err, flux, flux_err, error_sym):
+    # Value and error of an eps = 0 quantity
+    nominal = interpolator(mass, np.log10(flux))
+    if error_sym: return nominal, get_error_irr(interpolator, mass, mass_err, flux, flux_err)
+    return monte_carlo_or_nominal(nominal, *get_error_irr_gaussian(interpolator, mass, mass_err, flux, flux_err))
+
+def get_estimate_any(interpolators, name, mass, mass_err, flux, flux_err, radius, radius_err, error_sym):
+    # Value and error of the inflated quantity name, from the dictionary of build_interpolators
+    nominal = interpolators[name](mass, np.log10(flux), radius)
+    if error_sym: return nominal, get_error(interpolators[name], mass, mass_err, flux, flux_err, radius, radius_err)
+    return monte_carlo_or_nominal(nominal, *get_error_gaussian(interpolators[name], mass, mass_err, flux, flux_err,
+                                                               radius, radius_err, interpolators["radius_irr"],
+                                                               interpolators[name + "_eps0"]))
 
 def build_interpolators(table_inner, table_outer, index_period = None):
     """
@@ -257,16 +275,26 @@ def build_interpolators(table_inner, table_outer, index_period = None):
         interpolators["brms_" + heating]        = LinearNDInterpolator(points, grid(table.bscaling_heat).flatten()[valid_mask])
         interpolators["brms_" + heating + "_surf"] = LinearNDInterpolator(points, grid(table.bscaling_surf_heat).flatten()[valid_mask])
 
-    # The epsilon = 0 data give the estimates for the only irradiated models.
-    # It doesn't matter to take the radius and magnetic field estimation from inner or outer, as eps=0
-    radii_irr_flat = grid(table_inner.radius_heat)[:,:,0].flatten()
-    # Some small planets with high irradiations explode, even without inflation
-    valid_mask_irr = radii_irr_flat > 0
-    points_irr = Delaunay(list(zip(masses_grid[:,:,0].flatten()[valid_mask_irr],
-                                   np.log10(flux_grid[:,:,0].flatten()[valid_mask_irr]))))
-    interpolators["radius_irr"]    = LinearNDInterpolator(points_irr, radii_irr_flat[valid_mask_irr])
-    interpolators["brms_irr"]      = LinearNDInterpolator(points_irr, grid(table_inner.bscaling_heat)[:,:,0].flatten()[valid_mask_irr])
-    interpolators["brms_irr_surf"] = LinearNDInterpolator(points_irr, grid(table_inner.bscaling_surf_heat)[:,:,0].flatten()[valid_mask_irr])
+    # The epsilon = 0 data give the estimates for the only irradiated models. The radius is the same in
+    # both tables; the magnetic fields are taken from the inner tables (dynamo top at Rm = 50, as the
+    # outer tables use P = 1 Mbar, with rotation)
+    def eps0_interpolator(table, values):
+        # Interpolator in (M, log10 F_irr) of the eps = 0 models of a table that reached the age of the tables.
+        # Some small planets with high irradiations explode, even without inflation
+        valid_mask_eps0 = grid(table.radius_heat)[:,:,0].flatten() > 0
+        points_eps0 = Delaunay(list(zip(masses_grid[:,:,0].flatten()[valid_mask_eps0],
+                                        np.log10(flux_grid[:,:,0].flatten()[valid_mask_eps0]))))
+        return LinearNDInterpolator(points_eps0, grid(values)[:,:,0].flatten()[valid_mask_eps0])
+
+    interpolators["radius_irr"]    = eps0_interpolator(table_inner, table_inner.radius_heat)
+    interpolators["brms_irr"]      = eps0_interpolator(table_inner, table_inner.bscaling_heat)
+    interpolators["brms_irr_surf"] = eps0_interpolator(table_inner, table_inner.bscaling_surf_heat)
+
+    # eps = 0 values of the inflated quantities, for the Monte Carlo samples below the eps = 0 radius
+    for heating, table in (("inner", table_inner), ("outer", table_outer)):
+        interpolators["heat_eff_" + heating + "_eps0"]  = zero_eps0
+        interpolators["brms_" + heating + "_eps0"]      = eps0_interpolator(table, table.bscaling_heat)
+        interpolators["brms_" + heating + "_surf_eps0"] = eps0_interpolator(table, table.bscaling_surf_heat)
     return interpolators
 
 def get_observed_values(planets, index_planet, error_sym):
@@ -284,8 +312,8 @@ def get_observed_values(planets, index_planet, error_sym):
 
 def set_radius_irr(planets, index_planet, interpolator_radius_irr, mass, mass_err, flux, flux_err, radius, error_sym):
     # Store the radius without heating. Returns False (with no B or heating estimates) if the planet is smaller
-    planets.radius_irr_est[index_planet]     = interpolator_radius_irr(mass, np.log10(flux))
-    planets.radius_irr_est_err[index_planet] = get_error_irr_any(interpolator_radius_irr, mass, mass_err, flux, flux_err, error_sym)
+    planets.radius_irr_est[index_planet], planets.radius_irr_est_err[index_planet] = \
+        get_estimate_irr_any(interpolator_radius_irr, mass, mass_err, flux, flux_err, error_sym)
 
     if radius < planets.radius_irr_est[index_planet]:
         for name in IRR_QUANTITIES + HEAT_QUANTITIES:
@@ -315,16 +343,13 @@ def linear_interpolator(table_inner,
 
         if not set_radius_irr(planets, index_planet, interpolators["radius_irr"],
                               mass, mass_err, flux, flux_err, radius, error_sym): continue
-        radius_irr = planets.radius_irr_est[index_planet]
 
         for name in IRR_QUANTITIES:
-            getattr(planets, name + "_est")[index_planet]     = interpolators[name](mass, np.log10(flux))
-            getattr(planets, name + "_est_err")[index_planet] = get_error_irr_any(interpolators[name],
-                                                                    mass, mass_err, flux, flux_err, error_sym)
+            getattr(planets, name + "_est")[index_planet], getattr(planets, name + "_est_err")[index_planet] = \
+                get_estimate_irr_any(interpolators[name], mass, mass_err, flux, flux_err, error_sym)
         for name in HEAT_QUANTITIES:
-            getattr(planets, name + "_est")[index_planet]     = interpolators[name](mass, np.log10(flux), radius)
-            getattr(planets, name + "_est_err")[index_planet] = get_error_any(interpolators[name],
-                                                                    mass, mass_err, flux, flux_err, radius, radius_err, radius_irr, error_sym)
+            getattr(planets, name + "_est")[index_planet], getattr(planets, name + "_est_err")[index_planet] = \
+                get_estimate_any(interpolators, name, mass, mass_err, flux, flux_err, radius, radius_err, error_sym)
 
 def get_b_value(interpolator, index_period, fraction, *coordinates):
     brms_upper        = interpolator[index_period](*coordinates)
@@ -337,24 +362,25 @@ def get_error_gaussian_rot(interpolator, periods,
                            mass, mass_err,
                            flux, flux_err,
                            radius, radius_err,
-                           radius_irr,
                            period, period_err,
+                           interpolator_radius_irr = None,
+                           interpolator_eps0 = None,
                            only_irr = False,
                            N = 10000,
                            min_mass = 0.3, max_mass = 12,
                            min_flux = 1e7, max_flux = 1.58e10):
     """
-    Monte Carlo (minus, plus) error of a magnetic field with rotation. interpolator has one interpolator
-    per period of the grid. Mass, flux, radius and period are sampled together, and each sample is
-    interpolated in log10 P between its own two grid periods. only_irr: an eps = 0 quantity, which does
-    not depend on the radius.
+    Monte Carlo median and (minus, plus) errors of a magnetic field with rotation. interpolator (and
+    interpolator_eps0, the eps = 0 values in M and log10 F_irr) has one interpolator per period of the
+    grid. Mass, flux, radius and period are sampled together, and each sample is interpolated in log10 P
+    between its own two grid periods. The samples smaller than their eps = 0 radius
+    (interpolator_radius_irr) take the eps = 0 value. only_irr: an eps = 0 quantity, which does not
+    depend on the radius.
     """
-    # A missing (NaN) observational error gives a missing (NaN) error, as in get_scaling_law_err
-
     # A missing (NaN) observational error gives a missing (NaN) error, as in get_scaling_law_err
     if np.any(np.isnan(mass_err)) or np.any(np.isnan(flux_err)) or \
        (not only_irr and np.any(np.isnan(radius_err))):
-        return np.nan, np.nan
+        return np.nan, np.nan, np.nan
 
     masses_s  = table_predictions_save.sample_obs(mass, mass_err, N)
     fluxes_s  = table_predictions_save.sample_obs(flux, flux_err, N)
@@ -363,10 +389,11 @@ def get_error_gaussian_rot(interpolator, periods,
 
     mask = (masses_s > min_mass) & (masses_s < max_mass) & (fluxes_s > min_flux) & (fluxes_s < max_flux) & \
            (periods_s > periods[0]) & (periods_s < periods[-1])
-    if not only_irr: mask &= radii_s > radius_irr
 
     masses_s, log_fluxes_s, periods_s = masses_s[mask], np.log10(fluxes_s[mask]), periods_s[mask]
-    if not only_irr: radii_s = radii_s[mask]
+    if not only_irr:
+        radii_s = radii_s[mask]
+        below = radii_s < interpolator_radius_irr(masses_s, log_fluxes_s)
 
     idx_upper = np.searchsorted(periods, periods_s)
     fraction = (np.log10(periods_s) - np.log10(periods[idx_upper-1])) / (np.log10(periods[idx_upper]) - np.log10(periods[idx_upper-1]))
@@ -377,12 +404,13 @@ def get_error_gaussian_rot(interpolator, periods,
         coordinates = (masses_s[in_bracket], log_fluxes_s[in_bracket])
         if not only_irr: coordinates += (radii_s[in_bracket],)
         samples[in_bracket], _ = get_b_value(interpolator, index_period, fraction[in_bracket], *coordinates)
+        if not only_irr:
+            in_bracket_below = in_bracket & below
+            if np.any(in_bracket_below):
+                samples[in_bracket_below], _ = get_b_value(interpolator_eps0, index_period, fraction[in_bracket_below],
+                                                           masses_s[in_bracket_below], log_fluxes_s[in_bracket_below])
 
-    samples = samples[~np.isnan(samples)]
-    if samples.size == 0: return np.nan, np.nan   # No sample inside the grid: no error bar instead of a crash
-    p16, p50, p84 = np.percentile(samples, [16, 50, 84])
-
-    return p50 - p16, p84 - p50 # estimate error minus, estimate error plus
+    return median_and_errors(samples)
 
 def linear_interpolator_rot(table_inner,
                             table_outer,
@@ -416,7 +444,6 @@ def linear_interpolator_rot(table_inner,
 
         if not set_radius_irr(planets, index_planet, interpolators["radius_irr"],
                               mass, mass_err, flux, flux_err, radius, error_sym): continue
-        radius_irr = planets.radius_irr_est[index_planet]
 
         idx_upper = np.searchsorted(periods, period)
         idx_lower = idx_upper - 1
@@ -429,8 +456,8 @@ def linear_interpolator_rot(table_inner,
             coordinates = (mass, np.log10(flux)) if only_irr else (mass, np.log10(flux), radius)
 
             interpolator = [interpolators_period[name] for interpolators_period in interpolators_s]
-            getattr(planets, name + "_est")[index_planet], delta_brms_est = get_b_value(interpolator,
-                                                                                idx_upper, fraction, *coordinates)
+            brms_nominal, delta_brms_est = get_b_value(interpolator, idx_upper, fraction, *coordinates)
+            getattr(planets, name + "_est")[index_planet] = brms_nominal
             if error_sym:
                 # Linear propagation through B interpolated at the planet's period, plus the period term
                 def interpolator_period(*coordinates):
@@ -441,14 +468,17 @@ def linear_interpolator_rot(table_inner,
                 log_period_err = period_err/period/np.log(10)
                 getattr(planets, name + "_est_err")[index_planet] = np.sqrt(brms_err**2 + dbrms_dlogperiod**2*log_period_err**2)
             else:
-                getattr(planets, name + "_est_err")[index_planet] = get_error_gaussian_rot(interpolator, periods,
-                                                                        mass, mass_err, flux, flux_err, radius, radius_err, radius_irr,
-                                                                        period, period_err, only_irr = only_irr)
+                interpolator_eps0 = None if only_irr else [interpolators_period[name + "_eps0"]
+                                                           for interpolators_period in interpolators_s]
+                getattr(planets, name + "_est")[index_planet], getattr(planets, name + "_est_err")[index_planet] = \
+                    monte_carlo_or_nominal(brms_nominal, *get_error_gaussian_rot(interpolator, periods,
+                                                                                 mass, mass_err, flux, flux_err, radius, radius_err,
+                                                                                 period, period_err, interpolators["radius_irr"],
+                                                                                 interpolator_eps0, only_irr = only_irr))
 
         for name in ["heat_eff_inner", "heat_eff_outer"]:
-            getattr(planets, name + "_est")[index_planet]     = interpolators[name](mass, np.log10(flux), radius)
-            getattr(planets, name + "_est_err")[index_planet] = get_error_any(interpolators[name],
-                                                                    mass, mass_err, flux, flux_err, radius, radius_err, radius_irr, error_sym)
+            getattr(planets, name + "_est")[index_planet], getattr(planets, name + "_est_err")[index_planet] = \
+                get_estimate_any(interpolators, name, mass, mass_err, flux, flux_err, radius, radius_err, error_sym)
 
 def reasons_not_interpolated(planets, grid_limits, rotation):
     """
