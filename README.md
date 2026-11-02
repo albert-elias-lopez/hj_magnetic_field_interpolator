@@ -1,151 +1,80 @@
 # Hot Jupiter Magnetic Field Interpolator
 
-This repository contains Python tools to estimate the magnetic field strengths of giant exoplanets, particularly hot and warm Jupiters, using interpolation of one-dimensional planetary evolution models and analytical magnetic scaling laws.
+Python tools to estimate the magnetic field strength of giant exoplanets, particularly hot and warm Jupiters, from their observed mass, radius, incident stellar flux and orbital period (Elias-López et al. 2026).
 
-The interpolator is based on a precomputed grid of MESA evolutionary models combined with the dynamo scaling law of Christensen et al. (2009). For each planet it predicts:
+The estimates come from a precomputed grid of MESA planetary evolution models combined with the dynamo scaling law of Christensen et al. (2009). For each planet, the interpolator gives:
 
-- the heating efficiency $\epsilon$ required to reproduce the observed planetary radius;
-- the rms magnetic field at the dynamo surface, $B_{\rm rms,dyn}$;
-- the surface dipolar magnetic field, $B_{\rm dip,surf}$.
+- the heating efficiency $\epsilon$ needed to reproduce the observed radius;
+- the rms magnetic field in the dynamo region, $B_{\rm rms,dyn}$;
+- the dipolar magnetic field at the planetary surface, $B_{\rm dip,surf}$.
 
-As an alternative to interpolation, the repository also provides simple analytical scaling laws, fitted to the interpolated population, that only depend on planetary mass, radius and (optionally) irradiation.
+Each quantity is given for two limiting cases: heat deposited deep in the interior (strong field) or in the outer layers (weak field). As a quick alternative, the repository also provides analytical scaling laws fitted to the interpolated population, which only need the planetary mass, radius and (optionally) flux.
 
----
+## Contents
 
-## Repository contents
-
-- magnetic field interpolators for the published model grids (`tables/<mass>_MJ/` folders);
-- analytical scaling laws fitted to the hot Jupiter population;
-- uncertainty propagation using Monte Carlo sampling, including asymmetric uncertainties;
-- a Python interface (`hj_model.py`) to use the interpolator and the scaling laws from your own code, with a short example for your own planet (`example.py`);
-- scripts to reproduce the results of Elias-López et al. (2026).
-
-The planetary evolution calculations themselves are **not** included here. They were performed using the MESA stellar evolution code and are available in the repository **https://github.com/csic-ice-imagine/MESA_rossby_HJ**
-
-The magnetic field tables in the `tables/<mass>_MJ/` folders were generated from those runs with `table_generator.py` (`python table_generator.py --path_sims <MESA runs folder>` for the tables with rotation, adding `--no_rotation` for the tables without it). The script needs the MESA output and the module `radial_functions`, which are not included here but can be provided upon request.
-
----
-
-## How to use this repository
-
-There are three ways to use it, from the quickest to the most complete:
-
-1. **Look up the saved estimates (no installation needed).** The estimates of the paper are already in the folder `predictions/` (see [Output files](#output-files)):
-   - `predictions/hot_jupiters.txt`: one line per planet of the hot Jupiter population, with the planet name in the last column. For example `grep "HD 189733 b" predictions/hot_jupiters.txt`. `hot_jupiters_extra.txt` has all gas giants of the archive, also those with incomplete stellar data.
-   - `predictions/hot_jupiters/<planet>.txt` (spaces replaced by `_`, e.g. `HD_189733_b.txt`): the interpolated fields next to all the scaling laws, for the inflated planets used in the fits ($R_{\rm P} > 1.05\,R_{\epsilon=0}$). `predictions/hot_jupiters_extra/` has the same files for more planets ($R_{\rm P} > 0.75\,R_{\epsilon=0}$).
-   - `predictions/<sample>.txt` and `predictions/<sample>/`: the samples of the literature comparison (`seidel26`, `cauley19`, `wasp12b`, `hd209458b`, `hats53b`).
-   - Names ending in `_no_rot` or `_simple_fit` come from runs with other options, not used in the paper; `_syst_err` adds a factor-of-2 systematic error (see [Output files](#output-files)).
-2. **Estimate your own planet from Python (recommended).** After the [Installation](#installation), edit the values at the top of `example.py` and run `python example.py`. It prints the heating efficiencies and magnetic fields with their errors and, optionally, the scaling-law predictions. To use the estimates in your own scripts, see [Using the interpolator from Python](#using-the-interpolator-from-python). A single planet can also be estimated from the command line with `python main.py --no_HJ --which_planets my_own --my_planet_params ...` (see [Running the code](#running-the-code)).
-3. **Rerun the whole analysis.** `python main.py --save_plot_population` recomputes the population estimates, the scaling-law fits and the figures (about 10 minutes); see [Running the code](#running-the-code) for the full list of commands of the paper. With the default seed, the outputs are identical to the committed ones.
+- [Quick start](#quick-start)
+- [Look up the saved estimates](#look-up-the-saved-estimates)
+- [Using the interpolator from Python](#using-the-interpolator-from-python)
+- [Inputs and grid limits](#inputs-and-grid-limits)
+- [Installation](#installation)
+- [Reproducing the paper](#reproducing-the-paper)
+- [Command-line options](#command-line-options)
+- [Output files](#output-files)
+- [Vocabulary](#vocabulary)
+- [Model assumptions](#model-assumptions)
+- [Repository layout](#repository-layout)
+- [Citation](#citation) and [License](#license)
 
 ---
 
-## Required inputs
-
-For each planet the interpolator requires
-
-- planet mass $M_{\rm P}$ (in $M_{\rm J}$);
-- planet radius $R_{\rm P}$ (in $R_{\rm J}$);
-- incident stellar flux $F_{\rm irr}$ (in erg cm$^{-2}$ s$^{-1}$);
-- orbital period $P_{\rm orb}$ (in days);
-
-together with their uncertainties. The model grid covers $0.3 < M_{\rm P} < 12\,M_{\rm J}$, $10^7 < F_{\rm irr} < 1.58\times10^{10}$ erg cm$^{-2}$ s$^{-1}$ and $0.1 < P_{\rm orb} < 100$ days; planets outside it are not interpolated.
-
-By default, the code uses the rotation-corrected magnetic field tables (Fuentes et al. 2023), which assume tidally locked planets. This correction can be disabled with the `--no_rotation` option, in which case the orbital period is not used.
-
-For the hot Jupiter population, the inputs are read from the NASA Exoplanet Archive tables included in the repository (`PS_2026.02.18_*.csv`). Missing stellar temperatures and radii are estimated from a main-sequence relation (`main_sequence_luminosities.txt`), and a missing semi-major axis from Kepler's third law.
-
----
-
-## Installation
-
-You need Python 3.11 or 3.12 (check with `python3 --version`). These are the versions that work with the packages used. Any Python >= 3.10 also works with the `--latest` option below. LaTeX is optional: if it is installed, it is used for the plot labels; otherwise matplotlib's own math rendering is used.
-
-**1. Download the code and create the environment** (only once):
+## Quick start
 
 ```
 git clone https://github.com/albert-elias-lopez/hj_magnetic_field_interpolator.git
 cd hj_magnetic_field_interpolator
-python3 set_up.py
+python3 set_up.py              # only once: creates the environment in .venv (needs Python 3.11 or 3.12)
+source .venv/bin/activate      # in every new terminal (Windows: .venv\Scripts\activate)
+python example.py              # estimates for WASP-12 b
 ```
 
-`set_up.py` creates a virtual environment in the folder `.venv` of the repository, installs the package versions used in the paper (see [Package versions](#package-versions)) and checks that the code runs. With these versions, the default random seed reproduces the results of the paper exactly. It can be run from any folder, e.g. `python3 path/to/set_up.py`.
+To estimate your own planet, replace the values at the top of `example.py` and run it again.
 
-Options and common problems:
-
-- `python3 set_up.py --latest` installs the newest package versions instead, for other Python versions. The last digits of the results may then differ slightly from the paper.
-- If your default Python is not 3.11 or 3.12 but one of them is installed, run the script with it, e.g. `python3.12 set_up.py`.
-- On Debian/Ubuntu, if creating the environment fails, install the venv module first (`sudo apt install python3.12-venv`, with your Python version) and run the script again.
-- Running `set_up.py` again reuses the existing environment. To start from scratch, delete the folder `.venv` first.
-- If you prefer to manage your own environment, install the packages listed in [Package versions](#package-versions).
-
-**2. Activate the environment** (every time you open a new terminal):
-
-```
-source .venv/bin/activate        (Windows: .venv\Scripts\activate)
-python main.py --help
-```
-
-**3. Try it on a planet:** `python example.py` prints the estimates for WASP-12 b. Replace the values at the top of `example.py` with your own planet (see [Using the interpolator from Python](#using-the-interpolator-from-python)).
-
-When you are done, `deactivate` leaves the environment. Without activating it, you can also run the code directly with `.venv/bin/python main.py` (Windows: `.venv\Scripts\python main.py`).
-
-### Package versions
-
-`set_up.py` installs the package versions used for the results of the paper, which need Python 3.11 or 3.12. With these versions, the default random seed reproduces the results exactly.
-
-| Package | Version |
+| I want to... | Do this |
 |---|---|
-| numpy | 1.26.4 |
-| scipy | 1.16.2 |
-| matplotlib | 3.10.6 |
-| tqdm | 4.67.1 |
-| emcee | 3.1.6 |
-| odrpack | 0.5.0 |
-
-To install them in your own environment instead:
-
-```
-pip install numpy==1.26.4 scipy==1.16.2 matplotlib==3.10.6 tqdm==4.67.1 emcee==3.1.6 odrpack==0.5.0
-```
+| look up a known planet | open `predictions/hot_jupiters.txt`, no installation needed ([details](#look-up-the-saved-estimates)) |
+| estimate my own planet | edit the top of `example.py` and run `python example.py` |
+| use the estimates in my own scripts | `from hj_model import HJMagneticModel` ([details](#using-the-interpolator-from-python)) |
+| reproduce the results of the paper | run the `main.py` commands of [Reproducing the paper](#reproducing-the-paper) |
 
 ---
 
-## Running the code
+## Look up the saved estimates
 
-To reproduce the results of Elias-López et al. (2026), run these commands in this order (all but the first use the scaling-law fits saved by the first one):
+The estimates of the paper are already in the folder `predictions/`, so you can use them without installing anything. Each table `<name>.txt` has one line per planet; the folder `<name>/` next to it has one file per planet, with the interpolated fields next to all the scaling laws. Planet file names replace spaces by `_` (e.g. `HD_189733_b.txt`).
 
-```
-python main.py --save_plot_population
-python main.py --no_HJ --which_planets seidel26 --add_systematic_error
-python main.py --no_HJ --which_planets cauley19 --add_systematic_error
-python main.py --no_HJ --which_planets seidel26
-python main.py --no_HJ --which_planets cauley19
-python main.py --no_HJ --which_planets wasp12b
-python main.py --no_HJ --which_planets hd209458b
-```
+| File or folder in `predictions/` | Contents |
+|---|---|
+| `hot_jupiters.txt` | the hot Jupiter population (planets with complete stellar data), with the planet name in the last column |
+| `hot_jupiters/` | one file per inflated planet used in the fits ($R_{\rm P} > 1.05\,R_{\epsilon=0}$) |
+| `hot_jupiters_extra.txt`, `hot_jupiters_extra/` | all gas giants of the archive, also those with incomplete stellar data; the folder has every planet with $R_{\rm P} > 0.75\,R_{\epsilon=0}$ |
+| `seidel26`, `cauley19`, `wasp12b`, `hd209458b`, `hats53b` | the samples of the literature comparison (table and folder) |
+| names ending in `_syst_err` | with a factor-of-2 systematic uncertainty, as in the literature comparison figure |
+| names ending in `_no_rot` or `_simple_fit` | runs with other options, not used in the paper |
 
-The runs with `--add_systematic_error` include a factor-of-2 systematic uncertainty (×½ below, ×2 above), as in the literature comparison figure; the others only include the observational uncertainties, as in the literature comparison table.
-
-The first command uses the defaults `--fit_type gaussian`, `--N_gauss_fits 10000` and `--which_cut "radius cut"`, and takes about 10 minutes. The Monte Carlo uncertainties and fits use a fixed random seed (`--seed`, default 42), so the same command always gives exactly the same results.
-
-Other examples:
+For example:
 
 ```
-python main.py --save_plot_population --fit_type simple
-python main.py --no_rotation --no_HJ --which_planets seidel26
-python main.py --no_HJ --which_planets my_own --my_planet_params 1.2 0.1 1.5 0.1 1 1e-6 1e9 1e8
+grep "HD 189733 b" predictions/hot_jupiters.txt
+cat predictions/hot_jupiters/HD_189733_b.txt
 ```
 
-The last one estimates the magnetic field of your own planet (here $M_{\rm P} = 1.2 \pm 0.1\,M_{\rm J}$, $R_{\rm P} = 1.5 \pm 0.1\,R_{\rm J}$, $P_{\rm orb} = 1$ day, $F_{\rm irr} = (1.0 \pm 0.1)\times10^9$ erg cm$^{-2}$ s$^{-1}$) and prints the results in the terminal.
-
-The code can be launched from any folder; the outputs are always written in the repository folders `predictions/` and `plots/`.
+The columns and the format of the values are explained in [Output files](#output-files).
 
 ---
 
 ## Using the interpolator from Python
 
-`hj_model.py` gives the same estimates as `main.py` from your own scripts or notebooks, without writing files. Run Python from the repository folder (or add it to `sys.path`). The quickest start is `example.py`: edit the values of your planet at the top and run `python example.py`. In short:
+`hj_model.py` gives the same estimates as `main.py`, from your own scripts and without writing files. Run Python from the repository folder, or add the folder to `sys.path`. The quickest start is `example.py`.
 
 ```python
 from hj_model import HJMagneticModel
@@ -167,13 +96,148 @@ print(result["brms_inner_surf"], result["brms_inner_surf_err"])   # B_dip,surf (
 b, b_err = model.scaling_law(mass=1.41, mass_err=0.10, radius=1.79, radius_err=0.09, heating="outer")
 ```
 
+**Inputs**
+
 - **Units:** planet mass in $M_{\rm J}$, planet radius in $R_{\rm J}$, flux in erg cm$^{-2}$ s$^{-1}$, orbital period in days, stellar radius in $R_\odot$, stellar temperature in K, stellar mass in $M_\odot$, orbital distance in AU.
-- **Several planets at once:** every value can be an array.
 - **Errors:** a number or array for symmetric errors, or a tuple `(lower, upper)` for asymmetric ones. `np.nan` marks a missing error.
-- **Results of `estimate`:** `eps_inner`, `eps_outer` (heating efficiencies, as fractions), `brms_inner`, `brms_inner_surf`, `brms_outer`, `brms_outer_surf` ($B_{\rm rms,dyn}$ and $B_{\rm dip,surf}$ in G for deep and shallow heating), `brms_irr`, `brms_irr_surf` and `radius_irr` (the non-inflated, $\epsilon = 0$, model with the same mass and flux). Each has its `(minus, plus)` error under `<name>_err`. `result.print_all()` prints all of them for each planet (heating efficiencies in %, fields in G), with the planet names given by `names` (default `planet 0`, `planet 1`, ...). `result.print_all_scaling_law()` prints them next to the scaling-law predictions, as in the per-planet files of `main.py` (see [Output files](#output-files)): the fits of this work (`FitMRL`, `FitMRF`, `FitMR`), `R09` and `R09+Th18`, and the heating efficiency of Thorngren & Fortney (2018). Their central values are those of `main.py`; their Monte Carlo errors can differ in the second digit, because `main.py` draws them after its other random numbers. The scaling laws without $\epsilon$ (`FitMRF`, `FitMR`, `R09+Th18`) are also given for planets without interpolated estimates; outside the grid they are extrapolations.
-- **Planets without estimates:** planets outside the grid in mass, flux or period, smaller than their non-inflated model (only `radius_irr` is given), larger than the most inflated model, or with a missing value give `nan`. `estimate` shows a `GridWarning` that lists each of them with the reason in one sentence, and `print_all` prints the same reason instead of the estimates. Silence it with `warnings.simplefilter("ignore", hj_model.GridWarning)`. `main.py` prints how many planets have no estimates for each reason.
-- **Random numbers:** the Monte Carlo errors use numpy's random numbers with `seed=42` by default, as `main.py`, so the same input always gives the same errors.
-- **Check:** `python hj_model.py` (or `hj_model.check()`) verifies that the interface reproduces the committed predictions of `main.py` exactly. Run it after changing the code; the GitHub Action also runs it.
+- **Several planets at once:** every value can be an array.
+
+**Results of `estimate`**
+
+| Key | Meaning | Unit |
+|---|---|---|
+| `eps_inner`, `eps_outer` | heating efficiency, for deep and shallow heating | fraction |
+| `brms_inner`, `brms_outer` | $B_{\rm rms,dyn}$, for deep and shallow heating | G |
+| `brms_inner_surf`, `brms_outer_surf` | $B_{\rm dip,surf}$, for deep and shallow heating | G |
+| `brms_irr`, `brms_irr_surf` | $B_{\rm rms,dyn}$ and $B_{\rm dip,surf}$ of the non-inflated model ($\epsilon = 0$, same mass and flux) | G |
+| `radius_irr` | radius of the non-inflated model | $R_{\rm J}$ |
+
+Each key has its `(minus, plus)` error under `<key>_err`.
+
+**Printing.** `result.print_all()` prints every estimate for each planet (heating efficiencies in %, fields in G), with the planet names given by `names` (default `planet 0`, `planet 1`, ...). `result.print_all_scaling_law()` prints them next to the scaling-law predictions, as in the per-planet files of `main.py`:
+
+- the fits of this work (`FitMRL`, `FitMRF`, `FitMR`);
+- `R09` and `R09+Th18`, the law of Reiners et al. (2009) with the interpolated heating efficiency or that of Thorngren & Fortney (2018), whose heating efficiency is also printed.
+
+Their central values are those of `main.py`; their Monte Carlo errors can differ in the second digit, because `main.py` draws them after its other random numbers. The scaling laws without $\epsilon$ (`FitMRF`, `FitMR`, `R09+Th18`) are also given for planets without interpolated estimates; outside the grid they are extrapolations.
+
+**Scaling laws.** `model.scaling_law(...)` gives the published laws directly: the MR fit (mass and radius), or the MRF fit if you also give `flux` and `flux_err`. Choose `heating="inner"` (strong field), `"outer"` (weak field) or `"none"` (non-inflated planets), and `field="dip,surf"` (default) or `"rms,dyn"`.
+
+**Planets without estimates.** These planets give `nan`:
+
+- outside the grid in mass, flux or period;
+- smaller than their non-inflated model (only `radius_irr` is given);
+- larger than the most inflated model;
+- with a missing value.
+
+`estimate` shows a `GridWarning` that lists each of them with the reason, and `print_all` prints the same reason instead of the estimates. To silence it: `warnings.simplefilter("ignore", hj_model.GridWarning)`.
+
+**Reproducibility.** The Monte Carlo errors use numpy's random numbers with `seed=42` by default, as `main.py`, so the same input always gives the same errors. `python hj_model.py` (or `hj_model.check()`) verifies that the interface reproduces the committed predictions of `main.py` exactly; run it after changing the code. The GitHub Action also runs it.
+
+---
+
+## Inputs and grid limits
+
+For each planet, the interpolator needs these values and their uncertainties:
+
+| Input | Unit | Grid range |
+|---|---|---|
+| planet mass $M_{\rm P}$ | $M_{\rm J}$ | 0.3 to 12 |
+| planet radius $R_{\rm P}$ | $R_{\rm J}$ | between the non-inflated and the most inflated model |
+| incident stellar flux $F_{\rm irr}$ | erg cm$^{-2}$ s$^{-1}$ | $10^7$ to $1.58\times10^{10}$ |
+| orbital period $P_{\rm orb}$ | days | 0.1 to 100 |
+
+Planets outside the grid are not interpolated.
+
+**Rotation.** By default, the code uses the rotation-corrected magnetic field tables (Fuentes et al. 2023), which assume tidally locked planets. The option `--no_rotation` (or `HJMagneticModel(rotation=False)`) disables the correction, and then the orbital period is not used.
+
+**Population data.** For the hot Jupiter population, the inputs are read from the NASA Exoplanet Archive tables included in the repository (`PS_2026.02.18_*.csv`). Missing stellar temperatures and radii are estimated from a main-sequence relation (`main_sequence_luminosities.txt`), and a missing semi-major axis from Kepler's third law.
+
+---
+
+## Installation
+
+You need Python 3.11 or 3.12 (check with `python3 --version`); the package versions of the paper need one of them. Any Python >= 3.10 also works with the `--latest` option below. LaTeX is optional: if it is installed, it is used for the plot labels; otherwise matplotlib's own math rendering is used.
+
+**1. Download the code and create the environment** (only once):
+
+```
+git clone https://github.com/albert-elias-lopez/hj_magnetic_field_interpolator.git
+cd hj_magnetic_field_interpolator
+python3 set_up.py
+```
+
+`set_up.py` creates a virtual environment in the folder `.venv` of the repository, installs the package versions used in the paper (see [Package versions](#package-versions)) and checks that the code runs. With these versions, the default random seed reproduces the results of the paper exactly. It can be run from any folder, e.g. `python3 path/to/set_up.py`.
+
+**2. Activate the environment** (in every new terminal):
+
+```
+source .venv/bin/activate        (Windows: .venv\Scripts\activate)
+python main.py --help
+```
+
+When you are done, `deactivate` leaves the environment. Without activating it, you can also run the code with `.venv/bin/python main.py` (Windows: `.venv\Scripts\python main.py`).
+
+**3. Try it on a planet:** `python example.py` prints the estimates for WASP-12 b. Replace the values at the top of `example.py` with your own planet.
+
+**Common problems**
+
+- **Other Python versions:** `python3 set_up.py --latest` installs the newest package versions instead. The last digits of the results may then differ slightly from the paper.
+- **Default Python is not 3.11 or 3.12**, but one of them is installed: run the script with it, e.g. `python3.12 set_up.py`.
+- **Creating the environment fails on Debian/Ubuntu:** install the venv module first (`sudo apt install python3.12-venv`, with your Python version) and run the script again.
+- **Starting from scratch:** running `set_up.py` again reuses the existing environment; delete the folder `.venv` first.
+- **Your own environment:** install the packages listed below.
+
+### Package versions
+
+`set_up.py` installs the package versions used for the results of the paper (Python 3.11 or 3.12). With these versions, the default random seed reproduces the results exactly.
+
+| Package | Version |
+|---|---|
+| numpy | 1.26.4 |
+| scipy | 1.16.2 |
+| matplotlib | 3.10.6 |
+| tqdm | 4.67.1 |
+| emcee | 3.1.6 |
+| odrpack | 0.5.0 |
+
+To install them in your own environment instead:
+
+```
+pip install numpy==1.26.4 scipy==1.16.2 matplotlib==3.10.6 tqdm==4.67.1 emcee==3.1.6 odrpack==0.5.0
+```
+
+---
+
+## Reproducing the paper
+
+Run these commands in this order. All but the first use the scaling-law fits saved by the first one.
+
+```
+python main.py --save_plot_population
+python main.py --no_HJ --which_planets seidel26 --add_systematic_error
+python main.py --no_HJ --which_planets cauley19 --add_systematic_error
+python main.py --no_HJ --which_planets seidel26
+python main.py --no_HJ --which_planets cauley19
+python main.py --no_HJ --which_planets wasp12b
+python main.py --no_HJ --which_planets hd209458b
+python main.py --no_HJ --which_planets hats53b
+```
+
+- The first command estimates the whole population, fits the scaling laws and saves the figures (about 10 minutes). It uses the defaults `--fit_type gaussian`, `--N_gauss_fits 10000` and `--which_cut "radius cut"`.
+- The runs with `--add_systematic_error` include a factor-of-2 systematic uncertainty (×½ below, ×2 above), as in the literature comparison figure. The others only include the observational uncertainties, as in the literature comparison table.
+- The Monte Carlo uncertainties and fits use a fixed random seed (`--seed`, default 42), so the same command always gives exactly the same results.
+- The code can be launched from any folder; the outputs are always written in the repository folders `predictions/` and `plots/`.
+
+Other examples:
+
+```
+python main.py --save_plot_population --fit_type simple
+python main.py --no_rotation --no_HJ --which_planets seidel26
+python main.py --no_HJ --which_planets my_own --my_planet_params 1.2 0.1 1.5 0.1 1 1e-6 1e9 1e8
+```
+
+The last one estimates the magnetic field of your own planet ($M_{\rm P} = 1.2 \pm 0.1\,M_{\rm J}$, $R_{\rm P} = 1.5 \pm 0.1\,R_{\rm J}$, $P_{\rm orb} = 1$ day, $F_{\rm irr} = (1.0 \pm 0.1)\times10^9$ erg cm$^{-2}$ s$^{-1}$) and prints the results in the terminal.
 
 ---
 
@@ -202,8 +266,80 @@ b, b_err = model.scaling_law(mass=1.41, mass_err=0.10, radius=1.79, radius_err=0
 | **Uncertainties** | |
 | `--add_systematic_error` | Add a factor-of-2 systematic error (×½ below, ×2 above) in quadrature to the interpolated estimates, a rough estimate of the uncertainty of the interior structure and dynamo model assumptions. By default, the uncertainty only comes from the propagation of the observational errors. |
 | `--seed` | Seed of the random numbers used for the Monte Carlo uncertainties and fits. The same seed gives exactly the same results. *(default: 42)* |
+| **Input files** | |
 | `--population_file` | NASA Exoplanet Archive table (CSV) of the gas giants with complete stellar data, used for the population predictions and the fits. A path is relative to the folder you run from. *(default: `PS_2026.02.18_08.49.05.csv`)* |
 | `--extra_population_file` | Archive table (CSV) of all gas giants, including those with incomplete stellar data, used for the `_extra` outputs. *(default: `PS_2026.02.18_07.09.03.csv`)* |
+
+---
+
+## Output files
+
+### Names
+
+The results of the paper use the default options and their names have no suffix. Runs with other options add a suffix to all their output names, so they never overwrite the default ones:
+
+| Suffix | Run | Used in the paper |
+|---|---|---|
+| `_syst_err` | `--add_systematic_error` | yes, in the literature comparison figure |
+| `_no_rot` | `--no_rotation` | no |
+| `_simple_fit` | `--fit_type simple` | no |
+| `_cut_epsF`, `_cut_Qdep`, `_cut_B`, `_no_cut` | the other `--which_cut` options | no |
+
+The outputs that are not used in the paper are included for transparency. The folders in `plots/` follow the same rule: `plots/fits/` holds the default fits, `plots/fits_no_rot/` the fits without rotation, and so on.
+
+### Values
+
+Values with uncertainties are written as `value$_{-lower}^{+upper}$` (or `value$\pm$error` for the observed values), ready to be used in LaTeX tables. Dashes mean that the value or its uncertainty is not available, for example when the observed radius is smaller than the radius of a purely irradiated planet, or when an observational uncertainty is missing in the archive.
+
+The two heating cases bracket the magnetic field: heat deposited in the interior ("inner", or "up" in the columns) gives an upper estimate, and heat deposited in the outer layers ("outer", or "low") a lower estimate. "irr" refers to the purely irradiated models ($\epsilon = 0$).
+
+### `predictions/<sample>.txt`
+
+One line per planet. `<sample>` is `hot_jupiters` (planets with complete stellar data), `hot_jupiters_extra` (all gas giants in the archive table, including those with incomplete stellar data, whose missing stellar radius and temperature are taken from main-sequence relations; not used in the fits) or the `--which_planets` sample.
+
+| Column | Meaning |
+|---|---|
+| `M(MJ)`, `R(RJ)`, `F(erg cm-2 s-1)`, `P(days)` | observed mass, radius, irradiation flux and orbital period |
+| `R_irr(RJ)` | radius of the purely irradiated planet ($\epsilon = 0$) |
+| `eps_up(%)`, `eps_low(%)` | heating efficiency needed for the observed radius, inner and outer heating |
+| `eps_th18(%)` | heating efficiency from the empirical relation of Thorngren & Fortney (2018) |
+| `bdyn_up(G)`, `bdyn_irr(G)`, `bdyn_low(G)` | $B_{\rm rms,dyn}$ for inner heating, no heating and outer heating |
+| `bdipsurf_up(G)`, `bdipsurf_irr(G)`, `bdipsurf_low(G)` | $B_{\rm dip,surf}$ for the same three cases |
+
+### `predictions/<sample>/<planet>.txt`
+
+One file per planet, comparing the interpolated magnetic fields with the scaling-law predictions, for inner heating, outer heating and no heating:
+
+- `Interpolator`: interpolated value;
+- `FitMRL`, `FitMRF`, `FitMR`: the scaling laws fitted in this work (see below);
+- `R09`, `R09+Th18`: the scaling law of Reiners et al. (2009) with fixed exponents, using the interpolated heating efficiency or the Thorngren & Fortney (2018) one.
+
+For the population, `hot_jupiters/` has the planets used in the fits ($R_{\rm P} > 1.05\,R_{\epsilon=0}$), and `hot_jupiters_extra/` every planet of the `_extra` population with $R_{\rm P} > 0.75\,R_{\epsilon=0}$ (a looser cut).
+
+### `plots/fits/`
+
+The fitted scaling laws for the magnetic field, with $M$ in $M_{\rm J}$, $R$ in $R_{\rm J}$ and $B$ in G:
+
+| Files | Fit | Law |
+|---|---|---|
+| `fit_general*` | MRL | $B = K\, M^\alpha R^\beta (\epsilon \pi R^2 F_{\rm irr} / 4.606\times10^{24}\,{\rm erg\,s^{-1}})^\gamma$ |
+| `fit_no_eps*` | MRF | $B = K\, M^\alpha R^\beta (F_{\rm irr}/10^9\,{\rm erg\,cm^{-2}\,s^{-1}})^\gamma$ |
+| `fit_no_flux*` | MR | $B = K\, M^\alpha R^\beta$ |
+| `fit_irr*` | MR | for the planets that do not pass the cut (`fit_irr_brms_inner*`, `fit_irr_brms_outer*`) and for the purely irradiated estimates of all planets (`fit_irr_brms_irr*`) |
+
+- `fit_<name>.txt`: a readable summary of each group of fits.
+- `fit_<name>_<field>.txt`: the parameters ($\alpha$, $\beta$, $\gamma$, $K$) in the first row, and their lower and upper uncertainties in the next two rows.
+- `*_cov_matrix.txt`: the covariance matrices.
+
+These files are read by the `--no_HJ` runs and by `hj_model.py`.
+
+### Other folders in `plots/`
+
+| Folder | Contents |
+|---|---|
+| `plots/fits_eps/` | the same kind of fit for the heating efficiency, $\epsilon = K\, M^\alpha R^\beta (F_{\rm irr}/10^9)^\gamma$, and the related figures |
+| `plots/population/`, `plots/population_comparison/` | figures of the population (`--save_plot_population`) |
+| `plots/grid/` | figures of the model grid: one folder per mass (`--save_plot_grid`) and the 3D plots `population_grid*.png` (`--save_plot_3D_grid`) |
 
 ---
 
@@ -226,58 +362,6 @@ These names are used in the code, the options and the output files.
 
 ---
 
-## Output files
-
-Values with uncertainties are written as `value$_{-lower}^{+upper}$` (or `value$\pm$error` for the observed values), ready to be used in LaTeX tables. Dashes mean that the value or its uncertainty is not available, for example when the observed radius is smaller than the radius of a purely irradiated planet, or when an observational uncertainty is missing in the archive.
-
-The two heating cases bracket the magnetic field: heat deposited in the interior ("inner") gives an upper estimate and heat deposited in the outer layers ("outer") a lower estimate. "irr" refers to the purely irradiated models ($\epsilon = 0$).
-
-**`predictions/<sample>.txt`** (one line per planet). For the population, `<sample>` is `hot_jupiters` (planets with complete data) or `hot_jupiters_extra` (all gas giants in the archive table, including those with incomplete stellar data, whose missing stellar radius and temperature are taken from main-sequence relations; not used in the fits); otherwise it is the `--which_planets` sample. The suffixes (`_no_rot`, `_syst_err`, ...) are explained below.
-
-| Column | Meaning |
-|---|---|
-| `M(MJ)`, `R(RJ)`, `F(erg cm-2 s-1)`, `P(days)` | observed mass, radius, irradiation flux and orbital period |
-| `R_irr(RJ)` | radius of the purely irradiated planet ($\epsilon = 0$) |
-| `eps_up(%)`, `eps_low(%)` | heating efficiency needed for the observed radius, inner and outer heating |
-| `eps_th18(%)` | heating efficiency from the empirical relation of Thorngren & Fortney (2018) |
-| `bdyn_up(G)`, `bdyn_irr(G)`, `bdyn_low(G)` | $B_{\rm rms,dyn}$ for inner heating, no heating and outer heating |
-| `bdipsurf_up(G)`, `bdipsurf_irr(G)`, `bdipsurf_low(G)` | $B_{\rm dip,surf}$ for the same three cases |
-
-**`predictions/<sample>/<planet>.txt`** (one file per planet). Comparison of the interpolated magnetic fields with the scaling-law predictions, for inner heating, outer heating and no heating:
-
-- `Interpolator`: interpolated value;
-- `FitMRL`, `FitMRF`, `FitMR`: the scaling laws fitted in this work (see below);
-- `R09`, `R09+Th18`: the scaling law of Reiners et al. (2009) with fixed exponents, using the interpolated heating efficiency or the Thorngren & Fortney (2018) one.
-
-For the population, the folder `hot_jupiters/` has the planets used in the fits ($R_{\rm P} > 1.05\,R_{\epsilon=0}$), and `hot_jupiters_extra/` the `_extra` population for every planet with $R_{\rm P}/R_{\epsilon=0} > 0.75$ (a looser cut).
-
-The paper results use the default options and have no suffix. Runs with other options add one to their output names, so they never overwrite the default ones. These outputs are not used in the paper and are included for transparency:
-
-- `_no_rot`: without the rotation correction (`--no_rotation`);
-- `_simple_fit`: scaling laws fitted with `--fit_type simple`;
-- `_cut_epsF`, `_cut_Qdep`, `_cut_B`, `_no_cut`: the other `--which_cut` options.
-
-The suffix `_syst_err` marks the runs with `--add_systematic_error`; the paper uses them in the literature comparison figure.
-
-The figures and the fits in `plots/` follow the same rule: `plots/fits/` holds the default fits, `plots/fits_no_rot/` the fits without rotation, and so on.
-
-**`plots/fits/`**: the fitted scaling laws for the magnetic field,
-
-- `fit_general*` (MRL): $B = K\, M^\alpha R^\beta (\epsilon \pi R^2 F_{\rm irr} / 4.606\times10^{24}\,{\rm erg\,s^{-1}})^\gamma$;
-- `fit_no_eps*` (MRF): $B = K\, M^\alpha R^\beta (F_{\rm irr}/10^9\,{\rm erg\,cm^{-2}\,s^{-1}})^\gamma$;
-- `fit_no_flux*` (MR): $B = K\, M^\alpha R^\beta$;
-- `fit_irr*`: MR fits for the planets that do not pass the cut (`fit_irr_brms_inner*`, `fit_irr_brms_outer*`) and for the purely irradiated estimates of all planets (`fit_irr_brms_irr*`);
-
-with $M$ in $M_{\rm J}$, $R$ in $R_{\rm J}$ and $B$ in G. The files `fit_<name>.txt` give a readable summary of each group of fits. In the files `fit_<name>_<field>.txt` the first row contains the parameters ($\alpha$, $\beta$, $\gamma$, $K$) and the next two rows their lower and upper uncertainties; `*_cov_matrix.txt` contains the covariance matrices. These files are read by the `--no_HJ` runs.
-
-**`plots/fits_eps/`**: the same kind of fit for the heating efficiency, $\epsilon = K\, M^\alpha R^\beta (F_{\rm irr}/10^9)^\gamma$, and the related figures.
-
-**`plots/population/`, `plots/population_comparison/`**: figures of the population (with `--save_plot_population`).
-
-**`plots/grid/`**: figures of the model grid, one folder per mass (`--save_plot_grid`) and the 3D plots `population_grid*.png` (`--save_plot_3D_grid`).
-
----
-
 ## Model assumptions
 
 The interpolator assumes
@@ -288,6 +372,25 @@ The interpolator assumes
 - rapidly rotating planetary dynamos.
 
 The results should therefore be regarded as order-of-magnitude magnetic field estimates.
+
+---
+
+## Repository layout
+
+```
+hj_magnetic_field_interpolator/
+├── example.py                start here: estimates for one planet
+├── hj_model.py               Python interface (HJMagneticModel)
+├── main.py                   command-line program: population, scaling-law fits and figures
+├── set_up.py                 creates the Python environment
+├── predictions/              saved estimates (see Output files)
+├── plots/                    scaling-law fits and figures
+├── tables/                   magnetic field tables of the model grid, one folder per mass (<mass>_MJ/)
+├── PS_2026.02.18_*.csv       NASA Exoplanet Archive tables of the population
+└── other .py files           interpolation, scaling-law fits, figures, table reading and generation
+```
+
+**Where the tables come from.** The planetary evolution calculations are **not** included here. They were performed with the MESA stellar evolution code and are available in the repository **https://github.com/csic-ice-imagine/MESA_rossby_HJ**. The magnetic field tables in `tables/` were generated from those runs with `table_generator.py` (`python table_generator.py --path_sims <MESA runs folder>` for the tables with rotation, adding `--no_rotation` for the tables without it). The script needs the MESA output and the module `radial_functions`, which are not included here but can be provided upon request.
 
 ---
 
