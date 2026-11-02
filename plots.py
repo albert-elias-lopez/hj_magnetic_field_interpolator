@@ -33,7 +33,7 @@ def plot_output_grid(masses,
                     bscaling_heat_outer,
                     bscaling_surf_heat_inner,
                     bscaling_surf_heat_outer):
-    """Contour plots of the radius and the magnetic fields of the grid models in the (F_irr, eps) plane, one folder plots/<mass>_MJ/ per mass (--save_plot_grid)."""
+    """Contour plots of the radius and the magnetic fields of the grid models in the (F_irr, eps) plane, one folder plots/grid/<mass>_MJ/ per mass (--save_plot_grid)."""
     names_mass = []
     for index_mass,mass in enumerate(masses):
         names_mass += ["{0:.2f}_MJ".format(mass).replace('.', '_')]
@@ -52,8 +52,8 @@ def plot_output_grid(masses,
 
     for index_mass, mass in enumerate(masses):
 
-        if not os.path.exists("./plots/" + names_mass[index_mass]):
-            os.makedirs("./plots/" + names_mass[index_mass])
+        if not os.path.exists("./plots/grid/" + names_mass[index_mass]):
+            os.makedirs("./plots/grid/" + names_mass[index_mass])
 
         fontsize = 26
         plt.rcParams['text.usetex'] = USE_TEX
@@ -80,7 +80,7 @@ def plot_output_grid(masses,
         ax.set_ylabel(r"$\mathrm{\epsilon (\%)}$", fontsize=int(fontsize*1.3))
         cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
         cbar.set_label(r"$R_P \mathrm{(R_J)}$",fontsize=int(fontsize*1.3),labelpad=5)
-        plt.savefig("plots/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_R.png")
+        plt.savefig("plots/grid/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_R.png")
 
         plt.clf()
         ax = plt.axes()
@@ -92,7 +92,7 @@ def plot_output_grid(masses,
         ax.set_ylabel(r"$\mathrm{\epsilon (\%)}$", fontsize=int(fontsize*1.3))
         cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
         cbar.set_label(r"$B_{\rm rms, \, dyn} \mathrm{(G)}$",fontsize=int(fontsize*1.3),labelpad=5)
-        plt.savefig("plots/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_brms.png")
+        plt.savefig("plots/grid/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_brms.png")
 
         plt.clf()
         ax = plt.axes()
@@ -104,7 +104,7 @@ def plot_output_grid(masses,
         ax.set_ylabel(r"$\mathrm{\epsilon (\%)}$", fontsize=int(fontsize*1.3))
         cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
         cbar.set_label(r"$B_{\rm rms, \, surf} \mathrm{(G)}$",fontsize=int(fontsize*1.3),labelpad=5)
-        plt.savefig("plots/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_brms_surf.png")
+        plt.savefig("plots/grid/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_brms_surf.png")
 
         # -------------------------------------------------------------------------------------------------------------
         # -------------------------------- Countourf for the eps_heat_outer models ------------------------------------
@@ -125,7 +125,7 @@ def plot_output_grid(masses,
         ax.set_ylabel(r"$\mathrm{\epsilon (\%)}$", fontsize=int(fontsize*1.3))
         cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
         cbar.set_label(r"$R_P \mathrm{(R_J)}$",fontsize=int(fontsize*1.3),labelpad=5)
-        plt.savefig("plots/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_R_outer.png")
+        plt.savefig("plots/grid/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_R_outer.png")
 
         plt.clf()
         ax = plt.axes()
@@ -137,7 +137,7 @@ def plot_output_grid(masses,
         ax.set_ylabel(r"$\mathrm{\epsilon (\%)}$", fontsize=int(fontsize*1.3))
         cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
         cbar.set_label(r"$B_{\rm rms, \, dyn} \mathrm{(G)}$",fontsize=int(fontsize*1.3),labelpad=5)
-        plt.savefig("plots/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_brms_outer.png")
+        plt.savefig("plots/grid/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_brms_outer.png")
 
         plt.clf()
         ax = plt.axes()
@@ -149,7 +149,7 @@ def plot_output_grid(masses,
         ax.set_ylabel(r"$\mathrm{\epsilon (\%)}$", fontsize=int(fontsize*1.3))
         cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
         cbar.set_label(r"$B_{\rm rms, \, surf} \mathrm{(G)}$",fontsize=int(fontsize*1.3),labelpad=5)
-        plt.savefig("plots/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_brms_surf_outer.png")
+        plt.savefig("plots/grid/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_brms_surf_outer.png")
 
 
         # -------------------------------------------------------------------------------------------------------------
@@ -165,7 +165,7 @@ def plot_output_grid(masses,
         ax.set_ylabel(r"$R_P \mathrm{(R_J)}$", fontsize=int(fontsize*1.3))
         cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
         cbar.set_label(r"$\mathrm{\epsilon (\%)}$",fontsize=int(fontsize*1.3),labelpad=5)
-        plt.savefig("plots/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_eps.png")
+        plt.savefig("plots/grid/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_eps.png")
 
         plt.clf()
         ax = plt.axes()
@@ -176,7 +176,7 @@ def plot_output_grid(masses,
         ax.set_ylabel(r"$R_P \mathrm{(R_J)}$", fontsize=int(fontsize*1.3))
         cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
         cbar.set_label(r"$\mathrm{\epsilon (\%)}$",fontsize=int(fontsize*1.3),labelpad=5)
-        plt.savefig("plots/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_eps_outer.png")
+        plt.savefig("plots/grid/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_eps_outer.png")
 
         plt.clf()
         ax = plt.axes()
@@ -187,7 +187,7 @@ def plot_output_grid(masses,
         ax.set_ylabel(r"$R_P \mathrm{(R_J)}$", fontsize=int(fontsize*1.3))
         cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
         cbar.set_label(r"$B_{\rm rms, \, dyn} \mathrm{(G)}$",fontsize=int(fontsize*1.3),labelpad=5)
-        plt.savefig("plots/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_brms_scatter.png")
+        plt.savefig("plots/grid/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_brms_scatter.png")
 
         plt.clf()
         ax = plt.axes()
@@ -198,7 +198,7 @@ def plot_output_grid(masses,
         ax.set_ylabel(r"$R_P \mathrm{(R_J)}$", fontsize=int(fontsize*1.3))
         cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
         cbar.set_label(r"$B_{\rm rms, \, dyn} \mathrm{(G)}$",fontsize=int(fontsize*1.3),labelpad=5)
-        plt.savefig("plots/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_brms_outer_scatter.png")
+        plt.savefig("plots/grid/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_brms_outer_scatter.png")
 
         plt.clf()
         ax = plt.axes()
@@ -209,7 +209,7 @@ def plot_output_grid(masses,
         ax.set_ylabel(r"$R_P \mathrm{(R_J)}$", fontsize=int(fontsize*1.3))
         cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
         cbar.set_label(r"$B_{\rm dip, \, surf} \mathrm{(G)}$",fontsize=int(fontsize*1.3),labelpad=5)
-        plt.savefig("plots/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_brms_surf_scatter.png")
+        plt.savefig("plots/grid/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_brms_surf_scatter.png")
 
         plt.clf()
         ax = plt.axes()
@@ -220,7 +220,7 @@ def plot_output_grid(masses,
         ax.set_ylabel(r"$R_P \mathrm{(R_J)}$", fontsize=int(fontsize*1.3))
         cbar = fig.colorbar(cs, aspect=20, fraction=0.06, shrink=0.8)
         cbar.set_label(r"$B_{\rm dip, \, surf} \mathrm{(G)}$",fontsize=int(fontsize*1.3),labelpad=5)
-        plt.savefig("plots/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_brms_outer_surf_scatter.png")
+        plt.savefig("plots/grid/" + names_mass[index_mass] + "/" + names_mass[index_mass] + "_brms_outer_surf_scatter.png")
         plt.clf()
 
 
@@ -231,8 +231,9 @@ def plot_grid(masses,
               radii_heat_outer):
     """
     Schematic 3D plot of the grid models (F_irr, M, eps) that reached the age of the tables, for inner and
-    outer heating (--save_plot_3D_grid): plots/population_grid.png and population_grid_eps_outer.png.
+    outer heating (--save_plot_3D_grid): plots/grid/population_grid.png and population_grid_eps_outer.png.
     """
+    os.makedirs("plots/grid", exist_ok=True)
     eps_min = 1e-6
     eps_global_max = 1e2
     
@@ -311,7 +312,7 @@ def plot_grid(masses,
     #ax.set_zscale('symlog')
     ax.view_init(25,-45)
     ax.set_box_aspect((1, 1, .85))
-    plt.savefig("plots/population_grid.png")
+    plt.savefig("plots/grid/population_grid.png")
 
     plt.clf()
     ax = fig.add_subplot(111, projection='3d')
@@ -381,7 +382,7 @@ def plot_grid(masses,
     #ax.set_zscale('symlog')
     ax.view_init(25,-45)
     ax.set_box_aspect((1, 1, .85))
-    plt.savefig("plots/population_grid_eps_outer.png")
+    plt.savefig("plots/grid/population_grid_eps_outer.png")
 
 
 def plot_population(planets,
@@ -391,10 +392,12 @@ def plot_population(planets,
                 color_outer = "green", color_outer_cut = "limegreen", color_outer_err = "darkgreen", 
                 color_irr = "k",
                 error_sym=False,
-                rotation=False):
+                rotation=False,
+                folder_suffix=""):
     """
     Figures of the population estimates (heating efficiencies and magnetic fields against mass, flux and
-    other observables) in plots/general_predictions*/. valid_mask: planets that pass the cut (all if empty).
+    other observables) in plots/population<folder_suffix>[_no_rot]/ and plots/population_comparison<...>/.
+    valid_mask: planets that pass the cut (all if empty).
     """
     # Assume that there has been a cut, thus the boolean cut=True. If the valid_mask is empty, then there has been no cut, thus
     cut = True
@@ -458,26 +461,17 @@ def plot_population(planets,
         brms_irr_est_err = np.transpose(brms_irr_est_err)
         brms_irr_surf_est_err = np.transpose(brms_irr_surf_est_err)
     
-    if rotation:
-        if not os.path.exists("./plots/general_predictions"):
-            os.makedirs("./plots/general_predictions")
-        if not os.path.exists("./plots/general_predictions_comparison"):
-            os.makedirs("./plots/general_predictions_comparison")
-    else:
-        if not os.path.exists("./plots/general_predictions_no_rot"):
-            os.makedirs("./plots/general_predictions_no_rot")
-        if not os.path.exists("./plots/general_predictions_comparison_no_rot"):
-            os.makedirs("./plots/general_predictions_comparison_no_rot")
+    rotation_ending = "" if rotation else "_no_rot"
+    path_general = "plots/population" + folder_suffix + rotation_ending + "/"
+    path_comparison = "plots/population_comparison" + folder_suffix + rotation_ending + "/"
+    os.makedirs(path_general, exist_ok=True)
+    os.makedirs(path_comparison, exist_ok=True)
 
     fontsize = 32
     plt.rcParams['text.usetex'] = USE_TEX
     fig = plt.figure(figsize=(11, 8), constrained_layout=True)
     set_plot_style(fontsize, (11, 8))
 
-    if rotation: path_general = "plots/general_predictions/"
-    else: path_general = "plots/general_predictions_no_rot/"
-    if rotation: path_comparison = "plots/general_predictions_comparison/"
-    else: path_comparison = "plots/general_predictions_comparison_no_rot/"
 
 
     filenames = ["bdyn_inner_vs_flux", 

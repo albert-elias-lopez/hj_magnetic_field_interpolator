@@ -1,10 +1,11 @@
 """
 Output files of main.py: the predictions of each planet (table_predictions,
-predictions/predictions_<sample>.txt) and their comparison with the scaling laws (table_comparison,
-one file per planet in predictions/predictions_cut_R_<fit_type>_fit[_<sample>]/). Also the scaling
+predictions/<sample>.txt) and their comparison with the scaling laws (table_comparison,
+one file per planet in predictions/<sample>/). Also the scaling
 laws with their Monte Carlo errors, the heating efficiency of Thorngren & Fortney (2018) and the
 optional factor-of-2 systematic error.
 """
+import os
 import numpy as np
 from constants import R_J, L_J
 
@@ -164,6 +165,11 @@ def get_thorn18_err(flux, Nerr, eps0 = 2.37/100, mu = 0.14, sigma =0.37):
     p16, p50, p84 = np.percentile(eps_s, [16, 50, 84])
     return np.array([p50 - p16, p84 - p50])
 
+def sample_name(HJ_population, which_planets, extra_HJ=False):
+    # Name of the outputs of a sample: hot_jupiters[_extra] for the population, otherwise the --which_planets sample
+    if not HJ_population: return which_planets
+    return "hot_jupiters_extra" if extra_HJ else "hot_jupiters"
+
 def table_predictions(planets,
                       mask_predictions,
                       HJ_population,
@@ -172,16 +178,14 @@ def table_predictions(planets,
                       extra_HJ=False,
                       error_sym=False,
                       N_err = 10000,
-                      rotation = False):
+                      rotation = False,
+                      name_cut = ""):
     """
-    Writes predictions/predictions_<sample>[_no_rot][_syst_err].txt: one line per planet in
+    Writes predictions/<sample><name_cut>[_no_rot][_syst_err].txt: one line per planet in
     mask_predictions with the observed values, the heating efficiencies (in %) and the magnetic fields for
     inner heating, no heating (eps = 0) and outer heating (see the README for the columns).
     """
-    if HJ_population:
-        filename = "predictions/predictions_hot_jupiter_populations"
-        if extra_HJ: filename = "predictions/predictions_hot_jupiter_populations_extra"
-    else: filename = "predictions/predictions_" + which_planets
+    filename = "predictions/" + sample_name(HJ_population, which_planets, extra_HJ) + name_cut
     if not rotation: filename += "_no_rot"
     if add_systematic_error: filename += "_syst_err"
     if error_sym:
@@ -365,8 +369,13 @@ def table_comparison(planets,
     """
     Writes one file per planet in valid_mask with its interpolated magnetic fields and the predictions of
     the scaling laws (the fits MRL, MRF and MR of this work, and R09 with the interpolated or the
-    Thorngren & Fortney 2018 heating efficiency), for inner heating, outer heating and no heating.
+    Thorngren & Fortney 2018 heating efficiency), for inner heating, outer heating and no heating, in
+    predictions/<sample><name_cut>[_no_rot]/<planet>[_syst_err].txt.
     """
+    folder = "./predictions/" + sample_name(HJ_population, which_planets, extra_HJ) + name_cut
+    if not rotation: folder += "_no_rot"
+    os.makedirs(folder, exist_ok=True)
+
     heat_eff_inner_est         = planets.heat_eff_inner_est[valid_mask]
     heat_eff_inner_est_err     = planets.heat_eff_inner_est_err[valid_mask]
     brms_inner_est             = planets.brms_inner_est[valid_mask]
@@ -492,18 +501,7 @@ def table_comparison(planets,
                                                         "radius",error_sym=error_sym)
         
 
-        if HJ_population:
-            filename = "./predictions/predictions" + name_cut
-        else: 
-            filename = "./predictions/predictions" + name_cut + "_" + which_planets
-        
-        if rotation: 
-            if extra_HJ: filename += "_extra/" 
-            else: filename += "/" 
-        else:
-            if extra_HJ: filename += "_extra_no_rot/"
-            else: filename += "_no_rot/" 
-        filename += name.replace(" ", "_").replace(".", "_")
+        filename = folder + "/" + name.replace(" ", "_").replace(".", "_")
         if add_systematic_error: filename += "_syst_err"
 
         header = "      M(MJ)                R(RJ)              F(erg cm-2 s-1)            P(days)             Name"

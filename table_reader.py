@@ -1,5 +1,5 @@
 """
-Reader of the magnetic field tables of the MESA grid (<mass>_MJ/ folders, written by
+Reader of the magnetic field tables of the MESA grid (tables/<mass>_MJ/ folders, written by
 table_generator.py) into arrays over the grid (mass, flux, heating efficiency[, period]).
 """
 import numpy as np
@@ -23,7 +23,8 @@ class table_object:
         self.total_number_models   = 0
 
     def read_table(self, rotation, masses, fluxes, heat_effs, periods):
-        # Reads the tables <mass>_MJ/[P_<period>/]F_<flux>[_eps_outer].txt written by table_generator.py.
+        # Reads the tables tables/<mass>_MJ/[P_<period>/]F_<flux>[_eps_outer].txt written by table_generator.py
+        # (grid.read_tables works from the tables/ folder).
         # The arrays have the axes (mass, flux, heat efficiency), plus the period with rotation.
 
         names_flux = []

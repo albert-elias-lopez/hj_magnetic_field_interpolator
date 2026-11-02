@@ -2,8 +2,8 @@
 Generates the magnetic field tables read by table_reader.py from the MESA runs of the planetary
 evolution grid (one table per mass and flux, plus one per period for the tables with rotation).
 
-    python table_generator.py --path_sims <MESA runs folder>                  # tables with the rotation factor: <mass>_MJ/P_<period>/F_<flux>[_eps_outer].txt
-    python table_generator.py --path_sims <MESA runs folder> --no_rotation    # tables without rotation: <mass>_MJ/F_<flux>[_eps_outer].txt
+    python table_generator.py --path_sims <MESA runs folder>                  # tables with the rotation factor: tables/<mass>_MJ/P_<period>/F_<flux>[_eps_outer].txt
+    python table_generator.py --path_sims <MESA runs folder> --no_rotation    # tables without rotation: tables/<mass>_MJ/F_<flux>[_eps_outer].txt
 
 The MESA runs (path_sims) and the module radial_functions, which computes the rotating convective
 velocities and magnetic fields from the MESA profiles, are not included in this repository. They can
@@ -15,7 +15,7 @@ import argparse
 import numpy as np
 import mesa_reader
 from constants import R_SUN, L_SUN, R_SUN_RJ
-from grid import fluxes, periods, heat_effs, masses
+from grid import fluxes, periods, heat_effs, masses, TABLES
 
 # Folder with the MESA runs, set with --path_sims
 path_sims = None
@@ -184,6 +184,10 @@ if __name__ == "__main__":
 
     # radial_functions is looked for in the parent folder of the repository
     sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+
+    # The tables are written in the tables/ folder of the repository, wherever the script is launched from
+    os.makedirs(TABLES, exist_ok=True)
+    os.chdir(TABLES)
 
     if args.rotation: make_tables_rotation()
     else: make_tables_no_rotation()

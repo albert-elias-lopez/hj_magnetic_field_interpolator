@@ -122,6 +122,13 @@ def cut_name(which_cut, radius_ratio = 1.05):
     name_cut, header = CUT_NAMES[which_cut]
     return name_cut, header.format(radius_ratio=radius_ratio)
 
+def options_suffix(which_cut, fit_type):
+    # Outputs of the default --which_cut "radius cut" and --fit_type gaussian have no suffix; other
+    # options add theirs (e.g. hot_jupiters_simple_fit.txt, fits_cut_epsF/), so they never overwrite them
+    suffix = "" if which_cut == "radius cut" else CUT_NAMES[which_cut][0]
+    if fit_type != "gaussian": suffix += "_" + fit_type + "_fit"
+    return suffix
+
 def cut_mask(planets, which_cut, radius_ratio = 1.05):
     """Planets used for the fits (or saved, for the extra population) after the chosen cut."""
     if which_cut == "no cut":     return planets.heat_eff_inner_est > 1e-5
@@ -175,7 +182,7 @@ def print_not_interpolated(planets, grid_limits, rotation):
 
 # The scaling-law fits, in the order they are made (the order matters: the Gaussian fits draw from
 # the same random number generator) and passed to table_comparison and plot_population_fits.
-# Each group is saved in plots/<folder><cut>/<file>.txt and has the entries
+# Each group is saved in plots/<folder><name_cut>[_no_rot]/<file>.txt and has the entries
 # (header, dyn_or_surf, heating_type, sample): sample "cut" is the fitted sample, "rest" the
 # planets removed by the cut, and "all" every planet.
 B_ENTRIES = [("brms_inner",      "rms,dyn",  "inner", "cut"),
@@ -200,7 +207,7 @@ def fit_filename(folder, file, name_cut, rotation):
 def make_fits(planets, valid_mask, name_cut, name_cut_header, rotation, initial_guesses, fit_options):
     """
     Fits every scaling law of FIT_GROUPS to the planets of valid_mask (the sample of each entry), saves
-    them in plots/<folder><cut>[_no_rot]/<file>*.txt and returns the fit_objects in the FIT_GROUPS order.
+    them in plots/<folder><name_cut>[_no_rot]/<file>*.txt and returns the fit_objects in the FIT_GROUPS order.
     """
     samples = {"cut": valid_mask, "rest": ~valid_mask, "all": []}
     fits = []
@@ -332,6 +339,11 @@ def main(args):
 
     mask_predictions = interpolate_planets(planets, table_inner, table_outer, periods, grid_limits, rotation, error_sym)
 
+    # Cut used for the fits. name_cut_short (e.g. _cut_R) goes in the figure names, name_cut in the
+    # names of all output files and folders ("" with the default options)
+    name_cut_short, name_cut_header = cut_name(which_cut)
+    name_cut = options_suffix(which_cut, fit_type)
+
     os.makedirs("./predictions", exist_ok=True)
 
     print("Saving file ", end="\r")
@@ -341,17 +353,13 @@ def main(args):
                                             which_planets,
                                             add_systematic_error,
                                             error_sym=error_sym,
-                                            rotation = rotation)
+                                            rotation = rotation,
+                                            name_cut = name_cut)
 
 
     if print_planet_output: planets.print_output(error_sym)
 
     print(DASHES)
-
-    # Decide which mask to use before performing the fits.
-    name_cut, name_cut_header = cut_name(which_cut)
-    name_cut_short = name_cut
-    name_cut = name_cut + "_" + fit_type + "_fit"
 
     if HJ_population:
 
@@ -420,11 +428,9 @@ def main(args):
         print(DASHES)
         print("Fitting the different HJ magnetic field estimates: done")
         print(DASHES)
-        os.makedirs("./predictions/predictions" + name_cut + rotation_suffix(rotation), exist_ok=True)
 
     else:
         fits = read_fits(fit_type, name_cut, rotation)
-        os.makedirs("./predictions/predictions" + name_cut + "_" + which_planets + rotation_suffix(rotation), exist_ok=True)
 
     # fits holds the 18 magnetic field fits (MRL, MRF, MR and MR for the planets removed by the cut and
     # for eps = 0) followed by the 2 eps fits, in the order table_comparison and the plots expect
@@ -484,13 +490,15 @@ def main(args):
 
         plots.plot_population(planets,
                                 error_sym=error_sym,
-                                rotation=rotation)
+                                rotation=rotation,
+                                folder_suffix=name_cut)
 
         plots.plot_population(planets,
                               valid_mask=valid_mask,
                                 name_cut = name_cut_short, 
                                 error_sym=error_sym,
-                                rotation=rotation)
+                                rotation=rotation,
+                                folder_suffix=name_cut)
 
         print(f"done")
         print(DASHES)
@@ -529,18 +537,13 @@ def main(args):
                                                 add_systematic_error,
                                                 extra_HJ = True,
                                                 error_sym=error_sym,
-                                                rotation = rotation)
+                                                rotation = rotation,
+                                                name_cut = name_cut)
 
         planets.mask_population(mask_predictions)    
 
         # The extra population keeps the planets down to Robs/Rirr > 0.75 for the radius cut
         valid_mask = cut_mask(planets, which_cut, radius_ratio = 0.75)
-        name_cut, name_cut_header = cut_name(which_cut, radius_ratio = 0.75)
-
-        os.makedirs("./predictions/predictions" + name_cut + "_extra", exist_ok=True)
-        if not rotation:
-            os.makedirs("./predictions/predictions" + name_cut + "_extra_no_rot", exist_ok=True)
-
 
         print("Saving individual files for each planet:", end=" ")
 

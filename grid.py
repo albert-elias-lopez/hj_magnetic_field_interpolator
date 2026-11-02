@@ -7,8 +7,9 @@ import os
 import numpy as np
 from table_reader import table_object
 
-# Folder of the repository, where the magnetic field tables (<mass>_MJ/ folders) are
+# Folder of the repository, and the folder in it with the magnetic field tables (<mass>_MJ/ folders)
 REPOSITORY = os.path.dirname(os.path.realpath(__file__))
+TABLES = os.path.join(REPOSITORY, "tables")
 
 # Grid limits which will be used to mask the exoplanet population before interpolating.
 min_mass, max_mass = 0.3, 12
@@ -44,9 +45,9 @@ def read_tables(rotation):
     if rotation: shape_grid = (len(masses), len(fluxes), len(heat_effs), len(periods))
     else: shape_grid = (len(masses), len(fluxes), len(heat_effs))
 
-    # The table paths are relative to the repository folder
+    # The table paths are relative to the tables/ folder
     current = os.getcwd()
-    os.chdir(REPOSITORY)
+    os.chdir(TABLES)
     try:
         table_inner = table_object(shape_grid, "inner")
         table_inner.read_table(rotation, masses, fluxes, heat_effs, periods)

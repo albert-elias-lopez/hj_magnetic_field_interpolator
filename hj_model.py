@@ -120,7 +120,7 @@ class Estimates(dict):
     def print_all_scaling_law(self, seed=42):
         """
         Prints, for each planet, the interpolated magnetic fields next to the scaling-law predictions,
-        as in the files predictions/predictions_cut_R_gaussian_fit*/<planet>.txt of main.py: the fits
+        as in the files predictions/<sample>/<planet>.txt of main.py: the fits
         of this work (MRL, MRF and MR, Gaussian fits) and R09 (Reiners et al. 2009) with the interpolated
         heating efficiency or with the one of Thorngren & Fortney 2018 (Th18), for inner heating, outer
         heating and no heating (eps = 0). The errors are Monte Carlo errors that include the uncertainties
@@ -204,7 +204,7 @@ class HJMagneticModel:
         # The Gaussian fits read by print_all_scaling_law (as in main.py --no_HJ), read once
         if self.fits is None:
             files = {"MRL": ("fit_general", "MRL"), "MRF": ("fit_no_eps", "MRF"), "MR": ("fit_no_flux", "MR")}
-            folder = os.path.join(grid.REPOSITORY, "plots", "fits_cut_R_gaussian_fit" + ("" if self.rotation else "_no_rot"))
+            folder = os.path.join(grid.REPOSITORY, "plots", "fits" + ("" if self.rotation else "_no_rot"))
             self.fits = {"R09": reiners09_fit("gaussian")}
             for name in table_predictions_save.SCALING_LAW_FITS:
                 law, field = name.split("_", 1)     # e.g. "MRL", "inner_surf"
@@ -339,7 +339,7 @@ class HJMagneticModel:
 
         fit = fit_object("gaussian", fit_function_type)
         suffix = "" if self.rotation else "_no_rot"
-        fit.read_fit_data(os.path.join(grid.REPOSITORY, "plots", "fits_cut_R_gaussian_fit" + suffix, file), header)
+        fit.read_fit_data(os.path.join(grid.REPOSITORY, "plots", "fits" + suffix, file), header)
 
         scalar = all(np.ndim(value) == 0 for value in (mass, radius, flux))
         n = np.broadcast(mass, radius, flux if flux is not None else 0).size
@@ -366,7 +366,7 @@ class HJMagneticModel:
 def check(samples=("hd209458b", "wasp12b", "seidel26", "cauley19")):
     """
     Checks that the interface reproduces main.py exactly: get_flux must give the fluxes of the archive
-    table, and estimate the committed predictions/predictions_<sample>.txt. Prints every difference and
+    table, and estimate the committed predictions/<sample>.txt. Prints every difference and
     returns their number (0 if all is fine). Run it after changing the code: python hj_model.py
     """
     model = HJMagneticModel()
@@ -405,7 +405,7 @@ def check(samples=("hd209458b", "wasp12b", "seidel26", "cauley19")):
                                     planets.flux_obs, tuple(planets.flux_obs_err_asym.T),
                                     planets.orbital_period_obs, planets.orbital_period_obs_err,
                                     names=planets.planet_names)
-        with open(os.path.join(grid.REPOSITORY, "predictions", "predictions_" + sample + ".txt")) as f:
+        with open(os.path.join(grid.REPOSITORY, "predictions", sample + ".txt")) as f:
             lines = [line.split() for line in f if not line.startswith("#")]
         for index, cells in enumerate(lines):
             for key, column in columns.items():
@@ -422,7 +422,7 @@ def check(samples=("hd209458b", "wasp12b", "seidel26", "cauley19")):
         # Scaling laws (central values; the Monte Carlo errors depend on the random numbers drawn before)
         rows = {"FitMRL:": "MRL", "FitMRF:": "MRF", "FitMR:": "MR", "R09:": "R09", "R09+Th18:": "R09+Th18"}
         for index, name in enumerate(planets.planet_names):
-            filename = os.path.join(grid.REPOSITORY, "predictions", "predictions_cut_R_gaussian_fit_" + sample,
+            filename = os.path.join(grid.REPOSITORY, "predictions", sample,
                                     name.replace(" ", "_").replace(".", "_") + ".txt")
             if not os.path.exists(filename): continue
             laws, heating = result.scaling_laws(index), None
