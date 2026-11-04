@@ -24,6 +24,7 @@ import planet_functions
 import table_predictions_save
 import interpolator
 import grid
+from table_reader import FIELD_FACTORS
 
 def parse_args():
 
@@ -36,6 +37,7 @@ def parse_args():
             python main.py --no_rotation --no_HJ --which_planets seidel26
             python main.py --fit_type simple
             python main.py --no_HJ --which_planets my_own --my_planet_params 1.2 0.1 1.5 0.1 1 1e-6 1e9 1e8
+            python main.py --field_morphology multipole
 
             To reproduce the results in Elias-López et al 2026:
             python main.py --save_plot_population (by default fit_type=gaussian, N_gauss_fits=10000, which_cut=radius cut)
@@ -59,7 +61,14 @@ def parse_args():
     parser.set_defaults(rotation=True)
     parser.add_argument("--no_rotation", dest="rotation", action="store_false",
                         help="Disable rotation.")
-    
+
+    # Field morphology of the dynamo, for the magnetic fields B_rms,dyn and B_dip,surf
+    parser.add_argument("--field_morphology", type=str, default="dipole",
+                        choices=["dipole", "multipole"],
+                        help="default='dipole'. 'dipole': dipole-dominated dynamo, as in the paper. 'multipole': " \
+                        "multipolar dynamo, with a slightly weaker field and a dipole about 10 times weaker " \
+                        "(B_rms,dyn x 0.471/0.646 and B_dip,surf x 0.015/0.157, Wulff et al. 2026).")
+
     # Which planets to evaluate. If the flag --no_HJ is not used, the program will evaluate the gas giant exoplanet population. 
     # If used, it will evaluate a predefined set of planets.
     parser.set_defaults(HJ_population=True)
@@ -122,11 +131,13 @@ def cut_name(which_cut, radius_ratio = 1.05):
     name_cut, header = CUT_NAMES[which_cut]
     return name_cut, header.format(radius_ratio=radius_ratio)
 
-def options_suffix(which_cut, fit_type):
-    # Outputs of the default --which_cut "radius cut" and --fit_type gaussian have no suffix; other
-    # options add theirs (e.g. hot_jupiters_simple_fit.txt, fits_cut_epsF/), so they never overwrite them
+def options_suffix(which_cut, fit_type, field_morphology="dipole"):
+    # Outputs of the default --which_cut "radius cut", --fit_type gaussian and --field_morphology dipole have
+    # no suffix; other options add theirs (e.g. hot_jupiters_simple_fit.txt, fits_cut_epsF/,
+    # hot_jupiters_multipole.txt), so they never overwrite them
     suffix = "" if which_cut == "radius cut" else CUT_NAMES[which_cut][0]
     if fit_type != "gaussian": suffix += "_" + fit_type + "_fit"
+    if field_morphology != "dipole": suffix += "_" + field_morphology
     return suffix
 
 def cut_mask(planets, which_cut, radius_ratio = 1.05):
@@ -233,14 +244,23 @@ def make_fits(planets, valid_mask, name_cut, name_cut_header, rotation, initial_
         fits += group_fits
     return fits
 
-def read_fits(fit_type, name_cut, rotation):
-    """Reads the fits saved by a population run, in the order of FIT_GROUPS (used by the --no_HJ runs)."""
+def read_fits(fit_type, name_cut, rotation, field_morphology="dipole"):
+    """
+    Reads the fits saved by a population run, in the order of FIT_GROUPS (used by the --no_HJ runs).
+    name_cut is the suffix of the dipolar fits: for a multipolar dynamo, B_rms,dyn and B_dip,surf are the
+    dipolar ones times FIELD_FACTORS["multipole"], so their fits are the dipolar ones with K times those
+    factors (the same as fitting them again), and no multipolar population run is needed.
+    """
     fits = []
     for (folder, file, title, fit_function_type, guess), entries in FIT_GROUPS:
         filename = fit_filename(folder, file, name_cut, rotation)
-        for header, *_ in entries:
+        if not os.path.exists(filename + ".txt"):
+            raise FileNotFoundError(filename + ".txt not found: run main.py with the same options "
+                                    "without --no_HJ first, to fit the scaling laws")
+        for header, dyn_or_surf, *_ in entries:
             fit = fit_object(fit_type, fit_function_type)
             fit.read_fit_data(filename, header)
+            if dyn_or_surf != "eps": fit.scale(FIELD_FACTORS[field_morphology][dyn_or_surf])
             fits.append(fit)
     return fits
 
@@ -272,7 +292,8 @@ def main(args):
     error_sym = False               # To use symmetric errors for the interpolator. Should be kept as False.
     add_systematic_error = args.add_systematic_error
 
-    rotation = args.rotation    
+    rotation = args.rotation
+    field_morphology = args.field_morphology
 
     # If HJ_population = True there should be a file with all the gas giant exoplanet population. Then not all planets should
     # be evaluated, only the ones that can be interpolated by the grid.
@@ -301,6 +322,19 @@ def main(args):
     # Which HJ population cut to use for the fits. The options are defined later
     which_cut = args.which_cut
 
+    # Cut used for the fits. name_cut_short (e.g. _cut_R) goes in the figure names, name_cut in the
+    # names of all output files and folders ("" with the default options). name_cut_dipole leaves out
+    # the field morphology: the per-planet files of a multipolar dynamo (<planet>_multipole.txt) go in
+    # the folders of the dipolar ones
+    name_cut_short, name_cut_header = cut_name(which_cut)
+    name_cut = options_suffix(which_cut, fit_type, field_morphology)
+    name_cut_dipole = options_suffix(which_cut, fit_type)
+
+    # The --no_HJ runs use the fits saved by a population run with the same options (for a multipolar
+    # dynamo, the dipolar fits scaled by read_fits). They are read first, so that missing fits stop the
+    # run before any output is written
+    if not HJ_population: fits = read_fits(fit_type, name_cut_dipole, rotation, field_morphology)
+
     #if rotation: b_factor = 1
     #else: b_factor = 1/3 All factors to match the scaling law with Jupiter's B_dip,surf
 
@@ -310,9 +344,13 @@ def main(args):
     print(DASHES)
     print("Reading data files: ", end="\r")
 
-    table_inner, table_outer = grid.read_tables(rotation)
+    table_inner, table_outer = grid.read_tables(rotation, field_morphology)
 
     print("Reading data files: done")
+    if field_morphology == "multipole":
+        factors = FIELD_FACTORS["multipole"]
+        print(f"Multipolar dynamo: B_rms,dyn x {factors['rms,dyn']:.4f} and B_dip,surf x {factors['dip,surf']:.4f} "
+              "(Wulff et al. 2026)")
     print(f"----------------------------------------------------------------------")
 
     grid_limits = grid.limits
@@ -338,11 +376,6 @@ def main(args):
             planets.set_symmetric_asym_errors()
 
     mask_predictions = interpolate_planets(planets, table_inner, table_outer, periods, grid_limits, rotation, error_sym)
-
-    # Cut used for the fits. name_cut_short (e.g. _cut_R) goes in the figure names, name_cut in the
-    # names of all output files and folders ("" with the default options)
-    name_cut_short, name_cut_header = cut_name(which_cut)
-    name_cut = options_suffix(which_cut, fit_type)
 
     os.makedirs("./predictions", exist_ok=True)
 
@@ -417,7 +450,7 @@ def main(args):
         print(DASHES)
 
     os.makedirs("./plots", exist_ok=True)
-    os.makedirs("./plots/fits" + name_cut + rotation_suffix(rotation), exist_ok=True)
+    if HJ_population: os.makedirs("./plots/fits" + name_cut + rotation_suffix(rotation), exist_ok=True)
 
     fit_reiners09 = scaling_law_fits.reiners09_fit(fit_type)
 
@@ -429,9 +462,6 @@ def main(args):
         print("Fitting the different HJ magnetic field estimates: done")
         print(DASHES)
 
-    else:
-        fits = read_fits(fit_type, name_cut, rotation)
-
     # fits holds the 18 magnetic field fits (MRL, MRF, MR and MR for the planets removed by the cut and
     # for eps = 0) followed by the 2 eps fits, in the order table_comparison and the plots expect
     fits_B, fits_eps = fits[:-2], fits[-2:]
@@ -440,14 +470,15 @@ def main(args):
 
     table_predictions_save.table_comparison(planets,
                                             valid_mask,
-                                            name_cut,
+                                            name_cut_dipole,
                                             HJ_population,
                                             which_planets,
                                             fit_type, fit_reiners09,
                                             *fits,
                                             add_systematic_error,
                                             error_sym=error_sym,
-                                            rotation = rotation)
+                                            rotation = rotation,
+                                            field_morphology = field_morphology)
 
     print("done")
 
@@ -455,9 +486,10 @@ def main(args):
 
     # print(np.max(planets.radius_obs), np.min(planets.radius_obs), np.max(planets.mass_obs), np.min(planets.mass_obs), np.max(planets.flux_obs), np.min(planets.flux_obs))
     # Repeat the everything exoplanets with some missing parameters:
-    # The grid plots have no period axis, so they show the tables without rotation (same models)
+    # The grid plots have no period axis, so they show the tables without rotation (same models), with
+    # the dipolar B_dip,surf of the tables (their file names have no suffix)
     if save_plots_grid or save_plots_3D_grid:
-        if rotation: table_inner_grid, table_outer_grid = grid.read_tables(False)
+        if rotation or field_morphology != "dipole": table_inner_grid, table_outer_grid = grid.read_tables(False)
         else: table_inner_grid, table_outer_grid = table_inner, table_outer
 
     if save_plots_grid:
@@ -549,7 +581,7 @@ def main(args):
 
         table_predictions_save.table_comparison(planets,
                                                 valid_mask,
-                                                name_cut,
+                                                name_cut_dipole,
                                                 HJ_population,
                                                 which_planets,
                                                 fit_type, fit_reiners09,
@@ -557,7 +589,8 @@ def main(args):
                                                 add_systematic_error,
                                                 extra_HJ=True,
                                                 error_sym=error_sym,
-                                                rotation = rotation)
+                                                rotation = rotation,
+                                                field_morphology = field_morphology)
 
         print("done")
 

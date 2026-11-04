@@ -217,6 +217,12 @@ class fit_object:
         np.savetxt(filename + ".txt", self.cov_matrix)
 
 
+    def scale(self, factor):
+        # The law times a constant: K and its errors times factor (e.g. a multipolar factor of the magnetic
+        # fields, table_reader.FIELD_FACTORS, which gives the same K as fitting the scaled values again)
+        self.K = self.K*factor
+        self.K_err = self.K_err*factor
+
     def read_fit_data(self, filename, header):
         filename += "_" + header
         loaded = np.loadtxt(filename + ".txt")

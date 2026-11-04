@@ -28,6 +28,9 @@ jobs:
           .venv/bin/python main.py --no_HJ --which_planets wasp12b
           .venv/bin/python main.py --no_HJ --which_planets hd209458b
           .venv/bin/python main.py --no_HJ --which_planets seidel26
+          .venv/bin/python main.py --no_HJ --which_planets wasp12b --field_morphology multipole
+          .venv/bin/python main.py --no_HJ --which_planets hd209458b --field_morphology multipole
+          .venv/bin/python main.py --no_HJ --which_planets seidel26 --field_morphology multipole
 
       - name: Check the Python interface (hj_model.py) against the committed outputs
         run: .venv/bin/python hj_model.py

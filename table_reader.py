@@ -4,6 +4,16 @@ table_generator.py) into arrays over the grid (mass, flux, heating efficiency[, 
 """
 import numpy as np
 
+# Factors of B_rms,dyn and B_dip,surf for each dynamo field morphology (option field_morphology). The tables
+# assume a dipole-dominated dynamo (K_dip = 1/sqrt(2), calibrated with Jupiter). At the same driving power, a
+# multipolar dynamo has a slightly weaker field and a dipole about ten times weaker. The factors are the ratios
+# of the multipolar and dipolar prefactors in Table 2 of Wulff et al. (2026, ApJ 1006, 226): for B_rms,dyn,
+# the rms field in the dynamo volume, Lo_V, 0.471 +- 0.061 and 0.646 +- 0.072; for B_dip,surf, the dipole at
+# the dynamo surface, Lo_o(l=1), 0.015 +- 0.003 and 0.157 +- 0.022. Both multiply the dipolar values (they
+# do not compound: the multipolar B_dip,surf is 0.015/0.157 times the dipolar one)
+FIELD_FACTORS = {"dipole":    {"rms,dyn": 1,           "dip,surf": 1},
+                 "multipole": {"rms,dyn": 0.471/0.646, "dip,surf": 0.015/0.157}}
+
 class table_object:
     """
     Tables of one heating type ("inner" or "outer") over the grid: radius (R_J), B_rms,dyn and B_dip,surf
@@ -22,10 +32,11 @@ class table_object:
         self.heat_effs_grid_total  = np.zeros(shape_grid)
         self.total_number_models   = 0
 
-    def read_table(self, rotation, masses, fluxes, heat_effs, periods):
+    def read_table(self, rotation, masses, fluxes, heat_effs, periods, field_morphology="dipole"):
         # Reads the tables tables/<mass>_MJ/[P_<period>/]F_<flux>[_eps_outer].txt written by table_generator.py
         # (grid.read_tables works from the tables/ folder).
         # The arrays have the axes (mass, flux, heat efficiency), plus the period with rotation.
+        # field_morphology "multipole" scales B_rms,dyn and B_dip,surf by FIELD_FACTORS["multipole"].
 
         names_flux = []
         for index_flux,flux in enumerate(fluxes):
@@ -42,6 +53,7 @@ class table_object:
         # Factor of the tables without rotation, to match the scaling law with Jupiter's B_dip,surf
         if rotation: b_factor = 1
         else: b_factor = 1/3
+        field_factors = FIELD_FACTORS[field_morphology]
 
         # Without rotation there is no period axis: one pass with an empty period index
         if rotation: period_indices = [(index_period,) for index_period in range(len(periods))]
@@ -69,8 +81,8 @@ class table_object:
                             if row[0] == heat_effs[index_heat_eff]:
                                 index = (index_mass, index_flux, index_heat_eff) + index_period
                                 self.radius_heat[index]          = row[1]
-                                self.bscaling_heat[index]       = row[2]*b_factor
-                                self.bscaling_surf_heat[index]  = row[3]*b_factor
+                                self.bscaling_heat[index]       = row[2]*b_factor*field_factors["rms,dyn"]
+                                self.bscaling_surf_heat[index]  = row[3]*b_factor*field_factors["dip,surf"]
                                 self.dyn_lum_heat[index]        = row[4]
                                 self.total_number_models += 1
                                 break

@@ -15,9 +15,11 @@ orbital_dist, orbital_dist_err = 0.0229, 0.0008 # orbital distance (AU)
 radius_star,  radius_star_err  = 1.57, 0.07     # stellar radius (R_sun)
 temp_star,    temp_star_err    = 6300, 150      # stellar effective temperature (K)
 flux, flux_err                 = None, None     # incident flux (erg cm^-2 s^-1), or None to compute from stellar parameters
+field_morphology               = "dipole"       # dynamo field morphology you assume: "dipole" (dipole-dominated, as in the paper)
+                                                # or "multipole" (B_rms,dyn x 0.73, B_dip,surf ~10 times weaker; see the README)
 # -----------------------------------------------------------------------------------------------
 
-model = HJMagneticModel()      # reads the grid tables (a few seconds); option rotation=False: tables without rotation
+model = HJMagneticModel(field_morphology=field_morphology)   # reads the grid tables (a few seconds); option rotation=False: tables without rotation
 
 # Incident flux on the planet (erg cm^-2 s^-1), unless it is given above. Without the orbital
 # distance, give period=..., period_err=..., mass_star=..., mass_star_err=... (M_sun) instead.
@@ -31,7 +33,7 @@ result = model.estimate(mass, mass_err, radius, radius_err, flux, flux_err,
 result.print_all()
 # The same estimates next to the scaling laws: the fits of the paper (MRL, MRF, MR) and
 # Reiners et al. (2009) with the interpolated heating efficiency (R09) or that of Thorngren & Fortney 2018 (R09+Th18)
-result.print_all_scaling_law()
+# result.print_all_scaling_law()
 
 # Single values, e.g. to use in your own code: value and (minus, plus) error
 # print(result.keys())

@@ -16,3 +16,14 @@
 
 __pycache__/
 .venv/
+
+# Outputs not kept in the repository (see Output files in the README); main.py writes them when run
+# with these options: --no_rotation (except its fits, used by hj_model and the --no_HJ runs),
+# --fit_type simple, and the fits and figures of --field_morphology multipole (its predictions are kept)
+predictions/*_no_rot*
+predictions/*_simple_fit*
+plots/*_no_rot*
+!plots/fits_no_rot/
+!plots/fits_eps_no_rot/
+plots/*_simple_fit*
+plots/*_multipole*

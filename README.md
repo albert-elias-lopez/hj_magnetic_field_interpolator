@@ -10,9 +10,12 @@ The estimates come from a precomputed grid of MESA planetary evolution models co
 
 Each quantity is given for two limiting cases: heat deposited deep in the interior (strong field) or in the outer layers (weak field). As a quick alternative, the repository also provides analytical scaling laws fitted to the interpolated population, which only need the planetary mass, radius and (optionally) flux.
 
+The magnetic fields, above all $B_{\rm dip,surf}$, also depend on the field morphology of the dynamo, which you have to choose: dipole-dominated (the default, as in the paper) or multipolar. See [Choosing the field morphology](#choosing-the-field-morphology).
+
 ## Contents
 
 - [Quick start](#quick-start)
+- [Interpreting the estimates](#interpreting-the-estimates), including [choosing the field morphology](#choosing-the-field-morphology)
 - [Look up the saved estimates](#look-up-the-saved-estimates)
 - [Using the interpolator from Python](#using-the-interpolator-from-python)
 - [Inputs and grid limits](#inputs-and-grid-limits)
@@ -37,20 +40,94 @@ source .venv/bin/activate      # in every new terminal (Windows: .venv\Scripts\a
 python example.py              # estimates for WASP-12 b
 ```
 
-To estimate your own planet, replace the values at the top of `example.py` and run it again.
+To estimate your own planet, replace the values at the top of `example.py` and run it again. They include `field_morphology`, the dynamo field morphology you assume (see below).
 
 | I want to... | Do this |
 |---|---|
 | look up a known planet | open `predictions/hot_jupiters.txt`, no installation needed ([details](#look-up-the-saved-estimates)) |
 | estimate my own planet | edit the top of `example.py` and run `python example.py` |
 | use the estimates in my own scripts | `from hj_model import HJMagneticModel` ([details](#using-the-interpolator-from-python)) |
+| understand the estimates and their errors | read [Interpreting the estimates](#interpreting-the-estimates) |
+| assume a multipolar dynamo | `field_morphology = "multipole"` in `example.py`, `HJMagneticModel(field_morphology="multipole")` or `python main.py --field_morphology multipole` ([details](#choosing-the-field-morphology)) |
 | reproduce the results of the paper | run the `main.py` commands of [Reproducing the paper](#reproducing-the-paper) |
+
+---
+
+## Interpreting the estimates
+
+### What is estimated
+
+- **Heating efficiency $\epsilon$**: the fraction of the incident flux that has to be deposited in the interior to reproduce the observed radius. It is what the models need to explain the inflation, not a measured quantity. In the output files it is given in %.
+- **$B_{\rm rms,dyn}$**: the rms magnetic field inside the dynamo region. It cannot be observed directly.
+- **$B_{\rm dip,surf}$**: the dipole component of the field at the planetary surface, at the magnetic equator. At the magnetic poles a dipole is twice as strong. This is the quantity to compare with observational constraints on the large-scale field, such as those from star–planet interactions or spectroscopy compared in the paper. The higher multipoles at the surface are not estimated.
+
+### The two heating cases give a range
+
+The heat that inflates the planet is deposited either deep in the interior (inner heating) or in the outer layers (outer heating). The inflation mechanism is unknown, so the two cases are limits rather than alternatives to choose from:
+
+- **inner** (`up` in the table columns): the upper, strong-field estimate;
+- **outer** (`low`): the lower, weak-field estimate, usually one to two orders of magnitude below the inner one for $B_{\rm dip,surf}$.
+
+The two cases also place the top of the dynamo differently: at $r({\rm Rm} = 50)$ for inner heating, which maximizes $B_{\rm dip,surf}$, and at $r(P = 1\,{\rm Mbar})$ for outer heating. Quote both, or the range between them, rather than one of them. The paper compares both cases with observational estimates.
+
+The `irr` values ($\epsilon = 0$) are those of the non-inflated model with the same mass and flux: the field the planet would have without the extra heating. Planets smaller than this model ($R_{\rm P} < R_{\rm irr}$) get no interpolated fields. For them, use the $\epsilon = 0$ scaling law: `model.scaling_law(..., heating="none")`, or `FitMR` in the `irr` rows of the per-planet files.
+
+### Uncertainties
+
+- **Monte Carlo errors.** The values are the median of Monte Carlo samples of the observed mass, radius, flux and period, and the errors are the 16th and 84th percentiles. By default they only include the observational uncertainties.
+- **Planets close to their non-inflated radius.** Samples smaller than the non-inflated model count as $\epsilon = 0$, so the lower error can reach the $\epsilon = 0$ values. Samples larger than the most inflated model are left out.
+- **Missing uncertainties.** A missing observational uncertainty gives a value without error bars (dashes).
+- **Model uncertainties.** They are not included by default: the interior structure and equation of state, the dynamo scaling law, the top of the dynamo and the Jupiter calibration of $K_{\rm dip}$. `--add_systematic_error` adds a factor of 2 (×½ below, ×2 above) in quadrature as a rough estimate of them, as in the literature comparison figure of the paper. Use it when comparing with observations.
+- **Scaling laws.** They are fits to the interpolated values of the clearly inflated planets ($R_{\rm P} > 1.05\,R_{\rm irr}$, $\epsilon_{\rm inner} < 10\,\%$). Their errors include the uncertainties of the fit coefficients, which include a factor-of-2 systematic. For a single planet they are less accurate than the interpolator, and outside the grid they are extrapolations.
+- **Field morphology factors.** The multipolar factors below ($0.73 \pm 0.12$ and $0.096 \pm 0.023$) are applied as fixed numbers. Their uncertainties are not in the error bars; they are within the factor-of-2 systematic.
+
+### Choosing the field morphology
+
+The magnetic fields depend on the field morphology of the dynamo, above all the surface dipole field $B_{\rm dip,surf}$. The models cannot predict it: dynamo simulations find dipolar and multipolar solutions for the same parameters (Wulff et al. 2026). You therefore have to choose which morphology you assume:
+
+| `field_morphology` | Assumption | $B_{\rm rms,dyn}$ | $B_{\rm dip,surf}$ |
+|---|---|---|---|
+| `dipole` (*default*) | dipole-dominated dynamo, like Jupiter and Saturn; used in the paper | scaling law of Christensen et al. (2009) | $K_{\rm dip} (R_{\rm dyn}/R_{\rm P})^3 B_{\rm rms,dyn}$, with $K_{\rm dip} = 1/\sqrt{2}$ calibrated with Jupiter |
+| `multipole` | multipolar dynamo, like Uranus and Neptune | the dipolar value $\times\, 0.471/0.646 \approx 0.73$ | the dipolar value $\times\, 0.015/0.157 \approx 0.096$ |
+
+Set it with
+
+- `field_morphology = "multipole"` at the top of `example.py`;
+- `HJMagneticModel(field_morphology="multipole")` in Python;
+- `python main.py --field_morphology multipole` on the command line.
+
+At the same driving power, a multipolar dynamo has a slightly weaker field and a dipole about ten times weaker. The factors are ratios of the prefactors of the multipolar and dipolar scaling laws in Table 2 of Wulff, Cao & Aurnou (2026, ApJ 1006, 226):
+
+- $B_{\rm rms,dyn}$, the rms field in the dynamo region (their volume Lorentz number $Lo_V$): $0.471 \pm 0.061$ and $0.646 \pm 0.072$, so $0.73 \pm 0.12$;
+- $B_{\rm dip,surf}$, from the dipole field at the dynamo surface ($Lo_o(\ell = 1)$): $0.015 \pm 0.003$ and $0.157 \pm 0.022$, so $0.096 \pm 0.023$.
+
+Both factors multiply the dipolar values, so they do not compound: the multipolar $B_{\rm dip,surf}$ is 0.096 times the dipolar one, not $0.096 \times 0.73$. They apply to the interpolated values, the scaling-law fits (their constant $K$) and R09. The heating efficiency $\epsilon$ is the same for both choices. The paper discusses when a multipolar dynamo is more likely, for example in the thin convective shells of some outer-heating models.
+
+**Saved files.** Every estimate in `predictions/` is saved for both morphologies. The files without suffix, and the published scaling laws, assume a dipole-dominated dynamo. The files ending in `_multipole` assume a multipolar one: the tables `predictions/<sample>_multipole.txt`, and the per-planet files `predictions/<sample>/<planet>_multipole.txt` in the same folders as the dipolar ones. The `--no_HJ` runs and `hj_model.py` take the multipolar scaling laws as the published ones with $K$ times the same factors, which is what refitting the multipolar values gives. The fits and figures of a multipolar population run (`plots/*_multipole*`) are not kept in the repository.
+
+### Example: WASP-12 b
+
+From `predictions/wasp12b.txt` and `predictions/wasp12b_multipole.txt`, with the observational uncertainties only:
+
+| | Inner heating | No heating ($\epsilon = 0$) | Outer heating |
+|---|---|---|---|
+| $\epsilon$ (%) | $0.026^{+0.110}_{-0.020}$ | 0 | $0.027^{+0.109}_{-0.021}$ |
+| $B_{\rm rms,dyn}$ (G), dipolar | $51^{+33}_{-18}$ | $14.3 \pm 0.9$ | $1.7^{+1.0}_{-0.3}$ |
+| $B_{\rm rms,dyn}$ (G), multipolar | $37^{+24}_{-13}$ | $10.39^{+0.63}_{-0.65}$ | $1.2^{+0.7}_{-0.2}$ |
+| $B_{\rm dip,surf}$ (G), dipolar | $24^{+17}_{-9}$ | $7.5 \pm 0.6$ | $0.33^{+0.19}_{-0.08}$ |
+| $B_{\rm dip,surf}$ (G), multipolar | $2.3^{+1.6}_{-0.9}$ | $0.71 \pm 0.06$ | $0.031^{+0.019}_{-0.008}$ |
+
+Depending on where the heat is deposited and on the field morphology, the surface dipole of WASP-12 b lies between about 0.03 G and 24 G (about 47 G at the magnetic poles for inner heating and a dipolar dynamo), before the factor-of-2 model uncertainty. A single value only makes sense together with the heating case and the morphology it assumes.
+
+### Validity
+
+The estimates are order-of-magnitude values. They rest on one-dimensional evolution models and on the scaling law of Christensen et al. (2009), which reproduces the fields of Jupiter, Earth and rapidly rotating low-mass stars but has not been tested for inflated hot Jupiters. They describe only the large-scale field of the deep dynamo, for steady heating, and do not include atmospheric dynamos. With the rotation correction (default), the planets are assumed to be tidally locked. See [Model assumptions](#model-assumptions) and the discussion in the paper.
 
 ---
 
 ## Look up the saved estimates
 
-The estimates of the paper are already in the folder `predictions/`, so you can use them without installing anything. Each table `<name>.txt` has one line per planet; the folder `<name>/` next to it has one file per planet, with the interpolated fields next to all the scaling laws. Planet file names replace spaces by `_` (e.g. `HD_189733_b.txt`).
+The estimates of the paper are already in the folder `predictions/`, so you can use them without installing anything. Each file is given for a dipole-dominated dynamo (no suffix) and for a multipolar one (`_multipole`); choose the one you assume (see [Choosing the field morphology](#choosing-the-field-morphology)). Each table `<name>.txt` has one line per planet; the folder `<name>/` next to it has one file per planet, with the interpolated fields next to all the scaling laws. Planet file names replace spaces by `_` (e.g. `HD_189733_b.txt`).
 
 | File or folder in `predictions/` | Contents |
 |---|---|
@@ -58,14 +135,15 @@ The estimates of the paper are already in the folder `predictions/`, so you can 
 | `hot_jupiters/` | one file per inflated planet used in the fits ($R_{\rm P} > 1.05\,R_{\epsilon=0}$) |
 | `hot_jupiters_extra.txt`, `hot_jupiters_extra/` | all gas giants of the archive, also those with incomplete stellar data; the folder has every planet with $R_{\rm P} > 0.75\,R_{\epsilon=0}$ |
 | `seidel26`, `cauley19`, `wasp12b`, `hd209458b`, `hats53b` | the samples of the literature comparison (table and folder) |
+| names ending in `_multipole` | for a multipolar dynamo: tables next to the dipolar ones, and per-planet files in the same folders (e.g. `hot_jupiters/HD_189733_b_multipole.txt`) |
 | names ending in `_syst_err` | with a factor-of-2 systematic uncertainty, as in the literature comparison figure |
-| names ending in `_no_rot` or `_simple_fit` | runs with other options, not used in the paper |
 
 For example:
 
 ```
 grep "HD 189733 b" predictions/hot_jupiters.txt
 cat predictions/hot_jupiters/HD_189733_b.txt
+cat predictions/hot_jupiters/HD_189733_b_multipole.txt     # the same planet for a multipolar dynamo
 ```
 
 The columns and the format of the values are explained in [Output files](#output-files).
@@ -79,7 +157,8 @@ The columns and the format of the values are explained in [Output files](#output
 ```python
 from hj_model import HJMagneticModel
 
-model = HJMagneticModel()          # reads the grid tables once (a few seconds); rotation=False for the tables without rotation
+model = HJMagneticModel(field_morphology="dipole")   # reads the grid tables once (a few seconds); "multipole" for a multipolar
+                                                     # dynamo; rotation=False for the tables without rotation
 
 # Incident flux from the stellar radius and temperature and the orbital distance (or the period and stellar mass)
 flux, flux_err = model.get_flux(radius_star=1.57, radius_star_err=0.07, temp_star=6300, temp_star_err=150,
@@ -150,6 +229,8 @@ For each planet, the interpolator needs these values and their uncertainties:
 Planets outside the grid are not interpolated.
 
 **Rotation.** By default, the code uses the rotation-corrected magnetic field tables (Fuentes et al. 2023), which assume tidally locked planets. The option `--no_rotation` (or `HJMagneticModel(rotation=False)`) disables the correction, and then the orbital period is not used.
+
+**Field morphology.** The magnetic fields assume a dipole-dominated dynamo by default; `--field_morphology multipole` (or `HJMagneticModel(field_morphology="multipole")`) assumes a multipolar one. See [Choosing the field morphology](#choosing-the-field-morphology).
 
 **Population data.** For the hot Jupiter population, the inputs are read from the NASA Exoplanet Archive tables included in the repository (`PS_2026.02.18_*.csv`). Missing stellar temperatures and radii are estimated from a main-sequence relation (`main_sequence_luminosities.txt`), and a missing semi-major axis from Kepler's third law.
 
@@ -224,10 +305,11 @@ python main.py --no_HJ --which_planets hd209458b
 python main.py --no_HJ --which_planets hats53b
 ```
 
-- The first command estimates the whole population, fits the scaling laws and saves the figures (about 10 minutes). It uses the defaults `--fit_type gaussian`, `--N_gauss_fits 10000` and `--which_cut "radius cut"`.
+- The first command estimates the whole population, fits the scaling laws and saves the figures (about 10 minutes). It uses the defaults `--fit_type gaussian`, `--N_gauss_fits 10000`, `--which_cut "radius cut"` and `--field_morphology dipole`.
 - The runs with `--add_systematic_error` include a factor-of-2 systematic uncertainty (×½ below, ×2 above), as in the literature comparison figure. The others only include the observational uncertainties, as in the literature comparison table.
 - The Monte Carlo uncertainties and fits use a fixed random seed (`--seed`, default 42), so the same command always gives exactly the same results.
 - The code can be launched from any folder; the outputs are always written in the repository folders `predictions/` and `plots/`.
+- The `_multipole` files are made by the same commands with `--field_morphology multipole`.
 
 Other examples:
 
@@ -253,6 +335,8 @@ The last one estimates the magnetic field of your own planet ($M_{\rm P} = 1.2 \
 | **Rotation** | |
 | *(default)* | Use the rotation-corrected magnetic field tables. |
 | `--no_rotation` | Disable the rotation correction. |
+| **Field morphology** | |
+| `--field_morphology` | Dynamo field morphology for the magnetic fields: `dipole` (dipole-dominated, *default*, as in the paper) or `multipole` ($B_{\rm rms,dyn} \times 0.471/0.646$ and a dipole about 10 times weaker, $B_{\rm dip,surf} \times 0.015/0.157$; Wulff et al. 2026). See [Choosing the field morphology](#choosing-the-field-morphology). |
 | **Scaling-law fitting** | |
 | `--fit_type` | Fitting method: `simple` (least squares), `gaussian` (Monte Carlo, *default*) or `odr` (orthogonal distance regression). |
 | `--N_gauss_fits` | Number of Monte Carlo realizations of the `gaussian` fits. *(default: 10000)* |
@@ -278,20 +362,21 @@ The last one estimates the magnetic field of your own planet ($M_{\rm P} = 1.2 \
 
 The results of the paper use the default options and their names have no suffix. Runs with other options add a suffix to all their output names, so they never overwrite the default ones:
 
-| Suffix | Run | Used in the paper |
-|---|---|---|
-| `_syst_err` | `--add_systematic_error` | yes, in the literature comparison figure |
-| `_no_rot` | `--no_rotation` | no |
-| `_simple_fit` | `--fit_type simple` | no |
-| `_cut_epsF`, `_cut_Qdep`, `_cut_B`, `_no_cut` | the other `--which_cut` options | no |
+| Suffix | Run | Used in the paper | In the repository |
+|---|---|---|---|
+| `_syst_err` | `--add_systematic_error` | yes, in the literature comparison figure | yes |
+| `_multipole` | `--field_morphology multipole` | no | yes, the predictions of every sample (not the fits and figures) |
+| `_no_rot` | `--no_rotation` | no | only the fits, `plots/fits_no_rot/` and `plots/fits_eps_no_rot/`, used by `HJMagneticModel(rotation=False)` and the `--no_HJ --no_rotation` runs |
+| `_simple_fit` | `--fit_type simple` | no | no |
+| `_cut_epsF`, `_cut_Qdep`, `_cut_B`, `_no_cut` | the other `--which_cut` options | no | no |
 
-The outputs that are not used in the paper are included for transparency. The folders in `plots/` follow the same rule: `plots/fits/` holds the default fits, `plots/fits_no_rot/` the fits without rotation, and so on.
+The outputs that are not in the repository can be generated by running `main.py` with their options (see [Reproducing the paper](#reproducing-the-paper)); `.gitignore` keeps them out of the repository. The folders in `plots/` follow the same naming: `plots/fits/` holds the default fits, `plots/fits_no_rot/` the fits without rotation, and so on. The per-planet files of a multipolar dynamo are the exception: they go in the folders of the dipolar ones, as `<planet>_multipole.txt`.
 
 ### Values
 
 Values with uncertainties are written as `value$_{-lower}^{+upper}$` (or `value$\pm$error` for the observed values), ready to be used in LaTeX tables. Dashes mean that the value or its uncertainty is not available, for example when the observed radius is smaller than the radius of a purely irradiated planet, or when an observational uncertainty is missing in the archive.
 
-The two heating cases bracket the magnetic field: heat deposited in the interior ("inner", or "up" in the columns) gives an upper estimate, and heat deposited in the outer layers ("outer", or "low") a lower estimate. "irr" refers to the purely irradiated models ($\epsilon = 0$).
+The two heating cases bracket the magnetic field: heat deposited in the interior ("inner", or "up" in the columns) gives an upper estimate, and heat deposited in the outer layers ("outer", or "low") a lower estimate. "irr" refers to the purely irradiated models ($\epsilon = 0$). See [Interpreting the estimates](#interpreting-the-estimates).
 
 ### `predictions/<sample>.txt`
 
@@ -314,7 +399,7 @@ One file per planet, comparing the interpolated magnetic fields with the scaling
 - `FitMRL`, `FitMRF`, `FitMR`: the scaling laws fitted in this work (see below);
 - `R09`, `R09+Th18`: the scaling law of Reiners et al. (2009) with fixed exponents, using the interpolated heating efficiency or the Thorngren & Fortney (2018) one.
 
-For the population, `hot_jupiters/` has the planets used in the fits ($R_{\rm P} > 1.05\,R_{\epsilon=0}$), and `hot_jupiters_extra/` every planet of the `_extra` population with $R_{\rm P} > 0.75\,R_{\epsilon=0}$ (a looser cut).
+For the population, `hot_jupiters/` has the planets used in the fits ($R_{\rm P} > 1.05\,R_{\epsilon=0}$), and `hot_jupiters_extra/` every planet of the `_extra` population with $R_{\rm P} > 0.75\,R_{\epsilon=0}$ (a looser cut). Each folder has `<planet>.txt` (dipole-dominated dynamo) and `<planet>_multipole.txt` (multipolar dynamo), plus `<planet>[_multipole]_syst_err.txt` for the runs with `--add_systematic_error`.
 
 ### `plots/fits/`
 
@@ -351,8 +436,8 @@ These names are used in the code, the options and the output files.
 - **Inner and outer heating** (`inner`/`outer`, `up`/`low` in the output columns): the heat is deposited inside the dynamo region (deep heating) or above it (shallow heating). Deep heating gives the strong-field (upper) estimate and shallow heating the weak-field (lower) estimate.
 - **Non-inflated model** (`irr`, `R_irr`): the model with only irradiation, $\epsilon = 0$, with the same mass and flux. Only planets larger than it get heating and inflated magnetic field estimates.
 - **Values and errors**: the interpolated quantities are the median of Monte Carlo samples of the observed mass, radius, flux (and period), with the 16th and 84th percentiles as lower and upper errors. Samples smaller than their non-inflated radius count as $\epsilon = 0$ and take the fields of the non-inflated model. Without observational errors, the value is interpolated at the observed values and has no error. The scaling-law predictions are the law at the observed values, with Monte Carlo errors.
-- **$B_{\rm rms,dyn}$** (`rms,dyn`, `bdyn`, `brms`): rms magnetic field in the dynamo region, from the scaling law of Christensen et al. (2009).
-- **$B_{\rm dip,surf}$** (`dip,surf`, `bdipsurf`, `_surf`): its dipolar component extrapolated to the planetary surface.
+- **$B_{\rm rms,dyn}$** (`rms,dyn`, `bdyn`, `brms`): rms magnetic field in the dynamo region, from the scaling law of Christensen et al. (2009), for a dipole-dominated dynamo by default (see [Choosing the field morphology](#choosing-the-field-morphology)).
+- **$B_{\rm dip,surf}$** (`dip,surf`, `bdipsurf`, `_surf`): its dipolar component extrapolated to the planetary surface, for a dipole-dominated dynamo by default, or for a multipolar one with `--field_morphology multipole` (see [Choosing the field morphology](#choosing-the-field-morphology)).
 - **Rotation correction** (default; `--no_rotation` to switch it off): the convective velocities and fields include the planet's rotation, assuming tidal locking (rotation period = orbital period), so the tables have an extra period axis. The tables with rotation place the top of the dynamo at $r({\rm Rm} = 50)$ for inner heating and at $r(P = 1\,{\rm Mbar})$ for outer heating. The tables without rotation take $B_{\rm rms,dyn}$ and the dynamo radius from the MESA history, with the top of the dynamo at $r(P = 1\,{\rm Mbar})$ for both heating types, and are scaled by `b_factor` = 1/3 to match Jupiter's $B_{\rm dip,surf}$.
 - **Scaling-law fits**: `MRL` ($B$ as a power law of $M$, $R$ and the deposited power $L_{\rm P} = \epsilon \pi R^2 F_{\rm irr}$), `MRF` ($M$, $R$ and $F_{\rm irr}$) and `MR` ($M$ and $R$ only); see [Output files](#output-files) for the equations.
 - **Fit methods** (`--fit_type`): `simple` (least squares on the values), `odr` (orthogonal distance regression with the errors) and `gaussian` (Monte Carlo: the population is drawn from its errors many times and refitted; the default).
@@ -369,7 +454,8 @@ The interpolator assumes
 - one-dimensional planetary evolution models;
 - adiabatic interiors;
 - standard H-He equation of state;
-- rapidly rotating planetary dynamos.
+- rapidly rotating planetary dynamos;
+- dipole-dominated dynamos (by default; `--field_morphology multipole` for multipolar ones).
 
 The results should therefore be regarded as order-of-magnitude magnetic field estimates.
 

@@ -8,6 +8,7 @@ optional factor-of-2 systematic error.
 import os
 import numpy as np
 from constants import R_J, L_J
+from table_reader import FIELD_FACTORS
 
 def get_print_string(variable, variable_err, variable_type,error_sym=False):
     if error_sym:
@@ -316,18 +317,27 @@ SCALING_LAW_FITS = ["MRL_inner", "MRL_inner_surf", "MRL_outer", "MRL_outer_surf"
 
 def scaling_law_predictions(fits, mass, mass_err, mass_err_asym, radius, radius_err, radius_err_asym,
                             flux, flux_err, power_inner, power_inner_err, power_outer, power_outer_err,
-                            N_err = 10000):
+                            N_err = 10000, field_morphology = "dipole"):
     """
     Scaling-law predictions for one planet, each as (value, error): the magnetic fields (G) of the fits
     in SCALING_LAW_FITS and of R09 (Reiners et al. 2009) with the interpolated inner heating
     efficiency ("R09_inner") or the one of Thorngren & Fortney 2018 ("R09+Th18_inner"), plus that
     heating efficiency ("eps_th18", fraction). fits: dictionary with the fit_objects of
     SCALING_LAW_FITS and "R09". power_*: deposited power L_P / L_J for inner and outer heating.
+    field_morphology: "dipole" or "multipole", for the magnetic fields of R09 (the fits already have theirs).
     The values are computed in a fixed order, since the Monte Carlo errors share numpy's random numbers.
     """
     def predict(fit, x, x_err):
         value = scaling_law(fit, mass, radius, x)
         return value, get_scaling_law_err(fit, value, mass, radius, x, mass_err_asym, radius_err_asym, x_err)
+
+    def reiners09(power, power_err):
+        # R09 B_rms,dyn and B_dip,surf of a dipolar dynamo, each times its factor of field_morphology
+        brms, brms_err = predict(fits["R09"], power, power_err)
+        brms_surf, brms_surf_err = reiners09_surf(brms, brms_err, mass, mass_err)
+        factors = FIELD_FACTORS[field_morphology]
+        return ((brms*factors["rms,dyn"], brms_err*factors["rms,dyn"]),
+                (brms_surf*factors["dip,surf"], brms_surf_err*factors["dip,surf"]))
 
     # Variable of each law (deposited power, flux factor, or 1 for the MR laws) and its error
     variables = {"MRL_inner": (power_inner, power_inner_err), "MRL_outer": (power_outer, power_outer_err),
@@ -335,8 +345,7 @@ def scaling_law_predictions(fits, mass, mass_err, mass_err_asym, radius, radius_
 
     predictions = {}
     # Reiners et al. 2009 (the outer-heating prediction is not used, so it is not computed)
-    predictions["R09_inner"] = predict(fits["R09"], power_inner, power_inner_err)
-    predictions["R09_inner_surf"] = reiners09_surf(*predictions["R09_inner"], mass, mass_err)
+    predictions["R09_inner"], predictions["R09_inner_surf"] = reiners09(power_inner, power_inner_err)
 
     for name in SCALING_LAW_FITS:
         predictions[name] = predict(fits[name], *variables.get(name.replace("_surf", ""), (1, 1)))
@@ -346,8 +355,7 @@ def scaling_law_predictions(fits, mass, mass_err, mass_err_asym, radius, radius_
     eps_th18_err = get_thorn18_err(flux, N_err)
     predictions["eps_th18"] = (eps_th18, eps_th18_err)
     power_th18, power_th18_err = deposited_power(radius, radius_err, flux, flux_err, eps_th18, np.mean(eps_th18_err))
-    predictions["R09+Th18_inner"] = predict(fits["R09"], power_th18, power_th18_err)
-    predictions["R09+Th18_inner_surf"] = reiners09_surf(*predictions["R09+Th18_inner"], mass, mass_err)
+    predictions["R09+Th18_inner"], predictions["R09+Th18_inner_surf"] = reiners09(power_th18, power_th18_err)
     return predictions
 
 def table_comparison(planets,
@@ -365,12 +373,15 @@ def table_comparison(planets,
                         extra_HJ=False,
                         error_sym=False,
                         N_err = 10000,
-                        rotation = False):
+                        rotation = False,
+                        field_morphology = "dipole"):
     """
     Writes one file per planet in valid_mask with its interpolated magnetic fields and the predictions of
     the scaling laws (the fits MRL, MRF and MR of this work, and R09 with the interpolated or the
     Thorngren & Fortney 2018 heating efficiency), for inner heating, outer heating and no heating, in
-    predictions/<sample><name_cut>[_no_rot]/<planet>[_syst_err].txt.
+    predictions/<sample><name_cut>[_no_rot]/<planet>[_multipole][_syst_err].txt. field_morphology: "dipole"
+    or "multipole", for the magnetic fields of R09 (see scaling_law_predictions) and the file names: the files
+    of a multipolar dynamo go in the same folder as the dipolar ones.
     """
     folder = "./predictions/" + sample_name(HJ_population, which_planets, extra_HJ) + name_cut
     if not rotation: folder += "_no_rot"
@@ -457,7 +468,8 @@ def table_comparison(planets,
                                               radius_obs[index_planet], radius_obs_err[index_planet], radius_obs_err_asym[index_planet],
                                               flux_obs[index_planet], flux_obs_err[index_planet],
                                               conv_lumin_inner[index_planet], conv_lumin_inner_err[index_planet],
-                                              conv_lumin_outer[index_planet], conv_lumin_outer_err[index_planet], N_err)
+                                              conv_lumin_outer[index_planet], conv_lumin_outer_err[index_planet], N_err,
+                                              field_morphology)
         fits_print = {key: get_print_string(value, error, "brms", error_sym=error_sym_fits)
                       for key, (value, error) in predictions.items() if key != "eps_th18"}
         thorn_eff_18, thorn_eff_18_err = predictions["eps_th18"]
@@ -502,6 +514,7 @@ def table_comparison(planets,
         
 
         filename = folder + "/" + name.replace(" ", "_").replace(".", "_")
+        if field_morphology != "dipole": filename += "_" + field_morphology
         if add_systematic_error: filename += "_syst_err"
 
         header = "      M(MJ)                R(RJ)              F(erg cm-2 s-1)            P(days)             Name"

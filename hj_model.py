@@ -3,7 +3,8 @@ Python interface to the hot Jupiter magnetic field interpolator (Elias-López et
 
     from hj_model import HJMagneticModel
 
-    model = HJMagneticModel()      # reads the grid tables once (rotation=False: tables without the rotation correction)
+    model = HJMagneticModel()      # reads the grid tables once (rotation=False: tables without the rotation correction;
+                                   # field_morphology="multipole": B_dip,surf of a multipolar dynamo)
     flux, flux_err = model.get_flux(radius_star=1.57, radius_star_err=0.07, temp_star=6300, temp_star_err=150,
                                     orbital_dist=0.0229, orbital_dist_err=0.0008)
     result = model.estimate(mass=1.41, mass_err=0.10, radius=1.79, radius_err=0.09,
@@ -29,6 +30,7 @@ import interpolator
 import planet_functions
 import table_predictions_save
 from scaling_law_fits import fit_object, reiners09_fit
+from table_reader import FIELD_FACTORS
 
 class GridWarning(UserWarning):
     """Planets that get no estimates (outside the grid, not inflated or missing values)."""
@@ -172,7 +174,8 @@ class Estimates(dict):
         return table_predictions_save.scaling_law_predictions(
             fits, planets.mass_obs[index], planets.mass_obs_err[index], planets.mass_obs_err_asym[index],
             planets.radius_obs[index], planets.radius_obs_err[index], planets.radius_obs_err_asym[index],
-            planets.flux_obs[index], planets.flux_obs_err[index], *powers[0], *powers[1])
+            planets.flux_obs[index], planets.flux_obs_err[index], *powers[0], *powers[1],
+            field_morphology=self.model.field_morphology)
 
 def split_error(error, n):
     # Symmetric error and (lower, upper) errors, both for n planets
@@ -189,28 +192,41 @@ def output(values, scalar):
 
 class HJMagneticModel:
 
-    def __init__(self, rotation=True):
-        # Read the grid tables and build the interpolators once; this takes a few seconds
+    def __init__(self, rotation=True, field_morphology="dipole"):
+        # Read the grid tables and build the interpolators once; this takes a few seconds.
+        # field_morphology: "dipole" (dipole-dominated dynamo, as in the paper) or "multipole" (multipolar
+        # dynamo: B_rms,dyn x 0.73 and B_dip,surf about 10 times weaker, Wulff et al. 2026; see
+        # table_reader.FIELD_FACTORS). eps does not depend on it.
+        if field_morphology not in FIELD_FACTORS:
+            raise ValueError('field_morphology must be "dipole" or "multipole"')
         self.rotation = rotation
+        self.field_morphology = field_morphology
         self.fits = None
-        table_inner, table_outer = grid.read_tables(rotation)
+        table_inner, table_outer = grid.read_tables(rotation, field_morphology)
         if rotation:
             self.interpolators = [interpolator.build_interpolators(table_inner, table_outer, index_period)
                                   for index_period in range(len(grid.periods))]
         else:
             self.interpolators = interpolator.build_interpolators(table_inner, table_outer)
 
+    def read_fit(self, file, header, fit_function_type):
+        # One Gaussian magnetic field fit saved by main.py (plots/fits[_no_rot]/). For a multipolar dynamo,
+        # the fits are the dipolar ones with K times FIELD_FACTORS["multipole"], as in main.read_fits
+        fit = fit_object("gaussian", fit_function_type)
+        fit.read_fit_data(os.path.join(grid.REPOSITORY, "plots", "fits" + ("" if self.rotation else "_no_rot"), file),
+                          header)
+        fit.scale(FIELD_FACTORS[self.field_morphology]["dip,surf" if header.endswith("_surf") else "rms,dyn"])
+        return fit
+
     def scaling_law_fits(self):
         # The Gaussian fits read by print_all_scaling_law (as in main.py --no_HJ), read once
         if self.fits is None:
             files = {"MRL": ("fit_general", "MRL"), "MRF": ("fit_no_eps", "MRF"), "MR": ("fit_no_flux", "MR")}
-            folder = os.path.join(grid.REPOSITORY, "plots", "fits" + ("" if self.rotation else "_no_rot"))
             self.fits = {"R09": reiners09_fit("gaussian")}
             for name in table_predictions_save.SCALING_LAW_FITS:
                 law, field = name.split("_", 1)     # e.g. "MRL", "inner_surf"
                 file, fit_function_type = ("fit_irr", "MR") if field.startswith("irr") else files[law]
-                self.fits[name] = fit_object("gaussian", fit_function_type)
-                self.fits[name].read_fit_data(os.path.join(folder, file), "brms_" + field)
+                self.fits[name] = self.read_fit(file, "brms_" + field, fit_function_type)
         return self.fits
 
     def get_flux(self, radius_star, radius_star_err, temp_star, temp_star_err,
@@ -326,6 +342,8 @@ class HJMagneticModel:
         heating: "inner" (deep heating, strong field), "outer" (shallow heating, weak field) or
         "none" (non-inflated planets, eps = 0; MR fit only).
         field: "dip,surf" (surface dipole, B_dip,surf) or "rms,dyn" (B_rms,dyn in the dynamo region).
+        With field_morphology="multipole", the fields are those of a multipolar dynamo (K times 0.471/0.646
+        for B_rms,dyn and 0.015/0.157 for B_dip,surf).
         """
         if heating not in ("inner", "outer", "none") or field not in ("dip,surf", "rms,dyn"):
             raise ValueError('heating must be "inner", "outer" or "none", and field "dip,surf" or "rms,dyn"')
@@ -337,9 +355,7 @@ class HJMagneticModel:
         else: file, header, fit_function_type = "fit_no_eps", "brms_" + heating, "MRF"
         if field == "dip,surf": header += "_surf"
 
-        fit = fit_object("gaussian", fit_function_type)
-        suffix = "" if self.rotation else "_no_rot"
-        fit.read_fit_data(os.path.join(grid.REPOSITORY, "plots", "fits" + suffix, file), header)
+        fit = self.read_fit(file, header, fit_function_type)
 
         scalar = all(np.ndim(value) == 0 for value in (mass, radius, flux))
         n = np.broadcast(mass, radius, flux if flux is not None else 0).size
@@ -366,7 +382,8 @@ class HJMagneticModel:
 def check(samples=("hd209458b", "wasp12b", "seidel26", "cauley19")):
     """
     Checks that the interface reproduces main.py exactly: get_flux must give the fluxes of the archive
-    table, and estimate the committed predictions/<sample>.txt. Prints every difference and
+    table, and estimate the committed predictions/<sample>.txt and, with field_morphology="multipole",
+    predictions/<sample>_multipole.txt. Prints every difference and
     returns their number (0 if all is fine). Run it after changing the code: python hj_model.py
     """
     model = HJMagneticModel()
@@ -392,53 +409,56 @@ def check(samples=("hd209458b", "wasp12b", "seidel26", "cauley19")):
         failures += 1
         print("get_flux: the fluxes differ from main.py")
 
-    # estimate against the committed predictions, compared as written by main.py
+    # estimate against the committed predictions, compared as written by main.py, for a dipolar dynamo
+    # (predictions/<sample>.txt) and a multipolar one (predictions/<sample>_multipole.txt)
     columns = {"eps_inner": 5, "eps_outer": 6, "brms_inner": 8, "brms_irr": 9, "brms_outer": 10,
                "brms_inner_surf": 11, "brms_irr_surf": 12, "brms_outer_surf": 13}
-    for sample in samples:
-        planets = planet_functions.planet_object(1, False)
-        planets.my_planets(sample)
-        with warnings.catch_warnings():     # the samples include planets without estimates on purpose
-            warnings.simplefilter("ignore", GridWarning)
-            result = model.estimate(planets.mass_obs, tuple(planets.mass_obs_err_asym.T),
-                                    planets.radius_obs, tuple(planets.radius_obs_err_asym.T),
-                                    planets.flux_obs, tuple(planets.flux_obs_err_asym.T),
-                                    planets.orbital_period_obs, planets.orbital_period_obs_err,
-                                    names=planets.planet_names)
-        with open(os.path.join(grid.REPOSITORY, "predictions", sample + ".txt")) as f:
-            lines = [line.split() for line in f if not line.startswith("#")]
-        for index, cells in enumerate(lines):
-            for key, column in columns.items():
-                if "$_{" not in cells[column]: continue     # planet outside the grid
-                value, (minus, plus) = result[key][index], result[key + "_err"][index]
-                if key.startswith("eps"):   # written in %
-                    mine = f"{100*value:.4f}$_{{-{100*minus:.4f}}}^{{+{100*plus:.4f}}}$"
-                else:
-                    mine = f"{value:.4e}$_{{-{minus:.1e}}}^{{+{plus:.1e}}}$"
-                if mine != cells[column]:
-                    failures += 1
-                    print(f"estimate, {sample}, planet {index}, {key}: {mine} instead of {cells[column]}")
+    for model in (model, HJMagneticModel(field_morphology="multipole")):
+        morphology = "" if model.field_morphology == "dipole" else "_" + model.field_morphology
+        for sample in samples:
+            planets = planet_functions.planet_object(1, False)
+            planets.my_planets(sample)
+            with warnings.catch_warnings():     # the samples include planets without estimates on purpose
+                warnings.simplefilter("ignore", GridWarning)
+                result = model.estimate(planets.mass_obs, tuple(planets.mass_obs_err_asym.T),
+                                        planets.radius_obs, tuple(planets.radius_obs_err_asym.T),
+                                        planets.flux_obs, tuple(planets.flux_obs_err_asym.T),
+                                        planets.orbital_period_obs, planets.orbital_period_obs_err,
+                                        names=planets.planet_names)
+            with open(os.path.join(grid.REPOSITORY, "predictions", sample + morphology + ".txt")) as f:
+                lines = [line.split() for line in f if not line.startswith("#")]
+            for index, cells in enumerate(lines):
+                for key, column in columns.items():
+                    if "$_{" not in cells[column]: continue     # planet outside the grid
+                    value, (minus, plus) = result[key][index], result[key + "_err"][index]
+                    if key.startswith("eps"):   # written in %
+                        mine = f"{100*value:.4f}$_{{-{100*minus:.4f}}}^{{+{100*plus:.4f}}}$"
+                    else:
+                        mine = f"{value:.4e}$_{{-{minus:.1e}}}^{{+{plus:.1e}}}$"
+                    if mine != cells[column]:
+                        failures += 1
+                        print(f"estimate, {sample}{morphology}, planet {index}, {key}: {mine} instead of {cells[column]}")
 
-        # Scaling laws (central values; the Monte Carlo errors depend on the random numbers drawn before)
-        rows = {"FitMRL:": "MRL", "FitMRF:": "MRF", "FitMR:": "MR", "R09:": "R09", "R09+Th18:": "R09+Th18"}
-        for index, name in enumerate(planets.planet_names):
-            filename = os.path.join(grid.REPOSITORY, "predictions", sample,
-                                    name.replace(" ", "_").replace(".", "_") + ".txt")
-            if not os.path.exists(filename): continue
-            laws, heating = result.scaling_laws(index), None
-            with open(filename) as f:
-                for line in f:
-                    cells = line.split()
-                    if line.startswith(" ") and "B_rms," in line: heating = cells[0][6:-3]   # B_rms,<heating>(G)
-                    elif cells and cells[0] in rows and heating is not None:
-                        for column, suffix in ((1, ""), (2, "_surf")):
-                            value = laws[rows[cells[0]] + '_' + heating + suffix][0]
-                            mine = "-" if np.isnan(value) else f"{value:.4e}"
-                            written = "-" if cells[column].startswith("-") else cells[column].split("$")[0]
-                            if mine != written:
-                                failures += 1
-                                print(f"scaling_laws, {sample}, {name}, {rows[cells[0]]}_{heating}{suffix}: "
-                                      f"{mine} instead of {cells[column]}")
+            # Scaling laws (central values; the Monte Carlo errors depend on the random numbers drawn before)
+            rows = {"FitMRL:": "MRL", "FitMRF:": "MRF", "FitMR:": "MR", "R09:": "R09", "R09+Th18:": "R09+Th18"}
+            for index, name in enumerate(planets.planet_names):
+                filename = os.path.join(grid.REPOSITORY, "predictions", sample,
+                                        name.replace(" ", "_").replace(".", "_") + morphology + ".txt")
+                if not os.path.exists(filename): continue
+                laws, heating = result.scaling_laws(index), None
+                with open(filename) as f:
+                    for line in f:
+                        cells = line.split()
+                        if line.startswith(" ") and "B_rms," in line: heating = cells[0][6:-3]   # B_rms,<heating>(G)
+                        elif cells and cells[0] in rows and heating is not None:
+                            for column, suffix in ((1, ""), (2, "_surf")):
+                                value = laws[rows[cells[0]] + '_' + heating + suffix][0]
+                                mine = "-" if np.isnan(value) else f"{value:.4e}"
+                                written = "-" if cells[column].startswith("-") else cells[column].split("$")[0]
+                                if mine != written:
+                                    failures += 1
+                                    print(f"scaling_laws, {sample}{morphology}, {name}, {rows[cells[0]]}_{heating}{suffix}: "
+                                          f"{mine} instead of {cells[column]}")
 
     print("check: OK" if failures == 0 else f"check: {failures} differences")
     return failures

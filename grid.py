@@ -40,8 +40,9 @@ periods = np.array([  0.1       ,   0.14384499,   0.20691381,   0.29763514,
                         7.8475997 ,  11.28837892,  16.23776739,  23.35721469,
                         33.59818286,  48.32930239,  69.51927962, 100.        ])
 
-def read_tables(rotation):
-    # Read the inner- and outer-heating magnetic field tables of the grid
+def read_tables(rotation, field_morphology="dipole"):
+    # Read the inner- and outer-heating magnetic field tables of the grid, with the magnetic fields of a
+    # dipolar or multipolar dynamo (table_reader.FIELD_FACTORS)
     if rotation: shape_grid = (len(masses), len(fluxes), len(heat_effs), len(periods))
     else: shape_grid = (len(masses), len(fluxes), len(heat_effs))
 
@@ -50,9 +51,9 @@ def read_tables(rotation):
     os.chdir(TABLES)
     try:
         table_inner = table_object(shape_grid, "inner")
-        table_inner.read_table(rotation, masses, fluxes, heat_effs, periods)
+        table_inner.read_table(rotation, masses, fluxes, heat_effs, periods, field_morphology)
         table_outer = table_object(shape_grid, "outer")
-        table_outer.read_table(rotation, masses, fluxes, heat_effs, periods)
+        table_outer.read_table(rotation, masses, fluxes, heat_effs, periods, field_morphology)
     finally:
         os.chdir(current)
     return table_inner, table_outer
